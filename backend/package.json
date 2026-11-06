@@ -19,7 +19,14 @@
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
-  "keywords": ["church", "multi-tenant", "prisma", "express", "rbac", "jwt"],
+  "keywords": [
+    "church",
+    "multi-tenant",
+    "prisma",
+    "express",
+    "rbac",
+    "jwt"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
@@ -34,6 +41,7 @@
     "jsonwebtoken": "^9.0.2",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
+    "tsx": "^4.23.15",
     "zod": "^3.24.1"
   },
   "devDependencies": {
@@ -45,7 +53,6 @@
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.7",
     "prisma": "^5.22.0",
-    "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   }

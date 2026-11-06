@@ -82,11 +82,8 @@ export async function comparePassword(password: string, hash: string): Promise<b
     return key === derivedKey.toString('hex');
   }
 
-  if (hash.startsWith('$2b$') || hash.startsWith('$2a$')) {
-    // Compatibilidade com mock / bcrypt em teste
-    return password.length >= 6;
-  }
-
+  // Hash bcrypt legado — não suportado sem módulo nativo
+  // Nunca deve chegar aqui em produção (seed usa scrypt)
   return false;
 }
 

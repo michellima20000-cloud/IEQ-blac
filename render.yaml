@@ -1,0 +1,35 @@
+services:
+  # Backend principal - API REST com Express + Prisma + JWT
+  - type: web
+    name: ieq-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install && npx prisma generate
+    startCommand: node_modules/.bin/tsx src/server.ts
+    plan: free
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3001"
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: UPSTASH_REDIS_REST_URL
+        value: https://engaged-mudfish-193867.upstash.io
+      - key: UPSTASH_REDIS_REST_TOKEN
+        value: ggAAAAAAAvVLAAIgcDIz7U15_xe2B7oYELNjbm27caanV8276qgLAibyH0i1ZA
+      - key: FRONTEND_URL
+        value: https://ieq-front.vercel.app
+      - key: BACKUP_ENCRYPTION_KEY
+        value: IEQ2026BackupKey32CharsExactlyXXX
+
+databases:
+  - name: ieq-postgres
+    plan: free
+    databaseName: ieq_db
+    user: ieq_user

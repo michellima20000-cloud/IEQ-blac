@@ -9,14 +9,27 @@ import v1Router from './routes.ts';
 
 const app = express();
 
-// 1. CORS liberado somente para o domínio do front-end
+// 1. CORS - aceita localhost, FRONTEND_URL e qualquer domínio .vercel.app / .onrender.com
+const ORIGENS_PERMITIDAS = [
+  ENV.FRONTEND_URL,
+  'http://localhost',
+  'http://localhost:3000',
+  'http://localhost:5173',
+];
+
 app.use(cors({
   origin: (origin, callback) => {
-    // Permite requisições sem origin (mobile PWA, curl, testes) ou que correspondam ao FRONTEND_URL
-    if (!origin || origin === ENV.FRONTEND_URL || origin === 'http://localhost' || origin.startsWith('http://localhost:')) {
+    if (!origin) return callback(null, true); // curl, mobile PWA, testes
+    const permitido =
+      ORIGENS_PERMITIDAS.includes(origin) ||
+      origin.startsWith('http://localhost:') ||
+      origin.endsWith('.vercel.app') ||
+      origin.endsWith('.onrender.com') ||
+      origin.endsWith('.netlify.app');
+    if (permitido) {
       callback(null, true);
     } else {
-      callback(new Error('Bloqueado pelas políticas de CORS'));
+      callback(new Error(`CORS bloqueado: ${origin}`));
     }
   },
   credentials: true

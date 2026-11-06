@@ -1,9 +1,14 @@
 import { PrismaClient, Perfil, StatusRelatorio, TipoMidia, StatusMidia } from '@prisma/client';
+import { hashPassword } from '../src/config/cryptoUtils.ts';
 
 const prisma = new PrismaClient();
 
 export async function main() {
   console.log('🌱 Iniciando Seed do Banco de Dados...');
+
+  // Gera hash real da senha padrão usando scrypt nativo (sem dependências externas)
+  const senhaHash = await hashPassword('Pastor@123');
+  console.log('🔐 Hash gerado com sucesso.');
 
   // Limpeza prévia
   await prisma.logAuditoria.deleteMany();
@@ -109,7 +114,7 @@ export async function main() {
     data: {
       nome: 'Pastor Titular',
       email: 'pastor@ieq.com',
-      senhaHash: '$2b$10$abcdefghijklmnopqrstuvwxyz123456789', // mock hash
+      senhaHash,
       perfil: Perfil.PASTOR,
       igreja_id: igrejaMatriz.id
     }
@@ -119,7 +124,7 @@ export async function main() {
     data: {
       nome: 'Líder Rede Jovens',
       email: 'rede.jovens@ieq.com',
-      senhaHash: '$2b$10$abcdefghijklmnopqrstuvwxyz123456789',
+      senhaHash,
       perfil: Perfil.REDE,
       redeId: redeJovens.id,
       igreja_id: igrejaMatriz.id
@@ -130,7 +135,7 @@ export async function main() {
     data: {
       nome: 'Líder Célula Metanóia',
       email: 'celula.jovens1@ieq.com',
-      senhaHash: '$2b$10$abcdefghijklmnopqrstuvwxyz123456789',
+      senhaHash,
       perfil: Perfil.CELULA,
       redeId: redeJovens.id,
       celulaId: celulaJovens1.id,
@@ -142,7 +147,7 @@ export async function main() {
     data: {
       nome: 'Equipe de Mídia',
       email: 'midia@ieq.com',
-      senhaHash: '$2b$10$abcdefghijklmnopqrstuvwxyz123456789',
+      senhaHash,
       perfil: Perfil.MIDIA,
       igreja_id: igrejaMatriz.id
     }
@@ -153,7 +158,7 @@ export async function main() {
     data: {
       nome: 'Pastor Outra Igreja',
       email: 'pastor.norte@ieq.com',
-      senhaHash: '$2b$10$abcdefghijklmnopqrstuvwxyz123456789',
+      senhaHash,
       perfil: Perfil.PASTOR,
       igreja_id: igrejaOutra.id
     }
