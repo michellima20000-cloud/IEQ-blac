@@ -11,27 +11,39 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
-    "test": "node --experimental-strip-types --test tests/permissions.node.mjs",
+    "test": "node --experimental-strip-types --test tests/*.node.mjs",
+    "test:permissions": "node --experimental-strip-types --test tests/permissions.node.mjs",
+    "test:auth": "node --experimental-strip-types --test tests/auth_usuarios.node.mjs",
     "test:vitest": "vitest run"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
-  "keywords": ["church", "multi-tenant", "prisma", "express", "rbac"],
+  "keywords": ["church", "multi-tenant", "prisma", "express", "rbac", "jwt"],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "bcrypt": "^5.1.1",
     "bullmq": "^5.34.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "ioredis": "^5.4.2"
+    "express-rate-limit": "^7.5.0",
+    "ioredis": "^5.4.2",
+    "jsonwebtoken": "^9.0.2",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^22.10.2",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.7",
     "prisma": "^5.22.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",

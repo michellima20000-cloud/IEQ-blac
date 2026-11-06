@@ -16,3 +16,4 @@ export interface EntidadeAlvo {
   redeId?: string | null;
   celulaId?: string | null;
 }
+
