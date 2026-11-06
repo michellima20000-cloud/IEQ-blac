@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from '../../config/zodFallback.ts';
 
 export const criarMembroSchema = z.object({
   nome: z.string().min(3, 'O nome deve ter no mínimo 3 caracteres'),
@@ -48,3 +48,4 @@ export type CriarVisitanteInput = z.infer<typeof criarVisitanteSchema>;
 export type CriarRelatorioInput = z.infer<typeof criarRelatorioSchema>;
 export type AtualizarRelatorioInput = z.infer<typeof atualizarRelatorioSchema>;
 export type FiltroDashboardPastorInput = z.infer<typeof filtroDashboardPastorSchema>;
+

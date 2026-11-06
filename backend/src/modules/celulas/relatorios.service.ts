@@ -168,3 +168,4 @@ export class RelatoriosService {
     return relatorio.fotoUrl;
   }
 }
+

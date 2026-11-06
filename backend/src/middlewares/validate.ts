@@ -1,20 +1,15 @@
-import { Request, Response, NextFunction } from 'express';
-import { ZodSchema, ZodError } from 'zod';
+import { ZodError } from '../config/zodFallback.ts';
 
-export function validate(schema: ZodSchema) {
-  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export function validate(schema: any) {
+  return async (req: any, res: any, next: (err?: any) => void): Promise<void> => {
     try {
       req.body = await schema.parseAsync(req.body);
       next();
-    } catch (error) {
-      if (error instanceof ZodError) {
+    } catch (error: any) {
+      if (error instanceof ZodError || error.message) {
         res.status(400).json({
           error: 'Dados inválidos',
-          message: 'Falha na validação dos campos da requisição.',
-          details: error.errors.map((e) => ({
-            campo: e.path.join('.'),
-            mensagem: e.message
-          }))
+          message: error.message || 'Falha na validação dos campos da requisição.'
         });
         return;
       }

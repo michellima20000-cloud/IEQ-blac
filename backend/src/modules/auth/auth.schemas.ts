@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from '../../config/zodFallback.ts';
 
 export const loginSchema = z.object({
   email: z.string().email('E-mail inválido'),

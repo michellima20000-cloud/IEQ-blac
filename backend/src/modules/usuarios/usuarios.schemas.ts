@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from '../../config/zodFallback.ts';
 
 export const criarUsuarioSchema = z.object({
   nome: z.string().min(3, 'O nome deve ter no mínimo 3 caracteres'),
