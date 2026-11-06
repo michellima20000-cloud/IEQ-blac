@@ -49,3 +49,4 @@ router.get('/configuracoes/visual', MidiaController.obterVisual);
 router.patch('/configuracoes/visual', validate(personalizacaoVisualSchema), MidiaController.atualizarVisual);
 
 export default router;
+

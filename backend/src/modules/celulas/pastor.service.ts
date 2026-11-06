@@ -1,11 +1,16 @@
 import { prisma } from '../../config/prisma.ts';
 import { PermissaoError } from '../../permissions/rules.ts';
+import { BackupService } from '../../services/backup.service.ts';
+import { CleanupService } from '../../services/cleanup.service.ts';
 import type { UsuarioAutenticado } from '../../permissions/types.ts';
 import type { FiltroDashboardPastorInput } from './celulas.schemas.ts';
 
 export class PastorDashboardService {
   /**
-   * Indicadores gerais da igreja para o painel do Pastor
+   * Indicadores gerais da igreja para o painel do Pastor:
+   * - Métricas de células, membros, visitantes e frequência
+   * - Alerta de backup > 48h
+   * - Espaço em disco usado e estimativa a liberar na limpeza
    */
   static async obterIndicadores(usuario: UsuarioAutenticado, filtros: FiltroDashboardPastorInput) {
     if (usuario.perfil !== 'PASTOR') {
@@ -73,6 +78,12 @@ export class PastorDashboardService {
       ? Number((totalPresentes / relatorios.length).toFixed(1))
       : 0;
 
+    // 5. Status do Backup (Alerta crítico se > 48h)
+    const statusBackup = BackupService.verificarStatusBackupParaPastor();
+
+    // 6. Métricas de Armazenamento e Limpeza Automática
+    const armazenamento = await CleanupService.calcularMetricasArmazenamento(igreja_id);
+
     return {
       periodo: {
         inicio: inicio.toISOString(),
@@ -86,7 +97,9 @@ export class PastorDashboardService {
         totalRelatoriosEnviados: relatorios.length,
         totalPresentes,
         mediaFrequenciaPorReuniao: mediaFrequencia
-      }
+      },
+      segurancaBackup: statusBackup,
+      armazenamento
     };
   }
 }
