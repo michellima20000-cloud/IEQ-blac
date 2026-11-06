@@ -31,3 +31,4 @@ app.get('/api/info', (_req: Request, res: Response) => {
 app.listen(PORT, () => {
   console.log(`🚀 Servidor IEQ-black rodando em http://localhost:${PORT}`);
 });
+

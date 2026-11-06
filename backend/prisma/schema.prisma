@@ -1,0 +1,251 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Perfil {
+  CELULA
+  REDE
+  PASTOR
+  MIDIA
+}
+
+enum StatusRelatorio {
+  ABERTO
+  FECHADO
+}
+
+enum TipoMidia {
+  BANNER
+  FOTO
+  AVISO
+  VIDEO
+}
+
+enum StatusMidia {
+  RASCUNHO
+  PENDENTE
+  PUBLICADO
+  DEVOLVIDO
+}
+
+model Igreja {
+  id                  String               @id @default(uuid())
+  nome                String
+  slug                String               @unique
+  ativa               Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  
+  usuarios            Usuario[]
+  redes               Rede[]
+  celulas             Celula[]
+  membros             Membro[]
+  visitantes          Visitante[]
+  relatorios          RelatorioCelula[]
+  conteudosMidia      ConteudoMidia[]
+  eventos             EventoCalendario[]
+  configuracao        ConfiguracaoIgreja?
+  logsAuditoria       LogAuditoria[]
+
+  @@map("igrejas")
+}
+
+model Usuario {
+  id             String            @id @default(uuid())
+  igreja_id      String
+  nome           String
+  email          String
+  senhaHash      String
+  perfil         Perfil
+  redeId         String?
+  celulaId       String?
+  ativo          Boolean           @default(true)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  igreja         Igreja            @relation(fields: [igreja_id], references: [id], onDelete: Cascade)
+  rede           Rede?             @relation("LiderRede", fields: [redeId], references: [id], onDelete: SetNull)
+  celula         Celula?           @relation("LiderCelula", fields: [celulaId], references: [id], onDelete: SetNull)
+  relatorios     RelatorioCelula[]
+  conteudosMidia ConteudoMidia[]
+  logsAuditoria  LogAuditoria[]
+
+  @@unique([igreja_id, email])
+  @@index([igreja_id])
+  @@map("usuarios")
+}
+
+model Rede {
+  id             String     @id @default(uuid())
+  igreja_id      String
+  nome           String
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  igreja         Igreja     @relation(fields: [igreja_id], references: [id], onDelete: Cascade)
+  celulas        Celula[]
+  lideres        Usuario[]  @relation("LiderRede")
+
+  @@index([igreja_id])
+  @@map("redes")
+}
+
+model Celula {
+  id             String            @id @default(uuid())
+  igreja_id      String
+  redeId         String
+  nome           String
+  diaSemana      String
+  horario        String
+  endereco       String
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  igreja         Igreja            @relation(fields: [igreja_id], references: [id], onDelete: Cascade)
+  rede           Rede              @relation(fields: [redeId], references: [id], onDelete: Cascade)
+  lideres        Usuario[]         @relation("LiderCelula")
+  membros        Membro[]
+  visitantes     Visitante[]
+  relatorios     RelatorioCelula[]
+
+  @@index([igreja_id])
+  @@index([redeId])
+  @@map("celulas")
+}
+
+model Membro {
+  id             String    @id @default(uuid())
+  igreja_id      String
+  celulaId       String
+  nome           String
+  telefone       String?
+  dataNascimento DateTime?
+  ativo          Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  igreja         Igreja    @relation(fields: [igreja_id], references: [id], onDelete: Cascade)
+  celula         Celula    @relation(fields: [celulaId], references: [id], onDelete: Cascade)
+
+  @@index([igreja_id])
+  @@index([celulaId])
+  @@map("membros")
+}
+
+model Visitante {
+  id                  String    @id @default(uuid())
+  igreja_id           String
+  celulaId            String
+  nome                String
+  telefone            String?
+  dataPrimeiraVisita  DateTime  @default(now())
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  igreja              Igreja    @relation(fields: [igreja_id], references: [id], onDelete: Cascade)
+  celula              Celula    @relation(fields: [celulaId], references: [id], onDelete: Cascade)
+
+  @@index([igreja_id])
+  @@index([celulaId])
+  @@map("visitantes")
+}
+
+model RelatorioCelula {
+  id             String          @id @default(uuid())
+  igreja_id      String
+  celulaId       String
+  liderId        String
+  data           DateTime
+  presentes      Int             @default(0)
+  visitantes     Int             @default(0)
+  observacoes    String?
+  fotoUrl        String?
+  status         StatusRelatorio @default(ABERTO)
+  dataFechamento DateTime?
+  manterFoto     Boolean         @default(false)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  igreja         Igreja          @relation(fields: [igreja_id], references: [id], onDelete: Cascade)
+  celula         Celula          @relation(fields: [celulaId], references: [id], onDelete: Cascade)
+  lider          Usuario         @relation(fields: [liderId], references: [id], onDelete: Restrict)
+
+  @@index([igreja_id])
+  @@index([celulaId])
+  @@index([status])
+  @@map("relatorios_celulas")
+}
+
+model ConteudoMidia {
+  id               String      @id @default(uuid())
+  igreja_id        String
+  autorId          String
+  tipo             TipoMidia
+  titulo           String
+  descricao        String?
+  arquivoUrl       String?
+  videoUrl         String?
+  status           StatusMidia @default(RASCUNHO)
+  comentarioPastor String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  igreja           Igreja      @relation(fields: [igreja_id], references: [id], onDelete: Cascade)
+  autor            Usuario     @relation(fields: [autorId], references: [id], onDelete: Restrict)
+
+  @@index([igreja_id])
+  @@index([status])
+  @@map("conteudos_midia")
+}
+
+model EventoCalendario {
+  id             String    @id @default(uuid())
+  igreja_id      String
+  titulo         String
+  descricao      String?
+  dataInicio     DateTime
+  dataFim        DateTime
+  local          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  igreja         Igreja    @relation(fields: [igreja_id], references: [id], onDelete: Cascade)
+
+  @@index([igreja_id])
+  @@map("eventos_calendario")
+}
+
+model ConfiguracaoIgreja {
+  id                    String   @id @default(uuid())
+  igreja_id             String   @unique
+  prazoRetencaoFotosDias Int      @default(60)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  igreja                Igreja   @relation(fields: [igreja_id], references: [id], onDelete: Cascade)
+
+  @@map("configuracoes_igrejas")
+}
+
+model LogAuditoria {
+  id             String    @id @default(uuid())
+  igreja_id      String
+  usuarioId      String?
+  acao           String
+  recurso        String
+  detalhesJson   String?
+  ip             String?
+  createdAt      DateTime  @default(now())
+
+  igreja         Igreja    @relation(fields: [igreja_id], references: [id], onDelete: Cascade)
+  usuario        Usuario?  @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([igreja_id])
+  @@index([acao])
+  @@map("logs_auditoria")
+}
