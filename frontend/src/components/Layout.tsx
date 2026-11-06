@@ -1,5 +1,5 @@
 import React from 'react';
-import { useAuth, Perfil } from '../context/AuthContext.js';
+import { useAuth, Perfil } from '../context/AuthContext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -86,4 +86,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, abaAtiva, setAbaAtiva 
     </div>
   );
 };
+
+export default Layout;
 

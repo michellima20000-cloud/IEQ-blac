@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { ApiClient } from '../api/client.js';
+import { ApiClient } from '../api/client';
 
 export type Perfil = 'CELULA' | 'REDE' | 'PASTOR' | 'MIDIA';
 

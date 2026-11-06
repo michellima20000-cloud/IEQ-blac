@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ApiClient } from '../api/client.js';
+import { ApiClient } from '../api/client';
 
 export const PastorView: React.FC = () => {
   const [subAba, setSubAba] = useState<'dashboard' | 'aprovacoes' | 'usuarios' | 'configuracoes'>('dashboard');
@@ -386,4 +386,6 @@ export const PastorView: React.FC = () => {
     </div>
   );
 };
+
+export default PastorView;
 

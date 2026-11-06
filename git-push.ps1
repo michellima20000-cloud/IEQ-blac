@@ -35,3 +35,4 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host ""
     Write-Host "[AVISO] Falha ao enviar para o GitHub. Verifique a autenticação." -ForegroundColor Red
 }
+

@@ -1,27 +1,32 @@
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1';
+const BASE_URL = ((import.meta as any).env?.VITE_API_URL as string) || 'http://localhost:3001/api/v1';
 
 export interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
+  headers?: HeadersInit;
 }
 
 export class ApiClient {
-  private static getAccessToken(): string | null {
-    return localStorage.getItem('ieq_access_token');
+  static getAccessToken(): string | null {
+    return typeof localStorage !== 'undefined' ? localStorage.getItem('ieq_access_token') : null;
   }
 
-  private static getRefreshToken(): string | null {
-    return localStorage.getItem('ieq_refresh_token');
+  static getRefreshToken(): string | null {
+    return typeof localStorage !== 'undefined' ? localStorage.getItem('ieq_refresh_token') : null;
   }
 
   static setTokens(accessToken: string, refreshToken: string): void {
-    localStorage.setItem('ieq_access_token', accessToken);
-    localStorage.setItem('ieq_refresh_token', refreshToken);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('ieq_access_token', accessToken);
+      localStorage.setItem('ieq_refresh_token', refreshToken);
+    }
   }
 
   static clearTokens(): void {
-    localStorage.removeItem('ieq_access_token');
-    localStorage.removeItem('ieq_refresh_token');
-    localStorage.removeItem('ieq_user');
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('ieq_access_token');
+      localStorage.removeItem('ieq_refresh_token');
+      localStorage.removeItem('ieq_user');
+    }
   }
 
   static async request<T = any>(endpoint: string, options: RequestOptions = {}): Promise<T> {
@@ -38,10 +43,24 @@ export class ApiClient {
       if (qs) url += `?${qs}`;
     }
 
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...(options.headers as Record<string, string> || {})
-    };
+    const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+    const baseHeaders: Record<string, string> = isFormData
+      ? {}
+      : { 'Content-Type': 'application/json' };
+
+    const customHeaders: Record<string, string> = {};
+    if (options.headers) {
+      if (typeof (options.headers as any).forEach === 'function') {
+        (options.headers as any).forEach((v: string, k: string) => { customHeaders[k] = v; });
+      } else {
+        Object.assign(customHeaders, options.headers);
+      }
+    }
+
+    const headers: Record<string, string> = { ...baseHeaders, ...customHeaders };
+    if (isFormData && headers['Content-Type']?.includes('multipart/form-data')) {
+      delete headers['Content-Type'];
+    }
 
     const token = this.getAccessToken();
     if (token) {
@@ -53,7 +72,6 @@ export class ApiClient {
       headers
     });
 
-    // Se o token expirou (401), tenta renovar usando o refresh token
     if (response.status === 401 && endpoint !== '/auth/login' && endpoint !== '/auth/refresh') {
       const refreshToken = this.getRefreshToken();
       if (refreshToken) {
@@ -78,7 +96,7 @@ export class ApiClient {
           }
         } catch {
           this.clearTokens();
-          window.location.reload();
+          if (typeof window !== 'undefined') window.location.reload();
         }
       }
     }
@@ -86,7 +104,9 @@ export class ApiClient {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(data.message || data.error || `Erro HTTP ${response.status}`);
+      const err: any = new Error(data.message || data.error || `Erro HTTP ${response.status}`);
+      err.response = { data, status: response.status };
+      throw err;
     }
 
     return data as T;
@@ -96,16 +116,60 @@ export class ApiClient {
     return this.request<T>(endpoint, { method: 'GET', params });
   }
 
-  static post<T = any>(endpoint: string, body?: any): Promise<T> {
-    return this.request<T>(endpoint, { method: 'POST', body: JSON.stringify(body) });
+  static post<T = any>(endpoint: string, body?: any, options?: RequestOptions): Promise<T> {
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+    return this.request<T>(endpoint, {
+      ...options,
+      method: 'POST',
+      body: isFormData ? body : JSON.stringify(body)
+    });
   }
 
-  static patch<T = any>(endpoint: string, body?: any): Promise<T> {
-    return this.request<T>(endpoint, { method: 'PATCH', body: JSON.stringify(body) });
+  static put<T = any>(endpoint: string, body?: any, options?: RequestOptions): Promise<T> {
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+    return this.request<T>(endpoint, {
+      ...options,
+      method: 'PUT',
+      body: isFormData ? body : JSON.stringify(body)
+    });
   }
 
-  static delete<T = any>(endpoint: string): Promise<T> {
-    return this.request<T>(endpoint, { method: 'DELETE' });
+  static patch<T = any>(endpoint: string, body?: any, options?: RequestOptions): Promise<T> {
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+    return this.request<T>(endpoint, {
+      ...options,
+      method: 'PATCH',
+      body: isFormData ? body : JSON.stringify(body)
+    });
+  }
+
+  static delete<T = any>(endpoint: string, options?: RequestOptions): Promise<T> {
+    return this.request<T>(endpoint, { ...options, method: 'DELETE' });
   }
 }
 
+// Adaptador compatível com a interface axios `api.get`, `api.post`, etc.
+export const api = {
+  async get<T = any>(endpoint: string, options?: RequestOptions): Promise<{ data: T }> {
+    const data = await ApiClient.request<T>(endpoint, { ...options, method: 'GET' });
+    return { data };
+  },
+  async post<T = any>(endpoint: string, body?: any, options?: RequestOptions): Promise<{ data: T }> {
+    const data = await ApiClient.post<T>(endpoint, body, options);
+    return { data };
+  },
+  async put<T = any>(endpoint: string, body?: any, options?: RequestOptions): Promise<{ data: T }> {
+    const data = await ApiClient.put<T>(endpoint, body, options);
+    return { data };
+  },
+  async patch<T = any>(endpoint: string, body?: any, options?: RequestOptions): Promise<{ data: T }> {
+    const data = await ApiClient.patch<T>(endpoint, body, options);
+    return { data };
+  },
+  async delete<T = any>(endpoint: string, options?: RequestOptions): Promise<{ data: T }> {
+    const data = await ApiClient.delete<T>(endpoint, options);
+    return { data };
+  }
+};
+
+export default ApiClient;

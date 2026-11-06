@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext.js';
+import { useAuth } from '../context/AuthContext';
 
 export const LoginView: React.FC = () => {
   const { login } = useAuth();
@@ -100,4 +100,6 @@ export const LoginView: React.FC = () => {
     </div>
   );
 };
+
+export default LoginView;
 

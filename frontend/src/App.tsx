@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginView from './components/LoginView';
 import Layout from './components/Layout';
@@ -8,7 +8,6 @@ import PastorView from './components/PastorView';
 import MidiaView from './components/MidiaView';
 import VitrineView from './components/VitrineView';
 
-// Tipos de aba disponíveis por perfil (além da vitrine que todos veem)
 type AbaExtra = 'minha' | 'vitrine';
 
 function AppContent() {
@@ -30,7 +29,6 @@ function AppContent() {
     return <LoginView />;
   }
 
-  // Renderiza a tela principal conforme o perfil
   function renderizarTelaPrincipal() {
     if (aba === 'vitrine') return <VitrineView />;
     switch (usuario!.perfil) {
@@ -42,7 +40,6 @@ function AppContent() {
     }
   }
 
-  // Label da aba principal por perfil
   const labelMinha: Record<string, string> = {
     CELULA: '🏠 Minha Célula',
     REDE:   '🔗 Minha Rede',
@@ -51,7 +48,7 @@ function AppContent() {
   };
 
   return (
-    <Layout>
+    <Layout abaAtiva={aba} setAbaAtiva={(novaAba: string) => setAba(novaAba as AbaExtra)}>
       {/* Barra de navegação inferior */}
       <nav className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 flex z-50">
         <button
@@ -74,7 +71,7 @@ function AppContent() {
         </button>
       </nav>
 
-      {/* Conteúdo — com padding-bottom para a nav não sobrepor */}
+      {/* Conteúdo com padding inferior */}
       <div className="pb-16">
         {renderizarTelaPrincipal()}
       </div>

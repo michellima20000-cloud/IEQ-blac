@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ApiClient } from '../api/client.js';
+import { ApiClient } from '../api/client';
 
 interface MidiaPublicada {
   id: string;
@@ -132,4 +132,6 @@ export const VitrineView: React.FC = () => {
     </div>
   );
 };
+
+export default VitrineView;
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useAuth } from '../context/AuthContext.js';
-import { ApiClient } from '../api/client.js';
+import { useAuth } from '../context/AuthContext';
+import { ApiClient } from '../api/client';
 
 export const CelulaView: React.FC = () => {
   const { usuario } = useAuth();
@@ -338,9 +338,32 @@ export const CelulaView: React.FC = () => {
               ))}
             </div>
           </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 mt-4">
+            <h3 className="text-base font-bold text-white mb-3">Visitantes Registrados ({visitantes.length})</h3>
+            <div className="divide-y divide-slate-800">
+              {visitantes.length === 0 ? (
+                <p className="text-xs text-slate-500 py-2">Nenhum visitante registrado ainda.</p>
+              ) : (
+                visitantes.map((v) => (
+                  <div key={v.id} className="py-2.5 flex items-center justify-between">
+                    <div>
+                      <span className="text-sm font-semibold text-white block">{v.nome}</span>
+                      {v.telefone && <span className="text-xs text-slate-400">{v.telefone}</span>}
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 font-semibold">
+                      Visitante
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </section>
       )}
     </div>
   );
 };
+
+export default CelulaView;
 

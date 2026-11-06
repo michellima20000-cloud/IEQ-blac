@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { useAuth } from '../context/AuthContext.js';
-import { ApiClient } from '../api/client.js';
+import { useAuth } from '../context/AuthContext';
+import { ApiClient } from '../api/client';
 
 export const RedeView: React.FC = () => {
   const { usuario } = useAuth();
@@ -146,4 +146,6 @@ export const RedeView: React.FC = () => {
     </div>
   );
 };
+
+export default RedeView;
 
