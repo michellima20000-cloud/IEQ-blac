@@ -4,9 +4,10 @@
   "description": "Backend API para IEQ",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "tsx watch src/index.ts"
+    "postinstall": "npm --prefix backend install",
+    "build": "npm --prefix backend run prisma:generate && cd backend && npx prisma db push --accept-data-loss",
+    "start": "cd backend && npx tsx src/server.ts",
+    "dev": "cd backend && npm run dev"
   },
   "keywords": ["express", "typescript", "api", "ieq"],
   "author": "",

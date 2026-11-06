@@ -68,9 +68,23 @@ app.use('/api/v1', v1Router);
 app.use(errorHandler);
 
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(ENV.PORT, () => {
+  app.listen(ENV.PORT, async () => {
     console.log(`🚀 API IEQ rodando em http://localhost:${ENV.PORT}`);
     console.log(`📖 Documentação Swagger em http://localhost:${ENV.PORT}/api/v1/docs`);
+
+    // Auto-seed condicional se o banco de dados estiver novo/vazio
+    try {
+      const { prisma } = await import('./config/prisma.ts');
+      const totalIgrejas = await prisma.igreja.count();
+      if (totalIgrejas === 0) {
+        console.log('🌱 Banco vazio detectado. Criando dados iniciais da IEQ...');
+        const { main: runSeed } = await import('../prisma/seed.ts');
+        await runSeed();
+        console.log('✅ Seed inicial da IEQ concluído com sucesso!');
+      }
+    } catch (err: any) {
+      console.warn('⚠️  Aviso na verificação de seed automático:', err.message);
+    }
   });
 }
 

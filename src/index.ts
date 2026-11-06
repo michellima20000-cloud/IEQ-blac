@@ -1,34 +1,21 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { spawn } from 'child_process';
+import path from 'path';
 
 dotenv.config();
 
-const app = express();
-const PORT = process.env.PORT || 3001;
-
-// Middlewares
-app.use(cors());
-app.use(express.json());
-
-// Rotas da API
-app.get('/api/health', (_req: Request, res: Response) => {
-  res.json({
-    status: 'ok',
-    message: 'Backend IEQ-black operando com sucesso!',
-    timestamp: new Date().toISOString()
-  });
+// Se este arquivo for chamado por engano, ele delega a execução para o backend real
+console.log('⚠️  Iniciando backend real a partir de ./backend/src/server.ts...');
+const backendProcess = spawn('npx', ['tsx', 'src/server.ts'], {
+  cwd: path.resolve(__dirname, '../backend'),
+  stdio: 'inherit',
+  shell: true
 });
 
-app.get('/api/info', (_req: Request, res: Response) => {
-  res.json({
-    name: 'IEQ-black API',
-    version: '1.0.0',
-    description: 'Serviço de Backend para o projeto IEQ'
-  });
+backendProcess.on('error', (err) => {
+  console.error('Falha ao iniciar backend:', err);
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor IEQ-black rodando em http://localhost:${PORT}`);
-});
 
