@@ -137,3 +137,4 @@ router.get('/:id', UsuariosController.buscarPorId);
 router.patch('/:id', validate(atualizarUsuarioSchema), UsuariosController.atualizar);
 
 export default router;
+

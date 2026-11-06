@@ -12,3 +12,4 @@ export const refreshSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RefreshInput = z.infer<typeof refreshSchema>;
+

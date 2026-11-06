@@ -36,3 +36,4 @@ export const atualizarUsuarioSchema = z.object({
 
 export type CriarUsuarioInput = z.infer<typeof criarUsuarioSchema>;
 export type AtualizarUsuarioInput = z.infer<typeof atualizarUsuarioSchema>;
+

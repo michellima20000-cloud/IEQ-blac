@@ -27,3 +27,4 @@ export const loginRateLimiter = rateLimit({
     message: 'Muitas tentativas consecutivas de login. Por segurança, aguarde 1 minuto.'
   }
 });
+
