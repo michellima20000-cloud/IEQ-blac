@@ -1,0 +1,17 @@
+{
+  "name": "IEQ Sistema da Igreja",
+  "short_name": "IEQ App",
+  "description": "Aplicativo de Gestão da Igreja e Células",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#3b82f6",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
+
