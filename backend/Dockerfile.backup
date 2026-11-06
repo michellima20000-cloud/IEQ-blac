@@ -20,3 +20,4 @@ VOLUME ["/backups"]
 
 # Ao iniciar, roda um backup inicial e depois entra no daemon do cron
 CMD ["sh", "-c", "/app/backup.sh && crond -f -l 2"]
+

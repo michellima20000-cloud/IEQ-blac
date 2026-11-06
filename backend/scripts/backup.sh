@@ -48,3 +48,4 @@ echo "Expurgando backups locais com mais de ${RETENTION_DAYS} dias..."
 find "${BACKUP_DIR}" -name "backup_*.sql*" -mtime "+${RETENTION_DAYS}" -delete
 
 echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Backup concluído com sucesso!"
+

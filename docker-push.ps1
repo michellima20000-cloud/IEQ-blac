@@ -40,3 +40,4 @@ Write-Host "Sucesso! Imagens disponíveis em:" -ForegroundColor Green
 Write-Host " - https://hub.docker.com/r/michelsilva10/ieq-blac" -ForegroundColor Green
 Write-Host " - https://hub.docker.com/r/michelsilva10/ieq-front" -ForegroundColor Green
 Write-Host "========================================================" -ForegroundColor Green
+

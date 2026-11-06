@@ -51,3 +51,4 @@ echo  - https://hub.docker.com/r/michelsilva10/ieq-blac
 echo  - https://hub.docker.com/r/michelsilva10/ieq-front
 echo ========================================================
 pause
+
