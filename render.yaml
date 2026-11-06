@@ -4,7 +4,7 @@ services:
     name: ieq-backend
     runtime: node
     rootDir: backend
-    buildCommand: npm install && npx prisma generate
+    buildCommand: npm install && npx prisma generate && npx prisma migrate deploy
     startCommand: node_modules/.bin/tsx src/server.ts
     plan: free
     autoDeploy: true
@@ -14,11 +14,13 @@ services:
       - key: PORT
         value: "3001"
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: ieq-postgres
+          property: connectionString
       - key: JWT_SECRET
-        sync: false
+        generateValue: true
       - key: JWT_REFRESH_SECRET
-        sync: false
+        generateValue: true
       - key: UPSTASH_REDIS_REST_URL
         value: https://engaged-mudfish-193867.upstash.io
       - key: UPSTASH_REDIS_REST_TOKEN
