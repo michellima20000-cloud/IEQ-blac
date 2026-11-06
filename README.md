@@ -1,118 +1,156 @@
-# Sistema de Gestão da Igreja (IEQ)
+# ⛪ IEQ - Sistema de Gestão de Células, Mídia e Relatórios
 
-Sistema completo de gestão de células, liderança, mídia e relatórios com isolamento multi-tenant por igreja (`igreja_id`) e controle de acesso baseado em perfis (RBAC).
-
----
-
-## 🏛️ Regras Fundamentais do Projeto (`.agent/rules/igreja.md`)
-
-- **Projetos desacoplados**: `/backend` e `/frontend` são independentes. O front consome exclusivamente a API REST.
-- **Validação no Back-end**: Toda permissão e isolamento por igreja (`igreja_id`) são estritamente validados no servidor.
-- **Perfil Mídia**: Nunca acessa dados de células, membros, visitantes ou relatórios.
-- **Armazenamento**: MinIO local + replicação na nuvem (R2 ou B2). Nenhum serviço pago obrigatório.
-- **Limpeza Automática**: Fotos de relatórios de células são expurgadas após o período configurado (padrão 60 dias). O relatório é preservado.
-- **Tudo em Docker**: Todo o ecossistema roda orquestrado via `docker-compose.yml`.
+Sistema completo e desacoplado para igrejas com suporte a multi-tenant, gestão de células e redes, fluxo de aprovação de mídia, armazenamento local em MinIO com replicação para S3 na nuvem (Cloudflare R2 / Backblaze B2) e PWA mobile-first em React + Vite.
 
 ---
 
-## 📁 Estrutura do Repositório
+## 🏗️ Arquitetura
 
-```
-/
-├── .agent/rules/igreja.md          # Regras permanentes do projeto
-├── docker-compose.yml              # PostgreSQL, Redis, MinIO, Backup, Backend, Frontend
-├── .env.example                    # Modelo de configuração do ambiente
-├── backend/                        # API Node.js + TypeScript + Prisma + BullMQ
-│   ├── Dockerfile
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── prisma/
-│   │   ├── schema.prisma           # Modelagem com igreja_id em todas as tabelas
-│   │   └── seed.ts                 # 1 igreja, 2 redes, 4 células, 4 usuários
-│   ├── src/
-│   │   ├── config/                 # Envs, Swagger, Storage, Criptografia
-│   │   ├── middlewares/            # Auth JWT, Tenant (igreja_id), RBAC, RateLimit
-│   │   ├── modules/
-│   │   │   ├── auth/               # Login, Refresh, Logout
-│   │   │   ├── usuarios/           # Gestão de usuários pelo Pastor
-│   │   │   ├── celulas/            # Células, Membros, Visitantes, Relatórios, Consolidado
-│   │   │   └── midia/              # Mídia, Aprovação, Calendário, Vitrine, Cores
-│   │   ├── services/
-│   │   │   ├── storage.service.ts  # MinIO S3 & URLs assinadas
-│   │   │   ├── imageProcessor.ts   # Compressão WebP (máx. 1280px)
-│   │   │   ├── cloudSync.service.ts# Sincronização resiliente R2 / B2
-│   │   │   ├── backup.service.ts   # Backup diário Postgres criptografado (AES-256)
-│   │   │   └── cleanup.service.ts  # Expurgador de fotos vencidas (preserva dados)
-│   │   └── jobs/
-│   │       └── queues.ts           # BullMQ Queues
-│   └── tests/
-│       ├── permissions.node.mjs    # Testes Etapa 1
-│       ├── auth_usuarios.node.mjs  # Testes Etapa 2
-│       ├── celulas_relatorios.node.mjs # Testes Etapa 3
-│       ├── midia_aprovacao.node.mjs # Testes Etapa 4
-│       └── storage_limpeza.node.mjs # Testes Etapa 5
-└── frontend/                       # React + Vite + PWA instalável
-    ├── Dockerfile
-    ├── nginx.conf
-    ├── package.json
-    ├── vite.config.ts
-    └── src/
+- **Backend**: Node.js + Express + TypeScript, Prisma ORM, PostgreSQL, Redis + BullMQ.
+- **Frontend**: React + Vite + Tailwind CSS + PWA (Mobile-first), consumindo exclusivamente a API REST.
+- **Armazenamento**: MinIO local S3-compatível com URLs assinadas temporárias (15 min).
+- **Processamento**: Conversão automática para WebP (máx. 1280px) em fila BullMQ.
+- **Backup & Nuvem**: Cópia diária encriptada com AES-256 e sincronização rclone para R2/B2.
+
+---
+
+## ⚠️ AVISO IMPORTANTE SOBRE O RENDER (Plano Gratuito)
+
+> **Atenção:** No plano gratuito do Render.com, os containers têm sistema de arquivos efêmero (não há volume persistente) e entram em modo sleep após inatividade. Por esse motivo, **o plano gratuito do Render serve EXCLUSIVAMENTE para demonstração e testes efêmeros**. Para produção com retenção de dados, fotos e backups, utilize um servidor VPS próprio (ex: Hetzner, DigitalOcean, Linode, AWS EC2, Oracle Cloud Free Tier) executando Docker e Docker Compose com volumes persistentes.
+
+---
+
+## 🚀 Como Rodar Localmente
+
+### Pré-requisitos
+- [Docker](https://docs.docker.com/get-docker/) e [Docker Compose](https://docs.docker.com/compose/) instalados.
+
+### 1. Clonar o repositório
+```bash
+git clone https://github.com/michellima20000-cloud/IEQ-blac.git
+cd IEQ-blac
 ```
 
+### 2. Configurar o arquivo `.env`
+Copie o modelo de variáveis de ambiente:
+```bash
+cp .env.example .env
+```
+Edite o arquivo `.env` gerando chaves secretas para `JWT_SECRET`, `JWT_REFRESH_SECRET` e `BACKUP_ENCRYPTION_KEY` (32 caracteres).
+
+### 3. Iniciar todos os serviços
+```bash
+docker compose up -d
+```
+Isso iniciará automaticamente:
+- **Frontend PWA**: `http://localhost:80`
+- **Backend API**: `http://localhost:3001` (Healthcheck em `/health`)
+- **MinIO Console**: `http://localhost:9001` (Credenciais: `ieqminio` / `ieqminio123`)
+- **PostgreSQL**: Porta 5432 interna
+- **Redis**: Porta 6379 interna
+- **Backup Diário**: Agendador interno com retenção de 7 dias
+
 ---
 
-## 💾 Procedimentos de Restauração de Desastres (Backup & Arquivos)
+## 👑 Como Criar o Primeiro Usuário Pastor
 
-### 1. Restauração do Banco de Dados PostgreSQL
+Para inicializar a primeira igreja e criar o pastor administrador:
 
-Os backups são gerados diariamente, criptografados com **AES-256-CBC** e mantidos pelos últimos 7 dias.
+### Opção 1: Via Seed do Prisma (Recomendado)
+```bash
+docker compose exec backend npx prisma db seed
+```
+Isso cria a **Igreja Matriz** e o usuário inicial:
+- **E-mail**: `pastor@ieq.org.br`
+- **Senha**: `Pastor@123`
 
-#### Passo a passo de restauração:
-1. Obtenha o arquivo de backup criptografado (ex: `backup_ieq_2026-11-06.sql.enc`).
-2. Descriptografe o arquivo utilizando a chave configurada em `BACKUP_ENCRYPTION_KEY`:
-   ```bash
-   openssl enc -d -aes-256-cbc -pbkdf2 \
-     -in backup_ieq_2026-11-06.sql.enc \
-     -out backup_restaurado.sql \
-     -pass pass:"SUA_CHAVE_BACKUP_ENCRYPTION_KEY"
-   ```
-3. Importe o dump descriptografado diretamente para o container PostgreSQL:
-   ```bash
-   docker exec -i ieq_postgres psql -U postgres -d ieq_db < backup_restaurado.sql
-   ```
-4. Exclua o arquivo `.sql` plano temporário:
-   ```bash
-   rm backup_restaurado.sql
-   ```
+### Opção 2: Via API REST direta
+Faça uma requisição `POST /api/v1/auth/setup-pastor` enviando:
+```json
+{
+  "nome": "Pastor Presidente",
+  "email": "pastor@ieq.org.br",
+  "senha": "SuaSenhaSegura123!",
+  "igrejaNome": "Igreja do Evangelho Quadrangular",
+  "cidade": "Sua Cidade"
+}
+```
 
-### 2. Restauração de Arquivos da Nuvem (R2 / B2) para o MinIO Local
+---
 
-Caso precise restaurar todos os arquivos da nuvem privada para o MinIO local via `rclone`:
+## ☁️ Como Configurar a Nuvem (Cloudflare R2 ou Backblaze B2 Gratuito)
+
+Ambos os provedores oferecem planos gratuitos generosos compatíveis com a API S3 (10 GB no B2 ou 10 GB/mês no R2).
+
+### No Cloudflare R2:
+1. Acesse o painel da Cloudflare > **R2 Object Storage**.
+2. Crie um bucket privado (ex: `ieq-backup-nuvem`).
+3. Gere um **API Token** com permissão de Leitura e Escrita.
+4. Adicione ao seu `.env`:
+```env
+CLOUD_S3_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+CLOUD_S3_BUCKET=ieq-backup-nuvem
+CLOUD_S3_ACCESS_KEY=<ACCESS_KEY_ID>
+CLOUD_S3_SECRET_KEY=<SECRET_ACCESS_KEY>
+```
+
+### No Backblaze B2:
+1. Acesse o Backblaze B2 > **Buckets** > **Create a Bucket** (Marque como **Private**).
+2. Vá em **Application Keys** e crie uma chave com acesso ao bucket criado.
+3. Adicione ao seu `.env`:
+```env
+CLOUD_S3_ENDPOINT=https://s3.<regiao>.backblazeb2.com
+CLOUD_S3_BUCKET=ieq-backup-nuvem
+CLOUD_S3_ACCESS_KEY=<keyID>
+CLOUD_S3_SECRET_KEY=<applicationKey>
+```
+
+---
+
+## 🛡️ Como Restaurar um Backup
+
+Os backups do PostgreSQL são gerados diariamente e salvos criptografados com **AES-256-CBC**.
+
+### 1. Descriptografar e Restaurar o Banco de Dados
+Para restaurar o arquivo `backup-2026-11-06.sql.enc`:
 
 ```bash
-# Sincroniza do bucket remoto (R2/B2) para o MinIO local
-rclone sync remote-r2:ieq-backup-privado local-minio:ieq-local --progress
+# 1. Descriptografe o arquivo utilizando a chave BACKUP_ENCRYPTION_KEY configurada
+openssl enc -d -aes-256-cbc -pbkdf2 \
+  -in /backups/backup-2026-11-06.sql.enc \
+  -out /backups/backup_restaurado.sql \
+  -k "SUA_BACKUP_ENCRYPTION_KEY_32_CHARS"
+
+# 2. Restaure o dump SQL no container PostgreSQL
+docker compose exec -T postgres psql -U ieq -d ieq < /backups/backup_restaurado.sql
+```
+
+### 2. Restaurar os Arquivos e Fotos do MinIO
+Se precisar restaurar arquivos do bucket remoto (R2/B2):
+```bash
+# Sincronizar da nuvem diretamente para o volume do MinIO local
+rclone copy remote:ieq-backup-nuvem/fotos /data/ieq-files
 ```
 
 ---
 
-## 🧹 Regra de Limpeza Automática de Fotos de Relatórios
+## 🧪 Execução de Testes Automatizados
 
-- Executada automaticamente todos os dias às 03:00.
-- Prazo de retenção: configurável pelo Pastor (padrão **60 dias**).
-- Fotos com mais de 60 dias são apagadas do MinIO e do bucket na nuvem.
-- **Exceção**: Relatórios com a opção `"manter esta foto"` marcada **NÃO** são apagados.
-- **Os dados numéricos e o texto do relatório permanecem 100% intactos**.
-- Alerta com 7 dias de antecedência para líderes de rede e pastor.
-- Banners e fotos da mídia **nunca** são afetados pela limpeza.
-
----
-
-## 🧪 Testes Automatizados
-
-Para rodar toda a suíte de testes (Etapas 1, 2, 3, 4 e 5):
+O backend possui suíte de testes de permissão, RBAC, autenticação, trava de relatórios, módulo de mídia e ciclo de vida de armazenamento sem dependências externas:
 
 ```bash
 cd backend
-npm test
+node --experimental-strip-types --test tests/permissions.node.mjs tests/auth_usuarios.node.mjs tests/celulas_relatorios.node.mjs tests/midia_aprovacao.node.mjs tests/storage_limpeza.node.mjs
 ```
+**Resultado esperado:** 50 testes passando, 0 falhas.
+
+---
+
+## 📋 Perfis de Acesso e Regras de Segurança
+
+| Perfil | Acesso Permitido | Restrições Mandatórias |
+| :--- | :--- | :--- |
+| **CELULA** | Sua própria célula, cadastro de membros/visitantes e relatório semanal com câmera. | **Bloqueado** em células vizinhas e de outras redes. Relatório após fechado não pode ser editado. |
+| **REDE** | Leitura de relatórios fechados com foto de sua rede, consolidado semanal e lista de pendências. | **Bloqueado** em redes alheias. Não edita membros de células. |
+| **PASTOR** | Acesso global à igreja: indicadores, aprovação/devolução de mídia, gestão de usuários e alertas de backup. | Restrito aos dados da **sua própria igreja** (isolamento multi-tenant). |
+| **MIDIA** | Upload de mídias/vídeos (50MB/YouTube), calendário, personalização visual e status de aprovação. | ⚠️ **PROIBIDO**: Zero acesso a células, membros, visitantes e relatórios. |

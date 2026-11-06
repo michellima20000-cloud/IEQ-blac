@@ -55,3 +55,4 @@ export class StorageService {
     return { localStorageMock, cloudStorageMock };
   }
 }
+

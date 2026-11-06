@@ -175,3 +175,4 @@ describe('Etapa 5 - Armazenamento, Limpeza Automática & Backup Resiliente', () 
     });
   });
 });
+

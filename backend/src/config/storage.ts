@@ -26,3 +26,4 @@ export const STORAGE_CONFIG = {
     retencaoDias: 7
   }
 };
+
