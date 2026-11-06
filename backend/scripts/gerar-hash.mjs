@@ -19,3 +19,4 @@ const senha = 'Pastor@123';
 const hash = createHash('sha256').update(senha).digest('hex');
 console.log('SHA256 (apenas referência):', hash);
 console.log('Para bcrypt, rode no servidor: node -e "require(\'bcrypt\').hash(\'Pastor@123\', 10, (e,h) => console.log(h))"');
+

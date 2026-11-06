@@ -20,3 +20,4 @@ npx tsx prisma/seed.ts 2>/dev/null || echo "⚠️  Seed já executado ou falhou
 # Inicia o servidor
 echo "✅ Iniciando servidor..."
 exec node_modules/.bin/tsx src/server.ts
+

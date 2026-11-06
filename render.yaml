@@ -21,6 +21,8 @@ services:
         generateValue: true
       - key: JWT_REFRESH_SECRET
         generateValue: true
+      - key: REDIS_URL
+        value: rediss://default:gQAAAAAAAvVLAAIgcDJhMGYwYjVmZDkwZGI0OWY3YmFjZWQwNDNkMjdjNzI0NA@engaged-mudfish-193867.upstash.io:6379
       - key: UPSTASH_REDIS_REST_URL
         value: https://engaged-mudfish-193867.upstash.io
       - key: UPSTASH_REDIS_REST_TOKEN

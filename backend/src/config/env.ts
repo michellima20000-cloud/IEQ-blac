@@ -16,6 +16,9 @@ export const ENV = {
   JWT_ACCESS_EXPIRES_IN: '15m',
   JWT_REFRESH_EXPIRES_IN: '7d',
   DATABASE_URL: process.env.DATABASE_URL || 'postgresql://postgres:postgres_password@localhost:5432/ieq_db?schema=public',
-  UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL || '',
+  // Redis via protocolo padrão (ioredis / BullMQ)
+  REDIS_URL: process.env.REDIS_URL || 'redis://default:gQAAAAAAAvVLAAIgcDJhMGYwYjVmZDkwZGI0OWY3YmFjZWQwNDNkMjdjNzI0NA@engaged-mudfish-193867.upstash.io:6379',
+  // Upstash REST API (rate limit / cache HTTP)
+  UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL || 'https://engaged-mudfish-193867.upstash.io',
   UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN || ''
 };
