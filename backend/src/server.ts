@@ -72,8 +72,18 @@ if (process.env.NODE_ENV !== 'test') {
     console.log(`🚀 API IEQ rodando em http://localhost:${ENV.PORT}`);
     console.log(`📖 Documentação Swagger em http://localhost:${ENV.PORT}/api/v1/docs`);
 
-    // Auto-seed condicional se o banco de dados estiver novo/vazio
+    // Sincronização automática do schema e seed se conectado ao banco
     try {
+      if (process.env.DATABASE_URL) {
+        const { execSync } = await import('child_process');
+        console.log('🔄 Sincronizando tabelas com o banco de dados...');
+        try {
+          execSync('npx prisma db push --accept-data-loss', { stdio: 'inherit' });
+        } catch (e: any) {
+          console.warn('Aviso no db push:', e.message);
+        }
+      }
+
       const { prisma } = await import('./config/prisma.ts');
       const totalIgrejas = await prisma.igreja.count();
       if (totalIgrejas === 0) {
@@ -83,7 +93,7 @@ if (process.env.NODE_ENV !== 'test') {
         console.log('✅ Seed inicial da IEQ concluído com sucesso!');
       }
     } catch (err: any) {
-      console.warn('⚠️  Aviso na verificação de seed automático:', err.message);
+      console.warn('⚠️  Aviso na verificação de banco/seed:', err.message);
     }
   });
 }
