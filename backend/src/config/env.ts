@@ -15,5 +15,7 @@ export const ENV = {
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || 'ieq_jwt_refresh_secret_super_seguro_2026',
   JWT_ACCESS_EXPIRES_IN: '15m',
   JWT_REFRESH_EXPIRES_IN: '7d',
-  DATABASE_URL: process.env.DATABASE_URL || 'postgresql://postgres:postgres_password@localhost:5432/ieq_db?schema=public'
+  DATABASE_URL: process.env.DATABASE_URL || 'postgresql://postgres:postgres_password@localhost:5432/ieq_db?schema=public',
+  UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL || '',
+  UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN || ''
 };
