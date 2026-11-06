@@ -52,6 +52,36 @@ Isso iniciará automaticamente:
 
 ---
 
+## 🌐 Como Publicar em um Servidor com Docker (Produção VPS)
+
+Para subir o sistema em uma VPS (Ubuntu/Debian) com Docker sem serviços pagos:
+
+1. **Instalar Docker e Docker Compose na VPS**:
+```bash
+curl -fsSL https://get.docker.com -o get-docker.sh && sh get-docker.sh
+```
+
+2. **Clonar o projeto e configurar o ambiente**:
+```bash
+git clone https://github.com/michellima20000-cloud/IEQ-blac.git /opt/ieq
+cd /opt/ieq
+cp .env.example .env
+nano .env # configure senhas fortes e chaves de 32 chars
+```
+
+3. **Subir com Docker Compose**:
+```bash
+docker compose up -d --build
+```
+
+4. **Verificar os status e healthchecks**:
+```bash
+docker compose ps
+```
+Todos os serviços (`ieq_backend`, `ieq_frontend`, `ieq_postgres`, `ieq_redis`, `ieq_minio` e `ieq_backup`) devem constar como `healthy` ou `running`.
+
+---
+
 ## 👑 Como Criar o Primeiro Usuário Pastor
 
 Para inicializar a primeira igreja e criar o pastor administrador:

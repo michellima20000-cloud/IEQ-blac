@@ -1,0 +1,22 @@
+FROM alpine:3.19
+
+RUN apk add --no-cache \
+    postgresql16-client \
+    openssl \
+    rclone \
+    bash \
+    curl \
+    dcron
+
+WORKDIR /app
+
+COPY scripts/backup.sh /app/backup.sh
+RUN chmod +x /app/backup.sh
+
+# Configura cron job para rodar diariamente às 03:00 da madrugada
+RUN echo "0 3 * * * /app/backup.sh >> /var/log/backup.log 2>&1" > /etc/crontabs/root
+
+VOLUME ["/backups"]
+
+# Ao iniciar, roda um backup inicial e depois entra no daemon do cron
+CMD ["sh", "-c", "/app/backup.sh && crond -f -l 2"]
