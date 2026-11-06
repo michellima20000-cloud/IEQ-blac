@@ -1,22 +1,91 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import LoginView from './components/LoginView';
+import Layout from './components/Layout';
+import CelulaView from './components/CelulaView';
+import RedeView from './components/RedeView';
+import PastorView from './components/PastorView';
+import MidiaView from './components/MidiaView';
+import VitrineView from './components/VitrineView';
 
-export default function App() {
-  return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col items-center justify-center p-4">
-      <div className="max-w-md w-full bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-xl text-center">
-        <span className="inline-block px-3 py-1 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-full text-xs font-semibold uppercase tracking-wider mb-3">
-          Etapa 1: Estrutura & PWA
-        </span>
-        <h1 className="text-2xl font-bold mb-2">IEQ - Sistema da Igreja</h1>
-        <p className="text-slate-400 text-sm mb-6">
-          Front-end PWA desacoplado, comunicando exclusivamente via API REST com o backend.
-        </p>
-        <div className="p-3 bg-slate-900/60 rounded-lg border border-slate-700/50 text-left text-xs font-mono text-slate-300">
-          <div>Status: Estrutura inicial configurada</div>
-          <div>API Endpoint: {import.meta.env.VITE_API_URL || 'http://localhost:3001'}</div>
+// Tipos de aba disponíveis por perfil (além da vitrine que todos veem)
+type AbaExtra = 'minha' | 'vitrine';
+
+function AppContent() {
+  const { usuario, carregando } = useAuth();
+  const [aba, setAba] = useState<AbaExtra>('minha');
+
+  if (carregando) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 border-4 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-slate-400 text-sm">Carregando...</p>
         </div>
       </div>
-    </div>
+    );
+  }
+
+  if (!usuario) {
+    return <LoginView />;
+  }
+
+  // Renderiza a tela principal conforme o perfil
+  function renderizarTelaPrincipal() {
+    if (aba === 'vitrine') return <VitrineView />;
+    switch (usuario!.perfil) {
+      case 'CELULA': return <CelulaView />;
+      case 'REDE':   return <RedeView />;
+      case 'PASTOR': return <PastorView />;
+      case 'MIDIA':  return <MidiaView />;
+      default:       return <VitrineView />;
+    }
+  }
+
+  // Label da aba principal por perfil
+  const labelMinha: Record<string, string> = {
+    CELULA: '🏠 Minha Célula',
+    REDE:   '🔗 Minha Rede',
+    PASTOR: '📊 Painel',
+    MIDIA:  '📢 Mídia',
+  };
+
+  return (
+    <Layout>
+      {/* Barra de navegação inferior */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 flex z-50">
+        <button
+          onClick={() => setAba('minha')}
+          className={`flex-1 py-3 text-xs font-medium flex flex-col items-center gap-0.5 transition-colors ${
+            aba === 'minha' ? 'text-sky-400' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <span className="text-lg leading-none">{aba === 'minha' ? '●' : '○'}</span>
+          {labelMinha[usuario.perfil] ?? '🏠 Principal'}
+        </button>
+        <button
+          onClick={() => setAba('vitrine')}
+          className={`flex-1 py-3 text-xs font-medium flex flex-col items-center gap-0.5 transition-colors ${
+            aba === 'vitrine' ? 'text-sky-400' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <span className="text-lg leading-none">{aba === 'vitrine' ? '●' : '○'}</span>
+          🌐 Vitrine
+        </button>
+      </nav>
+
+      {/* Conteúdo — com padding-bottom para a nav não sobrepor */}
+      <div className="pb-16">
+        {renderizarTelaPrincipal()}
+      </div>
+    </Layout>
   );
 }
 
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+}
