@@ -8,14 +8,18 @@ export const criarUsuarioSchema = z.object({
     errorMap: () => ({ message: 'Perfil inválido. Permitidos: CELULA, REDE, MIDIA' })
   }),
   redeId: z.string().optional().nullable(),
-  celulaId: z.string().optional().nullable()
+  celulaId: z.string().optional().nullable(),
+  identificadorCelula: z.string().optional().nullable(),
+  nomeRede: z.string().optional().nullable()
 });
 
 export const atualizarUsuarioSchema = z.object({
   nome: z.string().min(3).optional(),
   ativo: z.boolean().optional(),
-  redeId: z.string().uuid().optional().nullable(),
-  celulaId: z.string().uuid().optional().nullable()
+  redeId: z.string().optional().nullable(),
+  celulaId: z.string().optional().nullable(),
+  identificadorCelula: z.string().optional().nullable(),
+  nomeRede: z.string().optional().nullable()
 });
 
 export type CriarUsuarioInput = z.infer<typeof criarUsuarioSchema>;

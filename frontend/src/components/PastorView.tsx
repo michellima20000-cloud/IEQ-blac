@@ -20,6 +20,9 @@ export const PastorView: React.FC = () => {
   const [emailNovoUser, setEmailNovoUser] = useState('');
   const [senhaNovoUser, setSenhaNovoUser] = useState('');
   const [perfilNovoUser, setPerfilNovoUser] = useState<'CELULA' | 'REDE' | 'MIDIA'>('CELULA');
+  const [identificadorCelula, setIdentificadorCelula] = useState('');
+  const [nomeRede, setNomeRede] = useState('');
+  const [redesDisponiveis, setRedesDisponiveis] = useState<any[]>([]);
 
   // Configurações
   const [prazoRetencao, setPrazoRetencao] = useState(60);
@@ -34,14 +37,16 @@ export const PastorView: React.FC = () => {
   const carregarDadosPastor = async () => {
     setCarregando(true);
     try {
-      const [resDash, resPendentes, resUsers] = await Promise.all([
+      const [resDash, resPendentes, resUsers, resRedes] = await Promise.all([
         ApiClient.get('/dashboard/pastor'),
         ApiClient.get('/midia/pendentes'),
-        ApiClient.get('/usuarios')
+        ApiClient.get('/usuarios'),
+        ApiClient.get('/redes').catch(() => ({ redes: [] }))
       ]);
       setDashboard(resDash);
       setPendentes(resPendentes.pendentes || []);
       setUsuarios(resUsers.usuarios || []);
+      setRedesDisponiveis(resRedes?.redes || []);
     } catch {
       // Ignora falhas pontuais
     } finally {
@@ -87,12 +92,22 @@ export const PastorView: React.FC = () => {
         nome: nomeNovoUser,
         email: emailNovoUser,
         senha: senhaNovoUser,
-        perfil: perfilNovoUser
+        perfil: perfilNovoUser,
+        identificadorCelula: perfilNovoUser === 'CELULA' ? identificadorCelula : undefined,
+        nomeRede: (perfilNovoUser === 'REDE' || perfilNovoUser === 'CELULA') ? nomeRede : undefined
       });
 
       setNomeNovoUser('');
       setEmailNovoUser('');
       setSenhaNovoUser('');
+      setIdentificadorCelula('');
+      setNomeRede('');
+      setMensagemSucesso('Novo usuário cadastrado e vinculado com sucesso!');
+      carregarDadosPastor();
+    } catch (err: any) {
+      setMensagemErro(err.message);
+    }
+  };
       setMensagemSucesso('Usuário cadastrado com sucesso!');
       carregarDadosPastor();
     } catch (err: any) {
@@ -434,49 +449,134 @@ export const PastorView: React.FC = () => {
       {subAba === 'usuarios' && (
         <div className="space-y-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5">
-            <h3 className="text-base font-bold text-white mb-3">Cadastrar Novo Usuário</h3>
-            <form onSubmit={handleCadastrarUsuario} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <input
-                type="text"
-                required
-                placeholder="Nome completo"
-                value={nomeNovoUser}
-                onChange={(e) => setNomeNovoUser(e.target.value)}
-                className="px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white"
-              />
-              <input
-                type="email"
-                required
-                placeholder="E-mail"
-                value={emailNovoUser}
-                onChange={(e) => setEmailNovoUser(e.target.value)}
-                className="px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white"
-              />
-              <input
-                type="password"
-                required
-                placeholder="Senha inicial"
-                value={senhaNovoUser}
-                onChange={(e) => setSenhaNovoUser(e.target.value)}
-                className="px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white"
-              />
-              <select
-                value={perfilNovoUser}
-                onChange={(e) => setPerfilNovoUser(e.target.value as any)}
-                className="px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white"
-              >
-                <option value="CELULA">Líder de Célula</option>
-                <option value="REDE">Líder de Rede</option>
-                <option value="MIDIA">Equipe de Mídia</option>
-              </select>
-              <div className="sm:col-span-2 lg:col-span-4">
-                <button
-                  type="submit"
-                  className="w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-xl text-sm"
-                >
-                  Cadastrar Usuário
-                </button>
+            <div className="mb-4">
+              <h3 className="text-base font-bold text-white">Cadastrar Novo Usuário</h3>
+              <p className="text-xs text-slate-400">Cadastre líderes de célula, líderes de rede ou a equipe de mídia com seus vínculos</p>
+            </div>
+            <form onSubmit={handleCadastrarUsuario} className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Nome Completo</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ex: João da Silva"
+                    value={nomeNovoUser}
+                    onChange={(e) => setNomeNovoUser(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">E-mail de Acesso</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="lider@igreja.com"
+                    value={emailNovoUser}
+                    onChange={(e) => setEmailNovoUser(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Senha Inicial</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Mínimo 6 dígitos"
+                    value={senhaNovoUser}
+                    onChange={(e) => setSenhaNovoUser(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Perfil de Acesso</label>
+                  <select
+                    value={perfilNovoUser}
+                    onChange={(e) => setPerfilNovoUser(e.target.value as any)}
+                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:border-amber-500 focus:outline-none"
+                  >
+                    <option value="CELULA">Líder de Célula</option>
+                    <option value="REDE">Líder de Rede</option>
+                    <option value="MIDIA">Equipe de Mídia</option>
+                  </select>
+                </div>
               </div>
+
+              {/* CAMPOS ESPECÍFICOS: LÍDER DE CÉLULA */}
+              {perfilNovoUser === 'CELULA' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-950/70 rounded-xl border border-emerald-500/30">
+                  <div>
+                    <label className="block text-xs font-semibold text-emerald-400 mb-1">
+                      📍 Número / Identificador da Célula *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ex: 01, 10, Betel, Ágape"
+                      value={identificadorCelula}
+                      onChange={(e) => setIdentificadorCelula(e.target.value)}
+                      className="w-full px-3.5 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                    />
+                    <span className="text-[11px] text-slate-400 mt-1 block">
+                      Número ou nome da célula para identificação no sistema.
+                    </span>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-emerald-400 mb-1">
+                      🌐 Nome da Rede da Célula (opcional)
+                    </label>
+                    <input
+                      type="text"
+                      list="redes-sugestoes"
+                      placeholder="Ex: Rede de Jovens, Rede da Família"
+                      value={nomeRede}
+                      onChange={(e) => setNomeRede(e.target.value)}
+                      className="w-full px-3.5 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                    />
+                    <datalist id="redes-sugestoes">
+                      {redesDisponiveis.map((r: any) => (
+                        <option key={r.id} value={r.nome} />
+                      ))}
+                    </datalist>
+                    <span className="text-[11px] text-slate-400 mt-1 block">
+                      Vincule esta célula a uma rede existente ou digite o nome de uma nova.
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* CAMPOS ESPECÍFICOS: LÍDER DE REDE */}
+              {perfilNovoUser === 'REDE' && (
+                <div className="p-3.5 bg-slate-950/70 rounded-xl border border-indigo-500/30">
+                  <label className="block text-xs font-semibold text-indigo-400 mb-1">
+                    🌐 Nome da Rede *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    list="redes-sugestoes-rede"
+                    placeholder="Ex: Rede de Jovens, Rede de Mulheres, Rede de Casais"
+                    value={nomeRede}
+                    onChange={(e) => setNomeRede(e.target.value)}
+                    className="w-full sm:w-1/2 px-3.5 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                  />
+                  <datalist id="redes-sugestoes-rede">
+                    {redesDisponiveis.map((r: any) => (
+                      <option key={r.id} value={r.nome} />
+                    ))}
+                  </datalist>
+                  <span className="text-[11px] text-slate-400 mt-1 block">
+                    O líder de rede supervisionará todas as células vinculadas a esta rede.
+                  </span>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-xl text-sm transition-colors shadow-lg shadow-amber-600/20"
+              >
+                Cadastrar Usuário
+              </button>
             </form>
           </div>
 
@@ -484,13 +584,30 @@ export const PastorView: React.FC = () => {
             <h3 className="text-base font-bold text-white mb-3">Usuários Cadastrados ({usuarios.length})</h3>
             <div className="divide-y divide-slate-800">
               {usuarios.map((u) => (
-                <div key={u.id} className="py-2.5 flex items-center justify-between">
-                  <div>
-                    <span className="text-sm font-semibold text-white block">{u.nome}</span>
-                    <span className="text-xs text-slate-400">{u.email}</span>
+                <div key={u.id} className="py-3 flex flex-wrap items-center justify-between gap-2">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-semibold text-white">{u.nome}</span>
+                      {u.celula?.nome && (
+                        <span className="text-[11px] px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-medium border border-emerald-500/30">
+                          📍 {u.celula.nome}
+                        </span>
+                      )}
+                      {(u.rede?.nome || u.celula?.rede?.nome) && (
+                        <span className="text-[11px] px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 font-medium border border-indigo-500/30">
+                          🌐 {u.rede?.nome || u.celula?.rede?.nome}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs text-slate-400 block">{u.email}</span>
                   </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-semibold uppercase">
-                    {u.perfil}
+                  <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider ${
+                    u.perfil === 'PASTOR' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                    u.perfil === 'REDE' ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' :
+                    u.perfil === 'CELULA' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                    'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                  }`}>
+                    {u.perfil === 'CELULA' ? 'Líder de Célula' : u.perfil === 'REDE' ? 'Líder de Rede' : u.perfil === 'MIDIA' ? 'Mídia' : 'Pastor'}
                   </span>
                 </div>
               ))}

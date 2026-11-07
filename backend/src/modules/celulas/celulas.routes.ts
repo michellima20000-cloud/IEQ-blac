@@ -19,6 +19,7 @@ router.use(tenantMiddleware);
 // --- CÉLULA DO USUÁRIO ---
 router.get('/celulas/minha', CelulasController.obterMinhaCelula);
 router.get('/celulas', CelulasController.listarTodasCelulas);
+router.get('/redes', CelulasController.listarTodasRedes);
 
 // --- MEMBROS ---
 /**

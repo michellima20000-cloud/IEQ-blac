@@ -31,6 +31,20 @@ export class CelulasController {
     }
   }
 
+  static async listarTodasRedes(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { prisma } = await import('../../config/prisma.ts');
+      const redes = await prisma.rede.findMany({
+        where: { igreja_id: req.igreja_id! },
+        include: { _count: { select: { celulas: true, lideres: true } } },
+        orderBy: { nome: 'asc' }
+      });
+      res.json({ redes });
+    } catch (err: any) {
+      res.status(err.statusCode || 400).json({ error: err.name || 'Erro', message: err.message });
+    }
+  }
+
   static async obterMinhaRede(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       let redeId = req.user?.redeId;

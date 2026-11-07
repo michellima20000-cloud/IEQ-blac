@@ -19,6 +19,98 @@ export class UsuariosService {
       throw new Error('Já existe um usuário cadastrado com este e-mail nesta igreja.');
     }
 
+    let redeId = dados.redeId || null;
+    let celulaId = dados.celulaId || null;
+
+    // Se for Líder de Rede e informou o nome da rede
+    if (dados.perfil === 'REDE') {
+      if (dados.nomeRede && dados.nomeRede.trim()) {
+        const nomeFormatado = dados.nomeRede.trim();
+        let rede = await prisma.rede.findFirst({
+          where: {
+            igreja_id,
+            nome: { equals: nomeFormatado, mode: 'insensitive' }
+          }
+        });
+        if (!rede) {
+          rede = await prisma.rede.create({
+            data: {
+              nome: nomeFormatado,
+              igreja_id
+            }
+          });
+        }
+        redeId = rede.id;
+      }
+    }
+
+    // Se for Líder de Célula e informou número/identificador da célula
+    if (dados.perfil === 'CELULA') {
+      // 1. Resolver a Rede
+      let rede = null;
+      if (redeId) {
+        rede = await prisma.rede.findFirst({ where: { id: redeId, igreja_id } });
+      } else if (dados.nomeRede && dados.nomeRede.trim()) {
+        const nomeRedeFormatado = dados.nomeRede.trim();
+        rede = await prisma.rede.findFirst({
+          where: {
+            igreja_id,
+            nome: { equals: nomeRedeFormatado, mode: 'insensitive' }
+          }
+        });
+        if (!rede) {
+          rede = await prisma.rede.create({
+            data: {
+              nome: nomeRedeFormatado,
+              igreja_id
+            }
+          });
+        }
+      }
+
+      if (!rede) {
+        rede = await prisma.rede.findFirst({ where: { igreja_id } });
+        if (!rede) {
+          rede = await prisma.rede.create({
+            data: {
+              nome: 'Rede Geral',
+              igreja_id
+            }
+          });
+        }
+      }
+      redeId = rede.id;
+
+      // 2. Resolver a Célula por número ou nome
+      if (dados.identificadorCelula && dados.identificadorCelula.trim()) {
+        const idLimpo = dados.identificadorCelula.trim();
+        const nomeCelula = idLimpo.toLowerCase().startsWith('célula') || idLimpo.toLowerCase().startsWith('celula')
+          ? idLimpo
+          : `Célula ${idLimpo}`;
+
+        let celula = await prisma.celula.findFirst({
+          where: {
+            igreja_id,
+            nome: { equals: nomeCelula, mode: 'insensitive' }
+          }
+        });
+
+        if (!celula) {
+          celula = await prisma.celula.create({
+            data: {
+              nome: nomeCelula,
+              diaSemana: 'Sábado',
+              horario: '19:30',
+              endereco: 'Sede / Residencial',
+              redeId: rede.id,
+              igreja_id
+            }
+          });
+        }
+        celulaId = celula.id;
+      }
+    }
+
     const senhaHash = await AuthService.hashSenha(dados.senha);
 
     return prisma.usuario.create({
@@ -28,8 +120,8 @@ export class UsuariosService {
         email: dados.email,
         senhaHash,
         perfil: dados.perfil as any,
-        redeId: dados.redeId || null,
-        celulaId: dados.celulaId || null,
+        redeId,
+        celulaId,
         ativo: true
       },
       select: {
@@ -41,7 +133,17 @@ export class UsuariosService {
         redeId: true,
         celulaId: true,
         ativo: true,
-        createdAt: true
+        createdAt: true,
+        celula: {
+          select: {
+            id: true,
+            nome: true,
+            rede: { select: { id: true, nome: true } }
+          }
+        },
+        rede: {
+          select: { id: true, nome: true }
+        }
       }
     });
   }
@@ -64,7 +166,17 @@ export class UsuariosService {
         redeId: true,
         celulaId: true,
         ativo: true,
-        createdAt: true
+        createdAt: true,
+        celula: {
+          select: {
+            id: true,
+            nome: true,
+            rede: { select: { id: true, nome: true } }
+          }
+        },
+        rede: {
+          select: { id: true, nome: true }
+        }
       },
       orderBy: {
         nome: 'asc'
@@ -90,7 +202,17 @@ export class UsuariosService {
         redeId: true,
         celulaId: true,
         ativo: true,
-        createdAt: true
+        createdAt: true,
+        celula: {
+          select: {
+            id: true,
+            nome: true,
+            rede: { select: { id: true, nome: true } }
+          }
+        },
+        rede: {
+          select: { id: true, nome: true }
+        }
       }
     });
 
@@ -105,15 +227,72 @@ export class UsuariosService {
    * Atualiza ou desativa usuário da igreja
    */
   static async atualizar(igreja_id: string, id: string, dados: AtualizarUsuarioInput) {
-    await this.buscarPorId(igreja_id, id);
+    const usuario = await this.buscarPorId(igreja_id, id);
+
+    let redeId = dados.redeId !== undefined ? dados.redeId : usuario.redeId;
+    let celulaId = dados.celulaId !== undefined ? dados.celulaId : usuario.celulaId;
+
+    if (dados.nomeRede && dados.nomeRede.trim()) {
+      const nomeFormatado = dados.nomeRede.trim();
+      let rede = await prisma.rede.findFirst({
+        where: {
+          igreja_id,
+          nome: { equals: nomeFormatado, mode: 'insensitive' }
+        }
+      });
+      if (!rede) {
+        rede = await prisma.rede.create({
+          data: { nome: nomeFormatado, igreja_id }
+        });
+      }
+      redeId = rede.id;
+    }
+
+    if (dados.identificadorCelula && dados.identificadorCelula.trim()) {
+      const idLimpo = dados.identificadorCelula.trim();
+      const nomeCelula = idLimpo.toLowerCase().startsWith('célula') || idLimpo.toLowerCase().startsWith('celula')
+        ? idLimpo
+        : `Célula ${idLimpo}`;
+
+      let celula = await prisma.celula.findFirst({
+        where: {
+          igreja_id,
+          nome: { equals: nomeCelula, mode: 'insensitive' }
+        }
+      });
+
+      if (!celula) {
+        let redeParaCelula = redeId ? await prisma.rede.findUnique({ where: { id: redeId } }) : null;
+        if (!redeParaCelula) {
+          redeParaCelula = await prisma.rede.findFirst({ where: { igreja_id } });
+          if (!redeParaCelula) {
+            redeParaCelula = await prisma.rede.create({
+              data: { nome: 'Rede Geral', igreja_id }
+            });
+          }
+        }
+        celula = await prisma.celula.create({
+          data: {
+            nome: nomeCelula,
+            diaSemana: 'Sábado',
+            horario: '19:30',
+            endereco: 'Sede / Residencial',
+            redeId: redeParaCelula.id,
+            igreja_id
+          }
+        });
+      }
+      celulaId = celula.id;
+      redeId = celula.redeId;
+    }
 
     return prisma.usuario.update({
       where: { id },
       data: {
         ...(dados.nome ? { nome: dados.nome } : {}),
         ...(dados.ativo !== undefined ? { ativo: dados.ativo } : {}),
-        ...(dados.redeId !== undefined ? { redeId: dados.redeId } : {}),
-        ...(dados.celulaId !== undefined ? { celulaId: dados.celulaId } : {})
+        redeId,
+        celulaId
       },
       select: {
         id: true,
@@ -124,7 +303,17 @@ export class UsuariosService {
         redeId: true,
         celulaId: true,
         ativo: true,
-        updatedAt: true
+        updatedAt: true,
+        celula: {
+          select: {
+            id: true,
+            nome: true,
+            rede: { select: { id: true, nome: true } }
+          }
+        },
+        rede: {
+          select: { id: true, nome: true }
+        }
       }
     });
   }
