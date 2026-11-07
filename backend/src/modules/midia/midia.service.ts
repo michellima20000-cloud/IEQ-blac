@@ -18,10 +18,11 @@ export class MidiaService {
       status = dados.precisaAprovacao ? 'PENDENTE' : 'PUBLICADO';
     }
 
+    const autorId = usuario.id || (usuario as any).sub;
     return prisma.conteudoMidia.create({
       data: {
         igreja_id: usuario.igreja_id,
-        autorId: usuario.id,
+        autorId,
         tipo: dados.tipo as any,
         titulo: dados.titulo,
         descricao: dados.descricao || null,
@@ -59,10 +60,11 @@ export class MidiaService {
       throw new PermissaoError('Acesso restrito à Mídia e Pastor.');
     }
 
+    const autorId = usuario.id || (usuario as any).sub;
     return prisma.conteudoMidia.findMany({
       where: {
         igreja_id: usuario.igreja_id,
-        ...(usuario.perfil === 'MIDIA' ? { autorId: usuario.id } : {})
+        ...(usuario.perfil === 'MIDIA' ? { autorId } : {})
       },
       orderBy: { createdAt: 'desc' }
     });

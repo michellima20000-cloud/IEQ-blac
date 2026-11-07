@@ -24,11 +24,16 @@ export class RelatoriosService {
       celulaId: celula.id
     });
 
+    const liderId = usuario.id || (usuario as any).sub;
+    if (!liderId) {
+      throw new Error('Identificação do líder inválida.');
+    }
+
     return prisma.relatorioCelula.create({
       data: {
         igreja_id: celula.igreja_id,
         celulaId: celula.id,
-        liderId: usuario.id,
+        liderId,
         data: new Date(dados.data),
         presentes: dados.presentes,
         visitantes: dados.visitantes,
@@ -148,16 +153,17 @@ export class RelatoriosService {
       celulaId: relatorio.celulaId
     });
 
+    const uid = usuario.id || (usuario as any).sub;
     // 3. Registra no Log de Auditoria
     await prisma.logAuditoria.create({
       data: {
         igreja_id: relatorio.igreja_id,
-        usuarioId: usuario.id,
+        usuarioId: uid,
         acao: 'VISUALIZAR_FOTO_RELATORIO',
         recurso: `RelatorioCelula:${relatorioId}`,
         detalhesJson: JSON.stringify({
           fotoUrl: relatorio.fotoUrl,
-          visualizadoPor: usuario.id,
+          visualizadoPor: uid,
           perfil: usuario.perfil,
           data: new Date().toISOString()
         }),

@@ -42,7 +42,7 @@ export class VisualService {
         ...CONFIG_VISUAL_PADRAO,
         ...dados
       },
-      atualizadoPor: usuario.id,
+      atualizadoPor: usuario.id || (usuario as any).sub,
       atualizadoEm: new Date().toISOString()
     };
   }

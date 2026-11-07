@@ -41,7 +41,8 @@ export function authMiddleware(req: AuthenticatedRequest, res: any, next: (err?:
   const token = parts[1];
 
   try {
-    const decoded = verifyJwt(token, ENV.JWT_SECRET) as TokenPayload;
+    const decoded = verifyJwt(token, ENV.JWT_SECRET) as any;
+    decoded.id = decoded.sub; // Garante que usuario.id seja sempre igual a usuario.sub
     req.user = decoded;
     req.igreja_id = decoded.igreja_id;
     next();
