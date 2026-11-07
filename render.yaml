@@ -14,9 +14,7 @@ services:
       - key: PORT
         value: "3001"
       - key: DATABASE_URL
-        fromDatabase:
-          name: ieq-postgres
-          property: connectionString
+        value: postgresql://ieq_banco_user:Q7exGvg46eVFiMSCQSabrWGpgMMDjlfJ@dpg-dbn6eq3bc2fs738m3t4g-a/ieq_banco
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_REFRESH_SECRET
