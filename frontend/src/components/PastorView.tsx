@@ -108,12 +108,6 @@ export const PastorView: React.FC = () => {
       setMensagemErro(err.message);
     }
   };
-      setMensagemSucesso('Usuário cadastrado com sucesso!');
-      carregarDadosPastor();
-    } catch (err: any) {
-      setMensagemErro(err.message);
-    }
-  };
 
   if (carregando) {
     return <div className="text-center py-12 text-slate-400">Carregando painel pastoral...</div>;
