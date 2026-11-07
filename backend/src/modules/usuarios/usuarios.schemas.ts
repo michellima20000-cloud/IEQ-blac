@@ -7,24 +7,8 @@ export const criarUsuarioSchema = z.object({
   perfil: z.enum(['CELULA', 'REDE', 'MIDIA'], {
     errorMap: () => ({ message: 'Perfil inválido. Permitidos: CELULA, REDE, MIDIA' })
   }),
-  redeId: z.string().uuid('ID da rede inválido').optional().nullable(),
-  celulaId: z.string().uuid('ID da célula inválido').optional().nullable()
-}).refine((data) => {
-  if (data.perfil === 'CELULA' && !data.celulaId) {
-    return false;
-  }
-  return true;
-}, {
-  message: 'Líder de Célula requer vínculo com uma célula (celulaId)',
-  path: ['celulaId']
-}).refine((data) => {
-  if (data.perfil === 'REDE' && !data.redeId) {
-    return false;
-  }
-  return true;
-}, {
-  message: 'Líder de Rede requer vínculo com uma rede (redeId)',
-  path: ['redeId']
+  redeId: z.string().optional().nullable(),
+  celulaId: z.string().optional().nullable()
 });
 
 export const atualizarUsuarioSchema = z.object({
