@@ -1,4 +1,6 @@
-const BASE_URL = ((import.meta as any).env?.VITE_API_URL as string) || 'http://localhost:3001/api/v1';
+const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const DEFAULT_URL = isLocal ? 'http://localhost:3001/api/v1' : 'https://ieq-black.onrender.com/api/v1';
+const BASE_URL = ((import.meta as any).env?.VITE_API_URL as string) || DEFAULT_URL;
 
 export interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;

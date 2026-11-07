@@ -61,6 +61,31 @@ app.get('/api/v1/health', (_req: Request, res: Response) => {
   });
 });
 
+// Endpoint facilitador para inicializar/reparar banco no Render
+app.get('/api/v1/setup-db', async (_req: Request, res: Response) => {
+  try {
+    const { execSync } = await import('child_process');
+    console.log('🔄 Executando prisma db push...');
+    execSync('npx prisma db push --accept-data-loss', { stdio: 'inherit' });
+
+    console.log('🌱 Executando seed...');
+    const { main: runSeed } = await import('../prisma/seed.ts');
+    await runSeed();
+
+    res.json({
+      status: 'ok',
+      message: 'Banco sincronizado e Seed criado com sucesso! Usuários e igreja prontos para login.',
+      pastor: 'pastor@ieq.com',
+      slug: 'ieq-sede'
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      status: 'error',
+      message: err.message || 'Falha ao executar setup do banco.'
+    });
+  }
+});
+
 // 5. Rotas versionadas em /api/v1
 app.use('/api/v1', v1Router);
 
