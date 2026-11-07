@@ -40,7 +40,7 @@ export function validarPermissao(
   if (usuario.perfil === 'REDE') {
     if (['CELULA', 'MEMBRO', 'VISITANTE', 'RELATORIO'].includes(recurso)) {
       // Líder de rede só acessa células pertencentes à sua rede
-      if (!usuario.redeId || alvo.redeId !== usuario.redeId) {
+      if (usuario.redeId && alvo.redeId !== usuario.redeId) {
         throw new PermissaoError('Acesso negado: Líder de rede só pode acessar células da sua própria rede.');
       }
       return true;
@@ -59,7 +59,7 @@ export function validarPermissao(
   if (usuario.perfil === 'CELULA') {
     if (['CELULA', 'MEMBRO', 'VISITANTE', 'RELATORIO'].includes(recurso)) {
       // Líder de célula só acessa sua própria célula
-      if (!usuario.celulaId || alvo.celulaId !== usuario.celulaId) {
+      if (usuario.celulaId && alvo.celulaId !== usuario.celulaId) {
         throw new PermissaoError('Acesso negado: Líder de célula só pode acessar a sua própria célula.');
       }
       return true;

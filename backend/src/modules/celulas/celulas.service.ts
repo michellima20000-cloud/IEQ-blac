@@ -5,6 +5,62 @@ import type { CriarMembroInput, AtualizarMembroInput, CriarVisitanteInput } from
 
 export class CelulasService {
   /**
+   * Obtém a célula do líder ou vincula automaticamente a primeira da igreja
+   */
+  static async obterOuVincularMinhaCelula(usuario: UsuarioAutenticado) {
+    if (usuario.celulaId) {
+      const celula = await prisma.celula.findUnique({ where: { id: usuario.celulaId } });
+      if (celula) return celula;
+    }
+
+    // Busca a primeira célula existente da congregação
+    let celula = await prisma.celula.findFirst({
+      where: { igreja_id: usuario.igreja_id }
+    });
+
+    if (!celula) {
+      let rede = await prisma.rede.findFirst({ where: { igreja_id: usuario.igreja_id } });
+      if (!rede) {
+        rede = await prisma.rede.create({
+          data: { nome: 'Rede Central', igreja_id: usuario.igreja_id }
+        });
+      }
+      celula = await prisma.celula.create({
+        data: {
+          nome: 'Célula Principal',
+          diaSemana: 'Sábado',
+          horario: '19:30',
+          endereco: 'Sede da Igreja',
+          redeId: rede.id,
+          igreja_id: usuario.igreja_id
+        }
+      });
+    }
+
+    // Atualiza o vínculo do usuário
+    await prisma.usuario.update({
+      where: { id: usuario.id },
+      data: { celulaId: celula.id, redeId: celula.redeId }
+    });
+
+    return celula;
+  }
+
+  /**
+   * Lista todas as células da igreja
+   */
+  static async listarTodas(igreja_id: string) {
+    return prisma.celula.findMany({
+      where: { igreja_id },
+      include: {
+        rede: { select: { id: true, nome: true } },
+        _count: { select: { membros: true, relatorios: true } }
+      },
+      orderBy: { nome: 'asc' }
+    });
+  }
+
+  /**
    * Valida acesso à célula e retorna a entidade com sua redeId e igreja_id
    */
   static async obterCelula(celulaId: string) {

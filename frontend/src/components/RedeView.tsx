@@ -11,18 +11,16 @@ export const RedeView: React.FC = () => {
   const redeId = usuario?.redeId;
 
   useEffect(() => {
-    if (redeId) {
-      carregarConsolidado();
-    }
-  }, [redeId]);
+    carregarConsolidado();
+  }, []);
 
   const carregarConsolidado = async () => {
-    if (!redeId) return;
     setCarregando(true);
     setErro(null);
 
     try {
-      const res = await ApiClient.get(`/redes/${redeId}/consolidado`);
+      const endpoint = redeId ? `/redes/${redeId}/consolidado` : '/redes/minha';
+      const res = await ApiClient.get(endpoint);
       setDadosRede(res);
     } catch (err: any) {
       setErro(err.message || 'Falha ao carregar dados da rede.');

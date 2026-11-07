@@ -16,6 +16,10 @@ const router = Router();
 router.use(authMiddleware);
 router.use(tenantMiddleware);
 
+// --- CÉLULA DO USUÁRIO ---
+router.get('/celulas/minha', CelulasController.obterMinhaCelula);
+router.get('/celulas', CelulasController.listarTodasCelulas);
+
 // --- MEMBROS ---
 /**
  * @swagger
@@ -41,6 +45,7 @@ router.post('/relatorios/:id/fechar', CelulasController.fecharRelatorio);
 router.get('/relatorios/:id/foto', CelulasController.visualizarFoto);
 
 // --- CONSOLIDADO DA REDE (LÍDER DE REDE) ---
+router.get('/redes/minha', CelulasController.obterMinhaRede);
 router.get('/redes/:redeId/consolidado', CelulasController.consolidadoRede);
 
 // --- DASHBOARD (PASTOR) ---

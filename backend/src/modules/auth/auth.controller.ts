@@ -50,14 +50,61 @@ export class AuthController {
       return;
     }
 
+    let redeId = usuario.redeId;
+    let celulaId = usuario.celulaId;
+
+    // Se líder de célula não possui célula vinculada, vincula à primeira célula da igreja ou cria uma
+    if (usuario.perfil === 'CELULA' && !celulaId) {
+      let celula = await prisma.celula.findFirst({ where: { igreja_id: igreja.id } });
+      if (!celula) {
+        let rede = await prisma.rede.findFirst({ where: { igreja_id: igreja.id } });
+        if (!rede) {
+          rede = await prisma.rede.create({
+            data: { nome: 'Rede Geral', igreja_id: igreja.id }
+          });
+        }
+        celula = await prisma.celula.create({
+          data: {
+            nome: `Célula ${usuario.nome}`,
+            diaSemana: 'Sábado',
+            horario: '19:30',
+            endereco: 'Sede da Igreja',
+            redeId: rede.id,
+            igreja_id: igreja.id
+          }
+        });
+      }
+      celulaId = celula.id;
+      redeId = celula.redeId;
+      await prisma.usuario.update({
+        where: { id: usuario.id },
+        data: { celulaId, redeId }
+      });
+    }
+
+    // Se líder de rede não possui rede vinculada, vincula à primeira rede da igreja
+    if (usuario.perfil === 'REDE' && !redeId) {
+      let rede = await prisma.rede.findFirst({ where: { igreja_id: igreja.id } });
+      if (!rede) {
+        rede = await prisma.rede.create({
+          data: { nome: 'Rede Geral', igreja_id: igreja.id }
+        });
+      }
+      redeId = rede.id;
+      await prisma.usuario.update({
+        where: { id: usuario.id },
+        data: { redeId }
+      });
+    }
+
     const tokens = AuthService.gerarTokens({
       id: usuario.id,
       nome: usuario.nome,
       email: usuario.email,
       perfil: usuario.perfil as any,
       igreja_id: usuario.igreja_id,
-      redeId: usuario.redeId,
-      celulaId: usuario.celulaId
+      redeId,
+      celulaId
     });
 
     res.json({
@@ -67,6 +114,8 @@ export class AuthController {
         nome: usuario.nome,
         email: usuario.email,
         perfil: usuario.perfil,
+        redeId,
+        celulaId,
         igreja: {
           id: igreja.id,
           nome: igreja.nome,

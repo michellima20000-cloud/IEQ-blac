@@ -13,6 +13,48 @@ import type {
 } from './celulas.schemas.ts';
 
 export class CelulasController {
+  static async obterMinhaCelula(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const celula = await CelulasService.obterOuVincularMinhaCelula(req.user as any);
+      res.json({ celula });
+    } catch (err: any) {
+      res.status(err.statusCode || 400).json({ error: err.name || 'Erro', message: err.message });
+    }
+  }
+
+  static async listarTodasCelulas(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const celulas = await CelulasService.listarTodas(req.igreja_id!);
+      res.json({ celulas });
+    } catch (err: any) {
+      res.status(err.statusCode || 400).json({ error: err.name || 'Erro', message: err.message });
+    }
+  }
+
+  static async obterMinhaRede(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      let redeId = req.user?.redeId;
+      if (!redeId) {
+        const { prisma } = await import('../../config/prisma.ts');
+        let rede = await prisma.rede.findFirst({ where: { igreja_id: req.igreja_id! } });
+        if (!rede) {
+          rede = await prisma.rede.create({
+            data: { nome: 'Rede Central', igreja_id: req.igreja_id! }
+          });
+        }
+        redeId = rede.id;
+        await prisma.usuario.update({
+          where: { id: req.user!.sub },
+          data: { redeId }
+        });
+      }
+      const consolidado = await RedesService.obterConsolidadoRede(req.user as any, redeId);
+      res.json(consolidado);
+    } catch (err: any) {
+      res.status(err.statusCode || 400).json({ error: err.name || 'Erro', message: err.message });
+    }
+  }
+
   // --- MEMBROS ---
   static async criarMembro(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {

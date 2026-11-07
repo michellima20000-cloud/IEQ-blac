@@ -11,6 +11,8 @@ export const CelulaView: React.FC = () => {
   const [visitantes, setVisitantes] = useState<any[]>([]);
   const [nomeNovoMembro, setNomeNovoMembro] = useState('');
   const [telefoneNovoMembro, setTelefoneNovoMembro] = useState('');
+  const [nomeNovoVisitante, setNomeNovoVisitante] = useState('');
+  const [telefoneNovoVisitante, setTelefoneNovoVisitante] = useState('');
 
   // Formulário de Relatório
   const [dataRelatorio, setDataRelatorio] = useState(new Date().toISOString().split('T')[0]);
@@ -19,26 +21,42 @@ export const CelulaView: React.FC = () => {
   const [observacoes, setObservacoes] = useState('');
   const [fotoBase64, setFotoBase64] = useState<string | null>(null);
   const [relatorioAtual, setRelatorioAtual] = useState<any | null>(null);
+  const [celulaAtual, setCelulaAtual] = useState<any | null>(null);
+  const [celulaId, setCelulaId] = useState<string | null>(usuario?.celulaId || null);
 
   const [mensagemSucesso, setMensagemSucesso] = useState<string | null>(null);
   const [mensagemErro, setMensagemErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const celulaId = usuario?.celulaId;
 
   useEffect(() => {
-    if (celulaId) {
-      carregarMembrosEVisitantes();
-    }
-  }, [celulaId]);
+    carregarMinhaCelula();
+  }, []);
 
-  const carregarMembrosEVisitantes = async () => {
-    if (!celulaId) return;
+  const carregarMinhaCelula = async () => {
+    try {
+      const res = await ApiClient.get('/celulas/minha');
+      if (res.celula) {
+        setCelulaAtual(res.celula);
+        setCelulaId(res.celula.id);
+        carregarMembrosEVisitantes(res.celula.id);
+      }
+    } catch {
+      if (usuario?.celulaId) {
+        setCelulaId(usuario.celulaId);
+        carregarMembrosEVisitantes(usuario.celulaId);
+      }
+    }
+  };
+
+  const carregarMembrosEVisitantes = async (id?: string) => {
+    const cid = id || celulaId;
+    if (!cid) return;
     try {
       const [resM, resV] = await Promise.all([
-        ApiClient.get(`/celulas/${celulaId}/membros`),
-        ApiClient.get(`/celulas/${celulaId}/visitantes`)
+        ApiClient.get(`/celulas/${cid}/membros`),
+        ApiClient.get(`/celulas/${cid}/visitantes`)
       ]);
       setMembros(resM.membros || []);
       setVisitantes(resV.visitantes || []);
@@ -49,18 +67,45 @@ export const CelulaView: React.FC = () => {
 
   const handleCadastrarMembro = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!celulaId) return;
+    const cid = celulaId || celulaAtual?.id;
+    if (!cid) {
+      setMensagemErro('Carregando célula... tente novamente em instantes.');
+      return;
+    }
     setMensagemErro(null);
 
     try {
-      await ApiClient.post(`/celulas/${celulaId}/membros`, {
+      await ApiClient.post(`/celulas/${cid}/membros`, {
         nome: nomeNovoMembro,
         telefone: telefoneNovoMembro
       });
       setNomeNovoMembro('');
       setTelefoneNovoMembro('');
       setMensagemSucesso('Membro cadastrado com sucesso!');
-      carregarMembrosEVisitantes();
+      carregarMembrosEVisitantes(cid);
+    } catch (err: any) {
+      setMensagemErro(err.message);
+    }
+  };
+
+  const handleCadastrarVisitante = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cid = celulaId || celulaAtual?.id;
+    if (!cid) {
+      setMensagemErro('Carregando célula... tente novamente em instantes.');
+      return;
+    }
+    setMensagemErro(null);
+
+    try {
+      await ApiClient.post(`/celulas/${cid}/visitantes`, {
+        nome: nomeNovoVisitante,
+        telefone: telefoneNovoVisitante
+      });
+      setNomeNovoVisitante('');
+      setTelefoneNovoVisitante('');
+      setMensagemSucesso('Visitante cadastrado com sucesso!');
+      carregarMembrosEVisitantes(cid);
     } catch (err: any) {
       setMensagemErro(err.message);
     }
@@ -79,12 +124,17 @@ export const CelulaView: React.FC = () => {
 
   const handleCriarRelatorio = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!celulaId) return;
+    const cid = celulaId || celulaAtual?.id;
+    if (!cid) {
+      setMensagemErro('Identificando sua célula... aguarde um instante e clique novamente.');
+      await carregarMinhaCelula();
+      return;
+    }
     setMensagemErro(null);
     setEnviando(true);
 
     try {
-      const res = await ApiClient.post(`/celulas/${celulaId}/relatorios`, {
+      const res = await ApiClient.post(`/celulas/${cid}/relatorios`, {
         data: dataRelatorio,
         presentes: Number(presentes),
         visitantes: Number(totalVisitantes),
@@ -125,7 +175,9 @@ export const CelulaView: React.FC = () => {
         <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider block mb-1">
           Área do Líder de Célula
         </span>
-        <h2 className="text-xl sm:text-2xl font-bold text-white">Minha Célula</h2>
+        <h2 className="text-xl sm:text-2xl font-bold text-white">
+          {celulaAtual ? `Minha Célula: ${celulaAtual.nome}` : 'Minha Célula'}
+        </h2>
         <p className="text-slate-400 text-sm">Gerencie os membros da sua célula e envie o relatório semanal com foto</p>
 
         {/* Abas Sub-navegação */}
@@ -337,6 +389,33 @@ export const CelulaView: React.FC = () => {
                 </div>
               ))}
             </div>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 mt-4">
+            <h3 className="text-base font-bold text-white mb-3">Cadastrar Novo Visitante</h3>
+            <form onSubmit={handleCadastrarVisitante} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <input
+                type="text"
+                required
+                placeholder="Nome do visitante"
+                value={nomeNovoVisitante}
+                onChange={(e) => setNomeNovoVisitante(e.target.value)}
+                className="px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white"
+              />
+              <input
+                type="text"
+                placeholder="Telefone / WhatsApp"
+                value={telefoneNovoVisitante}
+                onChange={(e) => setTelefoneNovoVisitante(e.target.value)}
+                className="px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white"
+              />
+              <button
+                type="submit"
+                className="py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-sm"
+              >
+                + Adicionar Visitante
+              </button>
+            </form>
           </div>
 
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 mt-4">
