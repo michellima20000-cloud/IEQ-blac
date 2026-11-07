@@ -84,6 +84,34 @@ export class PastorDashboardService {
     // 6. Métricas de Armazenamento e Limpeza Automática
     const armazenamento = await CleanupService.calcularMetricasArmazenamento(igreja_id);
 
+    // 7. Lista detalhada de relatórios com célula, rede, líder e foto
+    const relatoriosDetalhados = await prisma.relatorioCelula.findMany({
+      where: {
+        igreja_id,
+        ...(redeId ? { celula: { redeId } } : {})
+      },
+      include: {
+        celula: {
+          select: {
+            id: true,
+            nome: true,
+            diaSemana: true,
+            horario: true,
+            rede: { select: { id: true, nome: true } }
+          }
+        },
+        lider: {
+          select: {
+            id: true,
+            nome: true,
+            email: true
+          }
+        }
+      },
+      orderBy: { data: 'desc' },
+      take: 50
+    });
+
     return {
       periodo: {
         inicio: inicio.toISOString(),
@@ -99,7 +127,8 @@ export class PastorDashboardService {
         mediaFrequenciaPorReuniao: mediaFrequencia
       },
       segurancaBackup: statusBackup,
-      armazenamento
+      armazenamento,
+      relatorios: relatoriosDetalhados
     };
   }
 }
