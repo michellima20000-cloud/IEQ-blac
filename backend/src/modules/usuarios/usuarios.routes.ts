@@ -104,7 +104,7 @@ router.get('/:id', UsuariosController.buscarPorId);
  * @swagger
  * /usuarios/{id}:
  *   patch:
- *     summary: Atualiza ou desativa um usuário da igreja
+ *     summary: Atualiza um usuário da igreja (nome, e-mail, senha, perfil, vínculos ou status)
  *     tags: [Gestão de Usuários]
  *     security:
  *       - BearerAuth: []
@@ -122,6 +122,13 @@ router.get('/:id', UsuariosController.buscarPorId);
  *             properties:
  *               nome:
  *                 type: string
+ *               email:
+ *                 type: string
+ *               senha:
+ *                 type: string
+ *               perfil:
+ *                 type: string
+ *                 enum: [CELULA, REDE, MIDIA, PASTOR]
  *               ativo:
  *                 type: boolean
  *               redeId:
@@ -135,6 +142,31 @@ router.get('/:id', UsuariosController.buscarPorId);
  *         description: Usuário não encontrado
  */
 router.patch('/:id', validate(atualizarUsuarioSchema), UsuariosController.atualizar);
+
+/**
+ * @swagger
+ * /usuarios/{id}:
+ *   delete:
+ *     summary: Exclui um usuário da igreja (ou o desativa se houver dados vinculados)
+ *     description: Se o usuário possuir relatórios ou conteúdos de mídia vinculados, ele é apenas desativado para preservar o histórico. O pastor não pode excluir a própria conta.
+ *     tags: [Gestão de Usuários]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Usuário excluído ou desativado
+ *       400:
+ *         description: Operação inválida (ex: excluir o próprio usuário)
+ *       404:
+ *         description: Usuário não encontrado
+ */
+router.delete('/:id', UsuariosController.excluir);
 
 export default router;
 

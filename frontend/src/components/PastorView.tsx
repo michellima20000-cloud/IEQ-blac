@@ -16,10 +16,11 @@ export const PastorView: React.FC = () => {
 
   // Gestão de Usuários
   const [usuarios, setUsuarios] = useState<any[]>([]);
+  const [usuarioEditandoId, setUsuarioEditandoId] = useState<string | null>(null);
   const [nomeNovoUser, setNomeNovoUser] = useState('');
   const [emailNovoUser, setEmailNovoUser] = useState('');
   const [senhaNovoUser, setSenhaNovoUser] = useState('');
-  const [perfilNovoUser, setPerfilNovoUser] = useState<'CELULA' | 'REDE' | 'MIDIA'>('CELULA');
+  const [perfilNovoUser, setPerfilNovoUser] = useState<'CELULA' | 'REDE' | 'MIDIA' | 'PASTOR'>('CELULA');
   const [identificadorCelula, setIdentificadorCelula] = useState('');
   const [nomeRede, setNomeRede] = useState('');
   const [redesDisponiveis, setRedesDisponiveis] = useState<any[]>([]);
@@ -83,26 +84,97 @@ export const PastorView: React.FC = () => {
     }
   };
 
+  const limparFormularioUsuario = () => {
+    setUsuarioEditandoId(null);
+    setNomeNovoUser('');
+    setEmailNovoUser('');
+    setSenhaNovoUser('');
+    setPerfilNovoUser('CELULA');
+    setIdentificadorCelula('');
+    setNomeRede('');
+  };
+
   const handleCadastrarUsuario = async (e: React.FormEvent) => {
     e.preventDefault();
     setMensagemErro(null);
 
     try {
-      await ApiClient.post('/usuarios', {
-        nome: nomeNovoUser,
-        email: emailNovoUser,
-        senha: senhaNovoUser,
-        perfil: perfilNovoUser,
-        identificadorCelula: perfilNovoUser === 'CELULA' ? identificadorCelula : undefined,
-        nomeRede: (perfilNovoUser === 'REDE' || perfilNovoUser === 'CELULA') ? nomeRede : undefined
-      });
+      if (usuarioEditandoId) {
+        await ApiClient.patch(`/usuarios/${usuarioEditandoId}`, {
+          nome: nomeNovoUser,
+          email: emailNovoUser,
+          perfil: perfilNovoUser,
+          senha: senhaNovoUser || undefined,
+          identificadorCelula: perfilNovoUser === 'CELULA' ? identificadorCelula : undefined,
+          nomeRede: (perfilNovoUser === 'REDE' || perfilNovoUser === 'CELULA') ? nomeRede : undefined
+        });
 
-      setNomeNovoUser('');
-      setEmailNovoUser('');
-      setSenhaNovoUser('');
-      setIdentificadorCelula('');
-      setNomeRede('');
-      setMensagemSucesso('Novo usuário cadastrado e vinculado com sucesso!');
+        limparFormularioUsuario();
+        setMensagemSucesso('Usuário atualizado com sucesso!');
+      } else {
+        await ApiClient.post('/usuarios', {
+          nome: nomeNovoUser,
+          email: emailNovoUser,
+          senha: senhaNovoUser,
+          perfil: perfilNovoUser,
+          identificadorCelula: perfilNovoUser === 'CELULA' ? identificadorCelula : undefined,
+          nomeRede: (perfilNovoUser === 'REDE' || perfilNovoUser === 'CELULA') ? nomeRede : undefined
+        });
+
+        limparFormularioUsuario();
+        setMensagemSucesso('Novo usuário cadastrado e vinculado com sucesso!');
+      }
+
+      carregarDadosPastor();
+    } catch (err: any) {
+      setMensagemErro(err.message);
+    }
+  };
+
+  const editarUsuario = (u: any) => {
+    setMensagemErro(null);
+    setMensagemSucesso(null);
+    setUsuarioEditandoId(u.id);
+    setNomeNovoUser(u.nome || '');
+    setEmailNovoUser(u.email || '');
+    setSenhaNovoUser('');
+    setPerfilNovoUser(u.perfil);
+    setIdentificadorCelula(u.perfil === 'CELULA' ? (u.celula?.nome || '') : '');
+    setNomeRede(
+      u.perfil === 'REDE' ? (u.rede?.nome || '')
+      : u.perfil === 'CELULA' ? (u.celula?.rede?.nome || '')
+      : ''
+    );
+    document.getElementById('formulario-usuario')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
+  const cancelarEdicao = () => {
+    limparFormularioUsuario();
+    setMensagemErro(null);
+  };
+
+  const excluirUsuario = async (u: any) => {
+    const confirmacao = window.confirm(
+      `Tem certeza que deseja excluir "${u.nome}" (${u.email})?\n\nSe ele possuir relatórios ou conteúdos vinculados, será apenas desativado.`
+    );
+    if (!confirmacao) return;
+
+    setMensagemErro(null);
+    try {
+      const res = await ApiClient.delete(`/usuarios/${u.id}`);
+      if (usuarioEditandoId === u.id) limparFormularioUsuario();
+      setMensagemSucesso(res.message || 'Usuário excluído com sucesso.');
+      carregarDadosPastor();
+    } catch (err: any) {
+      setMensagemErro(err.message);
+    }
+  };
+
+  const restaurarUsuario = async (u: any) => {
+    setMensagemErro(null);
+    try {
+      await ApiClient.patch(`/usuarios/${u.id}`, { ativo: true });
+      setMensagemSucesso(`"${u.nome}" foi reativado com sucesso.`);
       carregarDadosPastor();
     } catch (err: any) {
       setMensagemErro(err.message);
@@ -442,10 +514,16 @@ export const PastorView: React.FC = () => {
       {/* SUB-ABA: GESTÃO DE USUÁRIOS */}
       {subAba === 'usuarios' && (
         <div className="space-y-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5">
+          <div id="formulario-usuario" className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5">
             <div className="mb-4">
-              <h3 className="text-base font-bold text-white">Cadastrar Novo Usuário</h3>
-              <p className="text-xs text-slate-400">Cadastre líderes de célula, líderes de rede ou a equipe de mídia com seus vínculos</p>
+              <h3 className="text-base font-bold text-white">
+                {usuarioEditandoId ? 'Editar Usuário' : 'Cadastrar Novo Usuário'}
+              </h3>
+              <p className="text-xs text-slate-400">
+                {usuarioEditandoId
+                  ? 'Altere os dados, o perfil de acesso e os vínculos do usuário'
+                  : 'Cadastre líderes de célula, líderes de rede ou a equipe de mídia com seus vínculos'}
+              </p>
             </div>
             <form onSubmit={handleCadastrarUsuario} className="space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -472,11 +550,13 @@ export const PastorView: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">Senha Inicial</label>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">
+                    {usuarioEditandoId ? 'Nova Senha (opcional)' : 'Senha Inicial'}
+                  </label>
                   <input
                     type="password"
-                    required
-                    placeholder="Mínimo 6 dígitos"
+                    required={!usuarioEditandoId}
+                    placeholder={usuarioEditandoId ? 'Deixe em branco para manter a atual' : 'Mínimo 6 dígitos'}
                     value={senhaNovoUser}
                     onChange={(e) => setSenhaNovoUser(e.target.value)}
                     className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:border-amber-500 focus:outline-none"
@@ -492,6 +572,7 @@ export const PastorView: React.FC = () => {
                     <option value="CELULA">Líder de Célula</option>
                     <option value="REDE">Líder de Rede</option>
                     <option value="MIDIA">Equipe de Mídia</option>
+                    {usuarioEditandoId && <option value="PASTOR">Pastor</option>}
                   </select>
                 </div>
               </div>
@@ -565,12 +646,27 @@ export const PastorView: React.FC = () => {
                 </div>
               )}
 
-              <button
-                type="submit"
-                className="w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-xl text-sm transition-colors shadow-lg shadow-amber-600/20"
-              >
-                Cadastrar Usuário
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  className={`flex-1 py-2.5 text-white font-semibold rounded-xl text-sm transition-colors shadow-lg ${
+                    usuarioEditandoId
+                      ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20'
+                      : 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/20'
+                  }`}
+                >
+                  {usuarioEditandoId ? 'Salvar Alterações' : 'Cadastrar Usuário'}
+                </button>
+                {usuarioEditandoId && (
+                  <button
+                    type="button"
+                    onClick={cancelarEdicao}
+                    className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-semibold transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                )}
+              </div>
             </form>
           </div>
 
@@ -578,7 +674,7 @@ export const PastorView: React.FC = () => {
             <h3 className="text-base font-bold text-white mb-3">Usuários Cadastrados ({usuarios.length})</h3>
             <div className="divide-y divide-slate-800">
               {usuarios.map((u) => (
-                <div key={u.id} className="py-3 flex flex-wrap items-center justify-between gap-2">
+                <div key={u.id} className={`py-3 flex flex-wrap items-center justify-between gap-2 ${!u.ativo ? 'opacity-60' : ''}`}>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-semibold text-white">{u.nome}</span>
@@ -592,17 +688,54 @@ export const PastorView: React.FC = () => {
                           🌐 {u.rede?.nome || u.celula?.rede?.nome}
                         </span>
                       )}
+                      {u.ativo === false && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-md bg-red-500/20 text-red-300 font-bold uppercase border border-red-500/30">
+                          Inativo
+                        </span>
+                      )}
                     </div>
                     <span className="text-xs text-slate-400 block">{u.email}</span>
                   </div>
-                  <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider ${
-                    u.perfil === 'PASTOR' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
-                    u.perfil === 'REDE' ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' :
-                    u.perfil === 'CELULA' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
-                    'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                  }`}>
-                    {u.perfil === 'CELULA' ? 'Líder de Célula' : u.perfil === 'REDE' ? 'Líder de Rede' : u.perfil === 'MIDIA' ? 'Mídia' : 'Pastor'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider ${
+                      u.perfil === 'PASTOR' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                      u.perfil === 'REDE' ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' :
+                      u.perfil === 'CELULA' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                      'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                    }`}>
+                      {u.perfil === 'CELULA' ? 'Líder de Célula' : u.perfil === 'REDE' ? 'Líder de Rede' : u.perfil === 'MIDIA' ? 'Mídia' : 'Pastor'}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => editarUsuario(u)}
+                        title="Editar usuário"
+                        className={`text-xs px-2.5 py-1 rounded-lg font-semibold transition-colors ${
+                          usuarioEditandoId === u.id
+                            ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40'
+                            : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                        }`}
+                      >
+                        ✏️ Editar
+                      </button>
+                      {u.ativo === false ? (
+                        <button
+                          onClick={() => restaurarUsuario(u)}
+                          title="Reativar usuário"
+                          className="text-xs px-2.5 py-1 rounded-lg font-semibold bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 transition-colors"
+                        >
+                          ♻️ Reativar
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => excluirUsuario(u)}
+                          title="Excluir usuário"
+                          className="text-xs px-2.5 py-1 rounded-lg font-semibold bg-red-500/15 hover:bg-red-500/25 text-red-300 border border-red-500/30 transition-colors"
+                        >
+                          🗑️ Excluir
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

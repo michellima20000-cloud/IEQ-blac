@@ -15,6 +15,11 @@ export const criarUsuarioSchema = z.object({
 
 export const atualizarUsuarioSchema = z.object({
   nome: z.string().min(3).optional(),
+  email: z.string().email('E-mail inválido').optional(),
+  senha: z.string().min(6, 'A senha deve ter no mínimo 6 caracteres').optional(),
+  perfil: z.enum(['CELULA', 'REDE', 'MIDIA', 'PASTOR'], {
+    errorMap: () => ({ message: 'Perfil inválido. Permitidos: CELULA, REDE, MIDIA, PASTOR' })
+  }).optional(),
   ativo: z.boolean().optional(),
   redeId: z.string().optional().nullable(),
   celulaId: z.string().optional().nullable(),

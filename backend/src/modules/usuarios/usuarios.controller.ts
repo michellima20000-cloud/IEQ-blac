@@ -84,5 +84,29 @@ export class UsuariosController {
       });
     }
   }
+
+  /**
+   * DELETE /api/v1/usuarios/:id
+   * Exclui o usuário; se houver dados vinculados, apenas o desativa
+   */
+  static async excluir(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const igreja_id = req.igreja_id!;
+      const { id } = req.params;
+
+      const resultado = await UsuariosService.excluir(igreja_id, id, req.user?.sub);
+
+      res.json({
+        message: resultado.mensagem,
+        modo: resultado.modo,
+        usuario: resultado.usuario
+      });
+    } catch (err: any) {
+      res.status(400).json({
+        error: 'Erro ao excluir',
+        message: err.message
+      });
+    }
+  }
 }
 

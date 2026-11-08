@@ -224,72 +224,100 @@ export class UsuariosService {
   }
 
   /**
-   * Atualiza ou desativa usuário da igreja
+   * Atualiza usuário da igreja (nome, e-mail, senha, perfil, vínculos e status)
    */
   static async atualizar(igreja_id: string, id: string, dados: AtualizarUsuarioInput) {
     const usuario = await this.buscarPorId(igreja_id, id);
 
+    // E-mail duplicado na mesma igreja
+    if (dados.email && dados.email.toLowerCase() !== usuario.email.toLowerCase()) {
+      const existente = await prisma.usuario.findFirst({
+        where: { igreja_id, email: dados.email }
+      });
+      if (existente) {
+        throw new Error('Já existe um usuário cadastrado com este e-mail nesta igreja.');
+      }
+    }
+
+    const perfilFinal = (dados.perfil ?? usuario.perfil) as any;
+
     let redeId = dados.redeId !== undefined ? dados.redeId : usuario.redeId;
     let celulaId = dados.celulaId !== undefined ? dados.celulaId : usuario.celulaId;
 
-    if (dados.nomeRede && dados.nomeRede.trim()) {
-      const nomeFormatado = dados.nomeRede.trim();
-      let rede = await prisma.rede.findFirst({
-        where: {
-          igreja_id,
-          nome: { equals: nomeFormatado, mode: 'insensitive' }
-        }
-      });
-      if (!rede) {
-        rede = await prisma.rede.create({
-          data: { nome: nomeFormatado, igreja_id }
-        });
+    if (perfilFinal === 'MIDIA') {
+      // Equipe de mídia não possui vínculos de célula/rede
+      redeId = null;
+      celulaId = null;
+    } else if (perfilFinal === 'PASTOR') {
+      // Pastor mantém os vínculos atuais, salvo alteração explícita
+    } else {
+      if (perfilFinal === 'REDE') {
+        // Líder de rede não pertence a uma célula
+        celulaId = null;
       }
-      redeId = rede.id;
-    }
 
-    if (dados.identificadorCelula && dados.identificadorCelula.trim()) {
-      const idLimpo = dados.identificadorCelula.trim();
-      const nomeCelula = idLimpo.toLowerCase().startsWith('célula') || idLimpo.toLowerCase().startsWith('celula')
-        ? idLimpo
-        : `Célula ${idLimpo}`;
-
-      let celula = await prisma.celula.findFirst({
-        where: {
-          igreja_id,
-          nome: { equals: nomeCelula, mode: 'insensitive' }
+      if (dados.nomeRede && dados.nomeRede.trim()) {
+        const nomeFormatado = dados.nomeRede.trim();
+        let rede = await prisma.rede.findFirst({
+          where: {
+            igreja_id,
+            nome: { equals: nomeFormatado, mode: 'insensitive' }
+          }
+        });
+        if (!rede) {
+          rede = await prisma.rede.create({
+            data: { nome: nomeFormatado, igreja_id }
+          });
         }
-      });
+        redeId = rede.id;
+      }
 
-      if (!celula) {
-        let redeParaCelula = redeId ? await prisma.rede.findUnique({ where: { id: redeId } }) : null;
-        if (!redeParaCelula) {
-          redeParaCelula = await prisma.rede.findFirst({ where: { igreja_id } });
+      if (dados.identificadorCelula && dados.identificadorCelula.trim()) {
+        const idLimpo = dados.identificadorCelula.trim();
+        const nomeCelula = idLimpo.toLowerCase().startsWith('célula') || idLimpo.toLowerCase().startsWith('celula')
+          ? idLimpo
+          : `Célula ${idLimpo}`;
+
+        let celula = await prisma.celula.findFirst({
+          where: {
+            igreja_id,
+            nome: { equals: nomeCelula, mode: 'insensitive' }
+          }
+        });
+
+        if (!celula) {
+          let redeParaCelula = redeId ? await prisma.rede.findUnique({ where: { id: redeId } }) : null;
           if (!redeParaCelula) {
-            redeParaCelula = await prisma.rede.create({
-              data: { nome: 'Rede Geral', igreja_id }
-            });
+            redeParaCelula = await prisma.rede.findFirst({ where: { igreja_id } });
+            if (!redeParaCelula) {
+              redeParaCelula = await prisma.rede.create({
+                data: { nome: 'Rede Geral', igreja_id }
+              });
+            }
           }
+          celula = await prisma.celula.create({
+            data: {
+              nome: nomeCelula,
+              diaSemana: 'Sábado',
+              horario: '19:30',
+              endereco: 'Sede / Residencial',
+              redeId: redeParaCelula.id,
+              igreja_id
+            }
+          });
         }
-        celula = await prisma.celula.create({
-          data: {
-            nome: nomeCelula,
-            diaSemana: 'Sábado',
-            horario: '19:30',
-            endereco: 'Sede / Residencial',
-            redeId: redeParaCelula.id,
-            igreja_id
-          }
-        });
+        celulaId = celula.id;
+        redeId = celula.redeId;
       }
-      celulaId = celula.id;
-      redeId = celula.redeId;
     }
 
     return prisma.usuario.update({
       where: { id },
       data: {
         ...(dados.nome ? { nome: dados.nome } : {}),
+        ...(dados.email ? { email: dados.email } : {}),
+        ...(dados.senha ? { senhaHash: await AuthService.hashSenha(dados.senha) } : {}),
+        ...(dados.perfil ? { perfil: perfilFinal } : {}),
         ...(dados.ativo !== undefined ? { ativo: dados.ativo } : {}),
         redeId,
         celulaId
@@ -316,6 +344,52 @@ export class UsuariosService {
         }
       }
     });
+  }
+
+  /**
+   * Exclui um usuário da igreja.
+   * Se o usuário possuir relatórios/conteúdos vinculados (FK Restrict),
+   * ele é apenas desativado (ativo = false) para preservar o histórico.
+   */
+  static async excluir(igreja_id: string, id: string, idSolicitante?: string) {
+    const usuario = await this.buscarPorId(igreja_id, id);
+
+    if (idSolicitante && id === idSolicitante) {
+      throw new Error('Você não pode excluir o próprio usuário.');
+    }
+
+    const [totalRelatorios, totalConteudos] = await Promise.all([
+      prisma.relatorioCelula.count({ where: { liderId: id } }),
+      prisma.conteudoMidia.count({ where: { autorId: id } })
+    ]);
+
+    if (totalRelatorios + totalConteudos > 0) {
+      const desativado = await prisma.usuario.update({
+        where: { id },
+        data: { ativo: false },
+        select: {
+          id: true,
+          nome: true,
+          email: true,
+          perfil: true,
+          ativo: true
+        }
+      });
+
+      return {
+        modo: 'desativado' as const,
+        usuario: desativado,
+        mensagem: `"${usuario.nome}" possui dados vinculados (relatórios/conteúdos) e foi apenas desativado — o acesso dele foi bloqueado.`
+      };
+    }
+
+    await prisma.usuario.delete({ where: { id } });
+
+    return {
+      modo: 'excluido' as const,
+      usuario,
+      mensagem: `Usuário "${usuario.nome}" excluído com sucesso.`
+    };
   }
 }
 
