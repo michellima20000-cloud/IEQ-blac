@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import swaggerUi from 'swagger-ui-express';
 import { ENV } from './config/env.ts';
 import { swaggerSpec } from './config/swagger.ts';
@@ -9,6 +10,10 @@ import { QueueManager } from './jobs/queues.ts';
 import v1Router from './routes.ts';
 
 const app = express();
+
+// A Render fica atrás de um proxy: sem isto, TODOS os usuários contam como
+// um único IP no rate limiter e a API devolve 429 para todo mundo.
+app.set('trust proxy', 1);
 
 // 1. CORS - aceita localhost, FRONTEND_URL e qualquer domínio .vercel.app / .onrender.com
 const ORIGENS_PERMITIDAS = [
@@ -38,6 +43,9 @@ app.use(cors({
 
 // 2. Middlewares essenciais
 app.use(globalRateLimiter);
+// Gzip: listas de mídia/relatórios carregam imagens em base64 (MBs);
+// sem compressão o payload fica pesado e lento em conexões móveis.
+app.use(compression());
 app.use(express.json({ limit: '75mb' }));
 
 // 3. Documentação Swagger/OpenAPI

@@ -1,11 +1,13 @@
 import rateLimit from 'express-rate-limit';
 
 /**
- * Rate limit geral da API: 100 requisições por minuto por IP
+ * Rate limit geral da API: 300 requisições por minuto por IP.
+ * (Com `trust proxy` ativo cada usuário tem seu próprio limite;
+ * o limite maior evita que o uso normal da PWA esbarre na cota ao reabrir o app)
  */
 export const globalRateLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 100,
+  max: 300,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
