@@ -3,6 +3,7 @@ import { MidiaService } from './midia.service.ts';
 import { CalendarioService } from './calendario.service.ts';
 import { VisualService } from './visual.service.ts';
 import { criarMidiaSchema } from './midia.schemas.ts';
+import { cacheDel, cacheGet, cacheSet, chavesCache } from '../../config/upstash.ts';
 import type { AuthenticatedRequest } from '../../middlewares/auth.ts';
 import type {
   CriarMidiaInput,
@@ -34,6 +35,8 @@ export class MidiaController {
         : await criarMidiaSchema.parseAsync(req.body);
 
       const conteudo = await MidiaService.criar(req.user as any, dados);
+      // Qualquer criação pode mudar o que aparece na vitrine
+      await cacheDel(chavesCache.vitrine(req.user!.igreja_id));
       res.status(201).json({
         message: conteudo.status === 'PENDENTE'
           ? 'Conteúdo enviado para aprovação do Pastor.'
@@ -47,8 +50,21 @@ export class MidiaController {
 
   static async listarVitrine(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
+      const chave = chavesCache.vitrine(req.user!.igreja_id);
+      const emCache = await cacheGet<any>(chave);
+      if (emCache) {
+        res.setHeader('X-Cache', 'HIT');
+        res.json(emCache);
+        return;
+      }
+      const resposta = { total: 0, publicacoes: [] as any[] };
       const publicacoes = await MidiaService.listarVitrine(req.user as any);
-      res.json({ total: publicacoes.length, publicacoes });
+      resposta.total = publicacoes.length;
+      resposta.publicacoes = publicacoes as any;
+      // TTL curto: vitrine sempre visível dentro de 1 minuto, com banco aliviado
+      await cacheSet(chave, resposta, 60);
+      res.setHeader('X-Cache', 'MISS');
+      res.json(resposta);
     } catch (err: any) {
       res.status(err.statusCode || 400).json({ error: err.name || 'Erro', message: err.message });
     }
@@ -76,6 +92,7 @@ export class MidiaController {
     try {
       const { id } = req.params;
       const aprovado = await MidiaService.aprovar(req.user as any, id);
+      await cacheDel(chavesCache.vitrine(req.user!.igreja_id));
       res.json({ message: 'Publicação aprovada pelo Pastor e liberada na vitrine!', conteudo: aprovado });
     } catch (err: any) {
       res.status(err.statusCode || 403).json({ error: err.name || 'Erro', message: err.message });
@@ -86,6 +103,7 @@ export class MidiaController {
     try {
       const { id } = req.params;
       const devolvido = await MidiaService.devolver(req.user as any, id, req.body as DevolverMidiaInput);
+      await cacheDel(chavesCache.vitrine(req.user!.igreja_id));
       res.json({ message: 'Conteúdo devolvido à Mídia com comentário para correção.', conteudo: devolvido });
     } catch (err: any) {
       res.status(err.statusCode || 403).json({ error: err.name || 'Erro', message: err.message });
@@ -96,6 +114,7 @@ export class MidiaController {
     try {
       const { id } = req.params;
       const atualizado = await MidiaService.atualizarEReenviar(req.user as any, id, req.body as AtualizarMidiaInput);
+      await cacheDel(chavesCache.vitrine(req.user!.igreja_id));
       res.json({ message: 'Conteúdo corrigido e reenviado com sucesso.', conteudo: atualizado });
     } catch (err: any) {
       res.status(err.statusCode || 400).json({ error: err.name || 'Erro', message: err.message });
