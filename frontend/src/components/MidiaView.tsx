@@ -184,19 +184,27 @@ export default function MidiaView() {
 
     setCarregando(true);
     try {
-      const payload: any = {
+      let corpo: any = {
         tipo: uploadTipo,
         titulo: uploadTitulo,
         descricao: uploadDescricao || null,
         precisaAprovacao: uploadRequerAprovacao,
       };
-      if (uploadYoutube) payload.videoUrl = uploadYoutube;
+      if (uploadYoutube) corpo.videoUrl = uploadYoutube;
       if (uploadArquivo) {
-        payload.arquivoUrl = await lerArquivoDataUrl(uploadArquivo);
-        payload.tamanhoArquivoBytes = uploadArquivo.size;
+        // Multipart com o arquivo binário (sem converter para base64,
+        // que estourava a requisição e causava o erro "Falha ao buscar")
+        const fd = new FormData();
+        fd.append('tipo', corpo.tipo);
+        fd.append('titulo', corpo.titulo);
+        if (corpo.descricao) fd.append('descricao', corpo.descricao);
+        fd.append('videoUrl', corpo.videoUrl || '');
+        fd.append('precisaAprovacao', String(corpo.precisaAprovacao));
+        fd.append('arquivo', uploadArquivo);
+        corpo = fd;
       }
 
-      await api.post('/midia', payload);
+      await api.post('/midia', corpo);
       setSucesso('Mídia enviada com sucesso!');
       setUploadTitulo(''); setUploadDescricao(''); setUploadYoutube('');
       setUploadArquivo(null); if (fileRef.current) fileRef.current.value = '';

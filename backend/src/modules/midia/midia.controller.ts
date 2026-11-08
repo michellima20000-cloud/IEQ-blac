@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { MidiaService } from './midia.service.ts';
 import { CalendarioService } from './calendario.service.ts';
 import { VisualService } from './visual.service.ts';
+import { criarMidiaSchema } from './midia.schemas.ts';
 import type { AuthenticatedRequest } from '../../middlewares/auth.ts';
 import type {
   CriarMidiaInput,
@@ -16,7 +17,23 @@ export class MidiaController {
   // --- MÍDIA & VITRINE ---
   static async criar(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      const conteudo = await MidiaService.criar(req.user as any, req.body as CriarMidiaInput);
+      // Multipart: campos chegam como strings pelo multer + buffer binário do arquivo
+      const arquivo = (req as any).file;
+      const dados: CriarMidiaInput = arquivo
+        ? await criarMidiaSchema.parseAsync({
+            tipo: req.body.tipo,
+            titulo: req.body.titulo,
+            descricao: req.body.descricao || null,
+            videoUrl: req.body.videoUrl || null,
+            precisaAprovacao: req.body.precisaAprovacao === 'true',
+            tipoArquivo: arquivo.mimetype,
+            nomeOriginal: arquivo.originalname,
+            arquivoUrl: `data:${arquivo.mimetype};base64,${arquivo.buffer.toString('base64')}`,
+            tamanhoArquivoBytes: arquivo.size
+          })
+        : await criarMidiaSchema.parseAsync(req.body);
+
+      const conteudo = await MidiaService.criar(req.user as any, dados);
       res.status(201).json({
         message: conteudo.status === 'PENDENTE'
           ? 'Conteúdo enviado para aprovação do Pastor.'
