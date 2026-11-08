@@ -5,7 +5,7 @@ import {
   Undo2, Pencil, Trash2, RotateCcw, MapPin, Globe, HardDrive, Trash,
   Calendar, Search
 } from 'lucide-react';
-import { ApiClient } from '../api/client';
+import { ApiClient, fotoUtilizavel } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
 const subAbas = [
@@ -379,7 +379,7 @@ export const PastorView: React.FC = () => {
                       </p>
                     )}
 
-                    {rel.fotoUrl && (
+                    {fotoUtilizavel(rel.fotoUrl) && (
                       <div className="pt-1">
                         <img
                           src={rel.fotoUrl}
@@ -474,7 +474,7 @@ export const PastorView: React.FC = () => {
                     )}
                   </div>
 
-                  {rel.fotoUrl && (
+                  {fotoUtilizavel(rel.fotoUrl) && (
                     <div className="pt-2 border-t border-slate-800">
                       <span className="text-[10px] uppercase text-slate-400 block mb-1.5 font-medium">
                         Foto da Reunião

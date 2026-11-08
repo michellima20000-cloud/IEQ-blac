@@ -2,6 +2,19 @@ const isLocal = typeof window !== 'undefined' && (window.location.hostname === '
 const DEFAULT_URL = isLocal ? 'http://localhost:3001/api/v1' : 'https://ieq-black.onrender.com/api/v1';
 const BASE_URL = ((import.meta as any).env?.VITE_API_URL as string) || DEFAULT_URL;
 
+/**
+ * Uma foto só pode ser exibida pelo navegador se for data URL (base64)
+ * ou uma URL http(s). Valores antigos como `minio://...` quebram a imagem.
+ */
+export function fotoUtilizavel(url?: string | null): url is string {
+  return typeof url === 'string' && (
+    url.startsWith('data:') ||
+    url.startsWith('http://') ||
+    url.startsWith('https://')
+  );
+}
+
+
 export interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
   headers?: HeadersInit;

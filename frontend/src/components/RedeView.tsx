@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import {
   Users, ClipboardCheck, UserCheck, UserPlus, TriangleAlert,
-  Calendar, Image as ImageIcon, Radio
+  Calendar, Image as ImageIcon, Radio, X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { ApiClient } from '../api/client';
+import { ApiClient, fotoUtilizavel } from '../api/client';
 
 const stats = [
   { chave: 'totalCelulas', label: 'Células', Icon: Users, cor: 'text-blue-400', bg: 'bg-blue-500/10' },
@@ -19,11 +19,35 @@ export const RedeView: React.FC = () => {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
 
+  // Fotos dos relatórios: URL assinada -> conteúdo real da imagem
+  const [fotos, setFotos] = useState<Record<string, string | null>>({});
+  const [fotoModal, setFotoModal] = useState<string | null>(null);
+
   const redeId = usuario?.redeId;
 
   useEffect(() => {
     carregarConsolidado();
   }, []);
+
+  useEffect(() => {
+    const relatorios: any[] = dadosRede?.relatorios || [];
+    relatorios.forEach((rel) => {
+      if (rel.fotoUrlAssinada && fotos[rel.id] === undefined) {
+        carregarFoto(rel);
+      }
+    });
+  }, [dadosRede]);
+
+  const carregarFoto = async (rel: any) => {
+    try {
+      const token = new URL(rel.fotoUrlAssinada, window.location.origin).searchParams.get('token');
+      const res = token ? await ApiClient.get(`/relatorios/${rel.id}/foto`, { token }) : null;
+      const url = res?.fotoUrl;
+      setFotos((prev) => ({ ...prev, [rel.id]: fotoUtilizavel(url) ? url : null }));
+    } catch {
+      setFotos((prev) => ({ ...prev, [rel.id]: null }));
+    }
+  };
 
   const carregarConsolidado = async () => {
     setCarregando(true);
@@ -170,32 +194,61 @@ export const RedeView: React.FC = () => {
                   )}
                 </div>
 
-                {rel.fotoUrlAssinada && (
-                  <a
-                    href={rel.fotoUrlAssinada}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="sm:w-40 flex-shrink-0 group"
-                  >
-                    <div className="relative w-full h-24 sm:h-full min-h-[96px] rounded-xl overflow-hidden border border-slate-700/70 bg-slate-950">
-                      <img
-                        src={rel.fotoUrlAssinada}
-                        alt={`Foto da reunião — ${rel.celula?.nome}`}
-                        className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-transparent to-transparent" />
-                      <span className="absolute bottom-1.5 left-0 right-0 text-[10px] font-semibold text-white flex items-center justify-center gap-1.5">
-                        <ImageIcon size={11} />
-                        Ver foto
-                      </span>
-                    </div>
-                  </a>
+                {rel.fotoUrlAssinada && fotos[rel.id] !== null && (
+                  <div className="sm:w-40 flex-shrink-0">
+                    {fotos[rel.id] ? (
+                      <button
+                        type="button"
+                        onClick={() => setFotoModal(fotos[rel.id]!)}
+                        title="Ampliar foto da reunião"
+                        className="relative w-full h-24 sm:h-full min-h-[96px] rounded-xl overflow-hidden border border-slate-700/70 bg-slate-950 group block text-left"
+                      >
+                        <img
+                          src={fotos[rel.id]!}
+                          alt={`Foto da reunião — ${rel.celula?.nome}`}
+                          className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-transparent to-transparent" />
+                        <span className="absolute bottom-1.5 left-0 right-0 text-[10px] font-semibold text-white flex items-center justify-center gap-1.5">
+                          <ImageIcon size={11} />
+                          Ver foto
+                        </span>
+                      </button>
+                    ) : (
+                      <div className="w-full h-24 sm:h-full min-h-[96px] rounded-xl border border-dashed border-slate-700/70 bg-slate-950/60 flex items-center justify-center animate-pulse">
+                        <ImageIcon size={16} className="text-slate-600" />
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             ))}
           </div>
         )}
       </section>
+
+      {/* Modal de Ampliação da Foto */}
+      {fotoModal && (
+        <div
+          onClick={() => setFotoModal(null)}
+          className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 cursor-pointer"
+        >
+          <div className="relative max-w-2xl max-h-[90vh] bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl animate-fade-up">
+            <button
+              onClick={() => setFotoModal(null)}
+              title="Fechar"
+              className="absolute top-3 right-3 bg-black/60 hover:bg-black/90 text-white rounded-full w-8 h-8 flex items-center justify-center z-10"
+            >
+              <X size={16} />
+            </button>
+            <img
+              src={fotoModal}
+              alt="Foto da reunião ampliada"
+              className="w-full h-auto max-h-[85vh] object-contain"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

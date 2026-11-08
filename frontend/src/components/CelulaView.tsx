@@ -143,7 +143,7 @@ export const CelulaView: React.FC = () => {
         presentes: Number(presentes),
         visitantes: Number(totalVisitantes),
         observacoes,
-        fotoUrl: fotoBase64 || 'minio://ieq-local/relatorios/reuniao_celula.webp'
+        fotoUrl: fotoBase64 || null
       });
 
       setRelatorioAtual(res.relatorio);
