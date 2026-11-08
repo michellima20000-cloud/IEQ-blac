@@ -34,6 +34,13 @@ if %errorlevel% equ 0 (
     echo SUCESSO! Repositorio atualizado no GitHub:
     echo https://github.com/michellima20000-cloud/IEQ-blac
     echo ========================================================
+    echo.
+    echo [3/3] Sincronizando frontend com a Vercel (IEQ-front)...
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0sync-front.ps1"
+    if errorlevel 1 (
+        echo.
+        echo [AVISO] Frontend nao foi publicado na Vercel. Rode sync-front.ps1 manualmente.
+    )
 ) else (
     echo.
     echo [AVISO] Ocorreu um erro no push. Verifique suas credenciais do GitHub.
