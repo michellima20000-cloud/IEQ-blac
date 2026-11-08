@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { House, Store, Loader2 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginView from './components/LoginView';
 import Layout from './components/Layout';
@@ -16,9 +17,9 @@ function AppContent() {
 
   if (carregando) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="text-center space-y-3">
-          <div className="w-10 h-10 border-4 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <Loader2 size={28} className="text-blue-500 animate-spin mx-auto" />
           <p className="text-slate-400 text-sm">Carregando...</p>
         </div>
       </div>
@@ -41,40 +42,40 @@ function AppContent() {
   }
 
   const labelMinha: Record<string, string> = {
-    CELULA: '🏠 Minha Célula',
-    REDE:   '🔗 Minha Rede',
-    PASTOR: '📊 Painel',
-    MIDIA:  '📢 Mídia',
+    CELULA: 'Minha Célula',
+    REDE: 'Minha Rede',
+    PASTOR: 'Painel',
+    MIDIA: 'Mídia',
   };
+
+  const tabs = [
+    { id: 'minha' as AbaExtra, label: labelMinha[usuario.perfil] ?? 'Principal', Icon: House },
+    { id: 'vitrine' as AbaExtra, label: 'Vitrine', Icon: Store },
+  ];
 
   return (
     <Layout abaAtiva={aba} setAbaAtiva={(novaAba: string) => setAba(novaAba as AbaExtra)}>
       {/* Barra de navegação inferior */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 flex z-50">
-        <button
-          onClick={() => setAba('minha')}
-          className={`flex-1 py-3 text-xs font-medium flex flex-col items-center gap-0.5 transition-colors ${
-            aba === 'minha' ? 'text-sky-400' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <span className="text-lg leading-none">{aba === 'minha' ? '●' : '○'}</span>
-          {labelMinha[usuario.perfil] ?? '🏠 Principal'}
-        </button>
-        <button
-          onClick={() => setAba('vitrine')}
-          className={`flex-1 py-3 text-xs font-medium flex flex-col items-center gap-0.5 transition-colors ${
-            aba === 'vitrine' ? 'text-sky-400' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <span className="text-lg leading-none">{aba === 'vitrine' ? '●' : '○'}</span>
-          🌐 Vitrine
-        </button>
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-800/80 bg-slate-950/85 backdrop-blur-xl safe-bottom">
+        <div className="max-w-5xl mx-auto px-3 py-2 flex gap-2">
+          {tabs.map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              onClick={() => setAba(id)}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 ${
+                aba === id
+                  ? 'bg-blue-600/15 text-blue-400 border border-blue-500/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent'
+              }`}
+            >
+              <Icon size={16} />
+              {label}
+            </button>
+          ))}
+        </div>
       </nav>
 
-      {/* Conteúdo com padding inferior */}
-      <div className="pb-16">
-        {renderizarTelaPrincipal()}
-      </div>
+      {renderizarTelaPrincipal()}
     </Layout>
   );
 }

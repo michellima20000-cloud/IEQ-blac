@@ -1,4 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import {
+  Megaphone, Upload, ClipboardList, Calendar, Palette, ImagePlus,
+  Check, Inbox, MapPin, Pencil, Trash2, RotateCcw, Youtube,
+  CircleCheck, TriangleAlert,
+} from 'lucide-react';
 import { api } from '../api/client';
 
 interface MediaItem {
@@ -40,10 +46,10 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const STATUS_COR: Record<string, string> = {
-  RASCUNHO: 'bg-slate-500/20 text-slate-300 border-slate-500/30',
-  PENDENTE: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
-  PUBLICADO: 'bg-green-500/20 text-green-300 border-green-500/30',
-  DEVOLVIDO: 'bg-red-500/20 text-red-300 border-red-500/30',
+  RASCUNHO: 'badge-slate',
+  PENDENTE: 'badge-amber',
+  PUBLICADO: 'badge-emerald',
+  DEVOLVIDO: 'badge-red',
 };
 
 function msgErro(err: any, fallback: string): string {
@@ -294,157 +300,211 @@ export default function MidiaView() {
     }
   }
 
-  const abas: { id: Aba; label: string; emoji: string }[] = [
-    { id: 'uploads', label: 'Enviar', emoji: '📤' },
-    { id: 'status', label: 'Status', emoji: '📋' },
-    { id: 'calendario', label: 'Calendário', emoji: '📅' },
-    { id: 'visual', label: 'Visual', emoji: '🎨' },
+  const abas: { id: Aba; label: string; Icon: LucideIcon }[] = [
+    { id: 'uploads', label: 'Enviar', Icon: Upload },
+    { id: 'status', label: 'Status', Icon: ClipboardList },
+    { id: 'calendario', label: 'Calendário', Icon: Calendar },
+    { id: 'visual', label: 'Visual', Icon: Palette },
   ];
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100">
-      <header className="bg-slate-800 border-b border-slate-700 px-4 py-3">
-        <h1 className="text-lg font-bold text-sky-400">📢 Mídia</h1>
-      </header>
+    <div className="max-w-3xl mx-auto space-y-5">
+      {/* Header da Mídia */}
+      <div className="card card-pad relative overflow-hidden">
+        <div className="absolute -top-24 -right-16 w-56 h-56 rounded-full bg-blue-600/15 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-20 -left-10 w-44 h-44 rounded-full bg-indigo-600/10 blur-3xl pointer-events-none" />
+        <div className="relative">
+          <span className="eyebrow flex items-center gap-1.5">
+            <Megaphone size={12} />
+            Equipe de Mídia
+          </span>
+          <h2 className="page-title mt-1.5">Mídia</h2>
+          <p className="section-sub mt-1">
+            Publique conteúdo, acompanhe aprovações e organize o calendário da igreja
+          </p>
+        </div>
+      </div>
 
       {/* Abas */}
-      <div className="flex border-b border-slate-700 bg-slate-800">
+      <nav className="flex flex-wrap gap-2">
         {abas.map(a => (
           <button
             key={a.id}
             onClick={() => setAba(a.id)}
-            className={`flex-1 py-2 text-sm font-medium transition-colors ${aba === a.id ? 'text-sky-400 border-b-2 border-sky-400' : 'text-slate-400 hover:text-slate-200'}`}
+            className={`tab flex items-center gap-1.5 ${aba === a.id ? 'tab-active' : ''}`}
           >
-            {a.emoji} {a.label}
+            <a.Icon size={14} />
+            {a.label}
           </button>
         ))}
-      </div>
+      </nav>
 
-      <div className="p-4 max-w-2xl mx-auto space-y-4">
-        {/* Mensagens */}
-        {erro && <div className="bg-red-900/40 border border-red-500/40 text-red-300 rounded-lg px-4 py-3 text-sm">{erro}</div>}
-        {sucesso && <div className="bg-green-900/40 border border-green-500/40 text-green-300 rounded-lg px-4 py-3 text-sm">{sucesso}</div>}
+      {/* Mensagens */}
+      {erro && (
+        <div className="alert-error">
+          <span className="flex items-center gap-2 min-w-0">
+            <TriangleAlert size={15} className="shrink-0" />
+            <span>{erro}</span>
+          </span>
+        </div>
+      )}
+      {sucesso && (
+        <div className="alert-success">
+          <span className="flex items-center gap-2 min-w-0">
+            <CircleCheck size={15} className="shrink-0" />
+            <span>{sucesso}</span>
+          </span>
+        </div>
+      )}
 
-        {/* ABA: Enviar */}
-        {aba === 'uploads' && (
-          <form onSubmit={enviarMidia} className="bg-slate-800 border border-slate-700 rounded-xl p-5 space-y-4">
-            <h2 className="font-semibold text-slate-200">Nova Mídia</h2>
+      {/* ABA: Enviar */}
+      {aba === 'uploads' && (
+        <form onSubmit={enviarMidia} className="card card-pad space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
+              <ImagePlus size={15} />
+            </span>
+            <h2 className="section-title">Nova Mídia</h2>
+          </div>
 
-            <div>
-              <label className="text-xs text-slate-400 block mb-1">Tipo</label>
-              <select
-                value={uploadTipo}
-                onChange={e => setUploadTipo(e.target.value as any)}
-                className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100"
-              >
-                <option value="BANNER">Banner</option>
-                <option value="FOTO">Foto</option>
-                <option value="AVISO">Aviso</option>
-                <option value="VIDEO">Vídeo</option>
-              </select>
-            </div>
+          <div>
+            <label className="label">Tipo</label>
+            <select
+              value={uploadTipo}
+              onChange={e => setUploadTipo(e.target.value as any)}
+              className="input"
+            >
+              <option value="BANNER">Banner</option>
+              <option value="FOTO">Foto</option>
+              <option value="AVISO">Aviso</option>
+              <option value="VIDEO">Vídeo</option>
+            </select>
+          </div>
 
-            <div>
-              <label className="text-xs text-slate-400 block mb-1">Título *</label>
-              <input
-                type="text"
-                value={uploadTitulo}
-                onChange={e => setUploadTitulo(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100"
-                placeholder="Título da mídia"
-              />
-            </div>
+          <div>
+            <label className="label">Título *</label>
+            <input
+              type="text"
+              value={uploadTitulo}
+              onChange={e => setUploadTitulo(e.target.value)}
+              className="input"
+              placeholder="Título da mídia"
+            />
+          </div>
 
-            <div>
-              <label className="text-xs text-slate-400 block mb-1">Descrição</label>
-              <textarea
-                value={uploadDescricao}
-                onChange={e => setUploadDescricao(e.target.value)}
-                rows={3}
-                className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100 resize-none"
-                placeholder="Descrição (opcional)"
-              />
-            </div>
+          <div>
+            <label className="label">Descrição</label>
+            <textarea
+              value={uploadDescricao}
+              onChange={e => setUploadDescricao(e.target.value)}
+              rows={3}
+              className="input resize-none"
+              placeholder="Descrição (opcional)"
+            />
+          </div>
 
-            {uploadTipo === 'VIDEO' ? (
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">Link do YouTube (não listado)</label>
-                  <input
-                    type="url"
-                    value={uploadYoutube}
-                    onChange={e => setUploadYoutube(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100"
-                    placeholder="https://www.youtube.com/watch?v=..."
-                  />
-                </div>
-                <p className="text-xs text-slate-500 text-center">— ou —</p>
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">Arquivo de vídeo (máx. 50 MB)</label>
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept="video/*"
-                    onChange={e => setUploadArquivo(e.target.files?.[0] ?? null)}
-                    className="w-full text-sm text-slate-300"
-                  />
-                </div>
-              </div>
-            ) : (
+          {uploadTipo === 'VIDEO' ? (
+            <div className="space-y-3">
               <div>
-                <label className="text-xs text-slate-400 block mb-1">Arquivo (imagem)</label>
+                <label className="label">Link do YouTube (não listado)</label>
+                <input
+                  type="url"
+                  value={uploadYoutube}
+                  onChange={e => setUploadYoutube(e.target.value)}
+                  className="input"
+                  placeholder="https://www.youtube.com/watch?v=..."
+                />
+              </div>
+              <p className="text-xs text-slate-500 text-center">— ou —</p>
+              <div>
+                <label className="label">Arquivo de vídeo (máx. 50 MB)</label>
                 <input
                   ref={fileRef}
                   type="file"
-                  accept="image/*"
+                  accept="video/*"
                   onChange={e => setUploadArquivo(e.target.files?.[0] ?? null)}
-                  className="w-full text-sm text-slate-300"
+                  className="input"
                 />
               </div>
-            )}
-
-            <label className="flex items-center gap-2 cursor-pointer">
+            </div>
+          ) : (
+            <div>
+              <label className="label">Arquivo (imagem)</label>
               <input
-                type="checkbox"
-                checked={uploadRequerAprovacao}
-                onChange={e => setUploadRequerAprovacao(e.target.checked)}
-                className="w-4 h-4 accent-sky-500"
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                onChange={e => setUploadArquivo(e.target.files?.[0] ?? null)}
+                className="input"
               />
-              <span className="text-sm text-slate-300">Requer aprovação do pastor antes de publicar</span>
-            </label>
+            </div>
+          )}
 
-            <button
-              type="submit"
-              disabled={carregando}
-              className="w-full bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-semibold rounded-lg py-2 text-sm transition-colors"
-            >
-              {carregando ? 'Enviando...' : 'Enviar Mídia'}
-            </button>
-          </form>
-        )}
+          <label className="card-soft card-hover px-3.5 py-3 flex items-center gap-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={uploadRequerAprovacao}
+              onChange={e => setUploadRequerAprovacao(e.target.checked)}
+              className="w-4 h-4 accent-blue-500"
+            />
+            <span className="text-sm text-slate-300">Requer aprovação do pastor antes de publicar</span>
+          </label>
 
-        {/* ABA: Status */}
-        {aba === 'status' && (
+          <button
+            type="submit"
+            disabled={carregando}
+            className="btn-primary w-full"
+          >
+            <Upload size={16} />
+            {carregando ? 'Enviando...' : 'Enviar Mídia'}
+          </button>
+        </form>
+      )}
+
+      {/* ABA: Status */}
+      {aba === 'status' && (
+        <section className="card card-pad">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-2">
+              <span className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
+                <ClipboardList size={15} />
+              </span>
+              <h2 className="section-title">Minhas Mídias</h2>
+            </div>
+            {midias.length > 0 && <span className="badge-blue">{midias.length} mídias</span>}
+          </div>
+
+          {carregando && (
+            <div className="loading-state">
+              <div className="w-7 h-7 border-[3px] border-blue-500 border-t-transparent rounded-full animate-spin" />
+              Carregando...
+            </div>
+          )}
+          {!carregando && midias.length === 0 && (
+            <div className="empty-state border-0 bg-transparent p-8">
+              <Inbox size={22} className="block mx-auto mb-2 text-slate-600" />
+              Nenhuma mídia enviada ainda.
+            </div>
+          )}
+
           <div className="space-y-3">
-            <h2 className="font-semibold text-slate-200">Minhas Mídias</h2>
-            {carregando && <p className="text-slate-400 text-sm text-center">Carregando...</p>}
-            {!carregando && midias.length === 0 && (
-              <p className="text-slate-500 text-sm text-center py-8">Nenhuma mídia enviada ainda.</p>
-            )}
             {midias.map(m => (
-              <div key={m.id} className="bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-medium text-slate-100 text-sm">{m.titulo}</p>
-                    <p className="text-xs text-slate-500">{m.tipo} · {new Date(m.criadoEm).toLocaleDateString('pt-BR')}</p>
+              <div key={m.id} className="card-soft card-hover p-4 space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-white">{m.titulo}</p>
+                    <p className="text-xs text-slate-400 mt-1">{m.tipo} · {new Date(m.criadoEm).toLocaleDateString('pt-BR')}</p>
                   </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${STATUS_COR[m.status]}`}>
+                  <span className={STATUS_COR[m.status]}>
                     {STATUS_LABEL[m.status]}
                   </span>
                 </div>
                 {m.status === 'DEVOLVIDO' && m.comentarioPastor && (
-                  <div className="bg-red-900/30 border border-red-500/30 rounded-lg p-3 text-xs text-red-300">
-                    <p className="font-semibold mb-1">Comentário do pastor:</p>
+                  <div className="rounded-xl border border-red-500/25 bg-red-500/10 p-3 text-xs text-red-300">
+                    <p className="font-semibold mb-1 flex items-center gap-1.5">
+                      <TriangleAlert size={12} />
+                      Comentário do pastor:
+                    </p>
                     <p>{m.comentarioPastor}</p>
                   </div>
                 )}
@@ -452,227 +512,276 @@ export default function MidiaView() {
                   <button
                     onClick={() => reenviarMidia(m.id)}
                     disabled={carregando}
-                    className="w-full bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg py-1.5 transition-colors"
+                    className="btn-soft-success btn-sm w-full"
                   >
+                    <RotateCcw size={13} />
                     Corrigir e Reenviar para Aprovação
                   </button>
                 )}
                 {m.youtubeUrl && (
-                  <a href={m.youtubeUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-sky-400 underline">
+                  <a
+                    href={m.youtubeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-400 hover:text-blue-300 underline"
+                  >
+                    <Youtube size={13} />
                     Ver vídeo no YouTube
                   </a>
                 )}
               </div>
             ))}
           </div>
-        )}
+        </section>
+      )}
 
-        {/* ABA: Calendário */}
-        {aba === 'calendario' && (
-          <div className="space-y-4">
-            <form onSubmit={salvarEvento} className="bg-slate-800 border border-slate-700 rounded-xl p-5 space-y-3">
-              <h2 className="font-semibold text-slate-200">{eventoId ? 'Editar Evento' : 'Novo Evento'}</h2>
+      {/* ABA: Calendário */}
+      {aba === 'calendario' && (
+        <div className="space-y-5">
+          <form onSubmit={salvarEvento} className="card card-pad space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
+                <Calendar size={15} />
+              </span>
+              <h2 className="section-title">{eventoId ? 'Editar Evento' : 'Novo Evento'}</h2>
+            </div>
 
+            <div>
+              <label className="label">Tipo</label>
+              <select
+                value={eventoTipo}
+                onChange={e => setEventoTipo(e.target.value)}
+                className="input"
+              >
+                <option value="CULTO">Culto</option>
+                <option value="CONFERENCIA">Conferência</option>
+                <option value="REUNIAO">Reunião</option>
+                <option value="DATA_ESPECIAL">Data Especial</option>
+                <option value="OUTRO">Outro</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="label">Título *</label>
+              <input
+                type="text"
+                value={eventoTitulo}
+                onChange={e => setEventoTitulo(e.target.value)}
+                className="input"
+                placeholder="Nome do evento"
+              />
+            </div>
+
+            <div>
+              <label className="label">Descrição</label>
+              <textarea
+                value={eventoDesc}
+                onChange={e => setEventoDesc(e.target.value)}
+                rows={2}
+                className="input resize-none"
+              />
+            </div>
+
+            <div>
+              <label className="label">Local</label>
+              <input
+                type="text"
+                value={eventoLocal}
+                onChange={e => setEventoLocal(e.target.value)}
+                className="input"
+                placeholder="Ex.: Templo principal, Online..."
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-slate-400 block mb-1">Tipo</label>
-                <select
-                  value={eventoTipo}
-                  onChange={e => setEventoTipo(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100"
-                >
-                  <option value="CULTO">Culto</option>
-                  <option value="CONFERENCIA">Conferência</option>
-                  <option value="REUNIAO">Reunião</option>
-                  <option value="DATA_ESPECIAL">Data Especial</option>
-                  <option value="OUTRO">Outro</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">Título *</label>
+                <label className="label">Início *</label>
                 <input
-                  type="text"
-                  value={eventoTitulo}
-                  onChange={e => setEventoTitulo(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100"
-                  placeholder="Nome do evento"
+                  type="datetime-local"
+                  value={eventoInicio}
+                  onChange={e => setEventoInicio(e.target.value)}
+                  className="input"
                 />
               </div>
-
               <div>
-                <label className="text-xs text-slate-400 block mb-1">Descrição</label>
-                <textarea
-                  value={eventoDesc}
-                  onChange={e => setEventoDesc(e.target.value)}
-                  rows={2}
-                  className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100 resize-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">Local</label>
+                <label className="label">Fim</label>
                 <input
-                  type="text"
-                  value={eventoLocal}
-                  onChange={e => setEventoLocal(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100"
-                  placeholder="Ex.: Templo principal, Online..."
+                  type="datetime-local"
+                  value={eventoFim}
+                  onChange={e => setEventoFim(e.target.value)}
+                  className="input"
                 />
               </div>
+            </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">Início *</label>
-                  <input
-                    type="datetime-local"
-                    value={eventoInicio}
-                    onChange={e => setEventoInicio(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">Fim</label>
-                  <input
-                    type="datetime-local"
-                    value={eventoFim}
-                    onChange={e => setEventoFim(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  disabled={carregando}
-                  className="flex-1 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-semibold rounded-lg py-2 text-sm transition-colors"
-                >
-                  {carregando ? 'Salvando...' : (eventoId ? 'Atualizar' : 'Criar Evento')}
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={carregando}
+                className="btn-primary flex-1"
+              >
+                <Check size={16} />
+                {carregando ? 'Salvando...' : (eventoId ? 'Atualizar' : 'Criar Evento')}
+              </button>
+              {eventoId && (
+                <button type="button" onClick={limparEvento} className="btn-ghost">
+                  Cancelar
                 </button>
-                {eventoId && (
-                  <button type="button" onClick={limparEvento} className="px-4 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-sm">
-                    Cancelar
-                  </button>
-                )}
-              </div>
-            </form>
-
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-slate-300">Próximos Eventos</h3>
-              {carregando && <p className="text-slate-400 text-sm text-center">Carregando...</p>}
-              {!carregando && eventos.length === 0 && (
-                <p className="text-slate-500 text-sm text-center py-6">Nenhum evento cadastrado.</p>
               )}
+            </div>
+          </form>
+
+          <section className="card card-pad">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div className="flex items-center gap-2">
+                <span className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
+                  <Calendar size={15} />
+                </span>
+                <h3 className="section-title">Próximos Eventos</h3>
+              </div>
+              {eventos.length > 0 && <span className="badge-blue">{eventos.length} eventos</span>}
+            </div>
+
+            {carregando && (
+              <div className="loading-state">
+                <div className="w-7 h-7 border-[3px] border-blue-500 border-t-transparent rounded-full animate-spin" />
+                Carregando...
+              </div>
+            )}
+            {!carregando && eventos.length === 0 && (
+              <div className="empty-state border-0 bg-transparent p-8">
+                <Calendar size={22} className="block mx-auto mb-2 text-slate-600" />
+                Nenhum evento cadastrado.
+              </div>
+            )}
+
+            <div className="space-y-3">
               {eventos.map(ev => (
-                <div key={ev.id} className="bg-slate-800 border border-slate-700 rounded-xl p-4 flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-medium text-slate-100 text-sm">{ev.titulo}</p>
-                    <p className="text-xs text-slate-500">
-                      {ev.tipo} · {new Date(ev.dataInicio).toLocaleString('pt-BR')}
-                      {ev.local ? ` · 📍 ${ev.local}` : ''}
-                    </p>
-                    {ev.descricao && <p className="text-xs text-slate-400 mt-0.5">{ev.descricao}</p>}
+                <div key={ev.id} className="card-soft card-hover p-4 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-white">{ev.titulo}</p>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400 mt-1">
+                      <span>{ev.tipo}</span>
+                      <span className="flex items-center gap-1.5">
+                        <Calendar size={11} className="text-blue-400" />
+                        {new Date(ev.dataInicio).toLocaleString('pt-BR')}
+                      </span>
+                      {ev.local && (
+                        <span className="flex items-center gap-1.5">
+                          <MapPin size={11} className="text-emerald-400" />
+                          {ev.local}
+                        </span>
+                      )}
+                    </div>
+                    {ev.descricao && <p className="text-xs text-slate-400 mt-1">{ev.descricao}</p>}
                   </div>
-                  <div className="flex flex-col gap-1">
+                  <div className="flex flex-col gap-1.5 shrink-0">
                     <button
                       onClick={() => editarEvento(ev)}
-                      className="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-2 py-1 rounded"
+                      className="btn-ghost btn-sm"
                     >
+                      <Pencil size={12} />
                       Editar
                     </button>
                     <button
                       onClick={() => excluirEvento(ev.id)}
-                      className="text-xs bg-red-800/60 hover:bg-red-700/60 text-red-300 px-2 py-1 rounded"
+                      className="btn-soft-danger btn-sm"
                     >
+                      <Trash2 size={12} />
                       Excluir
                     </button>
                   </div>
                 </div>
               ))}
             </div>
+          </section>
+        </div>
+      )}
+
+      {/* ABA: Visual */}
+      {aba === 'visual' && (
+        <form onSubmit={salvarVisual} className="card card-pad space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
+              <Palette size={15} />
+            </span>
+            <h2 className="section-title">Personalização Visual</h2>
           </div>
-        )}
 
-        {/* ABA: Visual */}
-        {aba === 'visual' && (
-          <form onSubmit={salvarVisual} className="bg-slate-800 border border-slate-700 rounded-xl p-5 space-y-4">
-            <h2 className="font-semibold text-slate-200">Personalização Visual</h2>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">Cor Primária</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={corPrimaria}
-                    onChange={e => setCorPrimaria(e.target.value)}
-                    className="w-10 h-10 rounded border border-slate-600 cursor-pointer"
-                  />
-                  <span className="text-xs text-slate-300 font-mono">{corPrimaria}</span>
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">Cor Secundária</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={corSecundaria}
-                    onChange={e => setCorSecundaria(e.target.value)}
-                    className="w-10 h-10 rounded border border-slate-600 cursor-pointer"
-                  />
-                  <span className="text-xs text-slate-300 font-mono">{corSecundaria}</span>
-                </div>
-              </div>
-            </div>
-
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-xs text-slate-400 block mb-1">Layout das telas de divulgação</label>
-              <select
-                value={layoutOpt}
-                onChange={e => setLayoutOpt(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100"
-              >
-                <option value="GRID">Grade</option>
-                <option value="CARROSSEL">Carrossel</option>
-                <option value="LISTA">Lista</option>
-              </select>
+              <label className="label">Cor Primária</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={corPrimaria}
+                  onChange={e => setCorPrimaria(e.target.value)}
+                  className="w-10 h-10 rounded-lg border border-slate-700/70 bg-slate-950/80 cursor-pointer p-1"
+                />
+                <span className="text-xs text-slate-400 font-mono">{corPrimaria}</span>
+              </div>
             </div>
-
             <div>
-              <label className="text-xs text-slate-400 block mb-1">Logo da Igreja</label>
-              {visual?.logoUrl && (
-                <img src={visual.logoUrl} alt="Logo atual" className="h-14 mb-2 rounded" />
-              )}
-              <input
-                ref={logoRef}
-                type="file"
-                accept="image/*"
-                onChange={e => setLogoFile(e.target.files?.[0] ?? null)}
-                className="w-full text-sm text-slate-300"
-              />
-            </div>
-
-            {/* Preview das cores */}
-            <div className="rounded-lg overflow-hidden border border-slate-600">
-              <div className="p-3 text-white text-sm font-semibold text-center" style={{ backgroundColor: corPrimaria }}>
-                Exemplo de Cabeçalho
-              </div>
-              <div className="p-3 text-white text-xs text-center" style={{ backgroundColor: corSecundaria }}>
-                Área de conteúdo
+              <label className="label">Cor Secundária</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={corSecundaria}
+                  onChange={e => setCorSecundaria(e.target.value)}
+                  className="w-10 h-10 rounded-lg border border-slate-700/70 bg-slate-950/80 cursor-pointer p-1"
+                />
+                <span className="text-xs text-slate-400 font-mono">{corSecundaria}</span>
               </div>
             </div>
+          </div>
 
-            <button
-              type="submit"
-              disabled={carregando}
-              className="w-full bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-semibold rounded-lg py-2 text-sm transition-colors"
+          <div>
+            <label className="label">Layout das telas de divulgação</label>
+            <select
+              value={layoutOpt}
+              onChange={e => setLayoutOpt(e.target.value)}
+              className="input"
             >
-              {carregando ? 'Salvando...' : 'Salvar Configurações Visuais'}
-            </button>
-          </form>
-        )}
-      </div>
+              <option value="GRID">Grade</option>
+              <option value="CARROSSEL">Carrossel</option>
+              <option value="LISTA">Lista</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="label">Logo da Igreja</label>
+            {visual?.logoUrl && (
+              <img src={visual.logoUrl} alt="Logo atual" className="h-14 mb-2 rounded-xl border border-slate-700/70" />
+            )}
+            <input
+              ref={logoRef}
+              type="file"
+              accept="image/*"
+              onChange={e => setLogoFile(e.target.files?.[0] ?? null)}
+              className="input"
+            />
+          </div>
+
+          {/* Preview das cores */}
+          <div className="rounded-xl overflow-hidden border border-slate-700/70">
+            <div className="p-3 text-white text-sm font-semibold text-center" style={{ backgroundColor: corPrimaria }}>
+              Exemplo de Cabeçalho
+            </div>
+            <div className="p-3 text-white text-xs text-center" style={{ backgroundColor: corSecundaria }}>
+              Área de conteúdo
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={carregando}
+            className="btn-primary w-full"
+          >
+            <Check size={16} />
+            {carregando ? 'Salvando...' : 'Salvar Configurações Visuais'}
+          </button>
+        </form>
+      )}
     </div>
   );
 }
-

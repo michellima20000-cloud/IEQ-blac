@@ -1,4 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
+import {
+  Home, ClipboardList, Users, UserPlus, FileText, Camera,
+  Check, Save, Loader2, Lock, X, Phone, CircleCheck, TriangleAlert, Inbox
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { ApiClient } from '../api/client';
 
@@ -171,61 +175,82 @@ export const CelulaView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header do Líder */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6">
-        <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider block mb-1">
-          Área do Líder de Célula
-        </span>
-        <h2 className="text-xl sm:text-2xl font-bold text-white">
-          {celulaAtual ? `Minha Célula: ${celulaAtual.nome}` : 'Minha Célula'}
-        </h2>
-        <p className="text-slate-400 text-sm">Gerencie os membros da sua célula e envie o relatório semanal com foto</p>
+      <div className="card card-pad relative overflow-hidden">
+        <div className="absolute -top-24 -right-16 w-56 h-56 rounded-full bg-blue-600/15 blur-3xl pointer-events-none" />
+        <div className="relative">
+          <span className="eyebrow flex items-center gap-1.5">
+            <Home size={12} />
+            Área do Líder de Célula
+          </span>
+          <h2 className="page-title mt-1.5">
+            {celulaAtual ? `Minha Célula: ${celulaAtual.nome}` : 'Minha Célula'}
+          </h2>
+          <p className="section-sub mt-1">
+            Gerencie os membros da sua célula e envie o relatório semanal com foto
+          </p>
 
-        {/* Abas Sub-navegação */}
-        <div className="flex gap-2 mt-4 pt-4 border-t border-slate-800">
-          <button
-            onClick={() => setSubAba('relatorio')}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-colors ${
-              subAba === 'relatorio' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/25' : 'bg-slate-800 text-slate-300 hover:text-white'
-            }`}
-          >
-            📝 Relatório Semanal
-          </button>
-          <button
-            onClick={() => setSubAba('membros')}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-colors ${
-              subAba === 'membros' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/25' : 'bg-slate-800 text-slate-300 hover:text-white'
-            }`}
-          >
-            👥 Membros & Visitantes ({membros.length})
-          </button>
+          {/* Abas Sub-navegação */}
+          <div className="flex gap-2 mt-4 pt-4 border-t border-slate-800">
+            <button
+              onClick={() => setSubAba('relatorio')}
+              className={`inline-flex items-center gap-1.5 tab ${subAba === 'relatorio' ? 'tab-active' : ''}`}
+            >
+              <ClipboardList size={14} />
+              Relatório Semanal
+            </button>
+            <button
+              onClick={() => setSubAba('membros')}
+              className={`inline-flex items-center gap-1.5 tab ${subAba === 'membros' ? 'tab-active' : ''}`}
+            >
+              <Users size={14} />
+              Membros & Visitantes ({membros.length})
+            </button>
+          </div>
         </div>
       </div>
 
       {mensagemSucesso && (
-        <div className="p-3.5 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-emerald-400 text-sm flex items-center justify-between">
-          <span>{mensagemSucesso}</span>
-          <button onClick={() => setMensagemSucesso(null)} className="text-xs font-bold text-emerald-400 ml-2">✕</button>
+        <div className="alert-success">
+          <span className="flex items-center gap-2">
+            <CircleCheck size={16} className="shrink-0" />
+            {mensagemSucesso}
+          </span>
+          <button
+            onClick={() => setMensagemSucesso(null)}
+            className="text-emerald-400 hover:text-white transition-colors shrink-0"
+          >
+            <X size={16} />
+          </button>
         </div>
       )}
 
       {mensagemErro && (
-        <div className="p-3.5 bg-red-500/15 border border-red-500/30 rounded-xl text-red-400 text-sm flex items-center justify-between">
-          <span>{mensagemErro}</span>
-          <button onClick={() => setMensagemErro(null)} className="text-xs font-bold text-red-400 ml-2">✕</button>
+        <div className="alert-error">
+          <span className="flex items-center gap-2">
+            <TriangleAlert size={16} className="shrink-0" />
+            {mensagemErro}
+          </span>
+          <button
+            onClick={() => setMensagemErro(null)}
+            className="text-red-400 hover:text-white transition-colors shrink-0"
+          >
+            <X size={16} />
+          </button>
         </div>
       )}
 
       {/* ABA: RELATÓRIO SEMANAL */}
       {subAba === 'relatorio' && (
-        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 space-y-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-white">Relatório da Reunião</h3>
+        <section className="card card-pad space-y-5">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="section-title flex items-center gap-2">
+              <span className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
+                <FileText size={15} />
+              </span>
+              Relatório da Reunião
+            </h3>
             {relatorioAtual && (
-              <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                relatorioAtual.status === 'FECHADO'
-                  ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                  : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-              }`}>
+              <span className={relatorioAtual.status === 'FECHADO' ? 'badge-red' : 'badge-emerald'}>
                 Status: {relatorioAtual.status}
               </span>
             )}
@@ -234,19 +259,19 @@ export const CelulaView: React.FC = () => {
           <form onSubmit={handleCriarRelatorio} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Data da Reunião</label>
+                <label className="label">Data da Reunião</label>
                 <input
                   type="date"
                   required
                   disabled={relatorioAtual?.status === 'FECHADO'}
                   value={dataRelatorio}
                   onChange={(e) => setDataRelatorio(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white disabled:opacity-50"
+                  className="input disabled:opacity-50"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Total de Presentes</label>
+                <label className="label">Total de Presentes</label>
                 <input
                   type="number"
                   min="0"
@@ -254,12 +279,12 @@ export const CelulaView: React.FC = () => {
                   disabled={relatorioAtual?.status === 'FECHADO'}
                   value={presentes}
                   onChange={(e) => setPresentes(Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white disabled:opacity-50"
+                  className="input disabled:opacity-50"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Visitantes</label>
+                <label className="label">Visitantes</label>
                 <input
                   type="number"
                   min="0"
@@ -267,26 +292,26 @@ export const CelulaView: React.FC = () => {
                   disabled={relatorioAtual?.status === 'FECHADO'}
                   value={totalVisitantes}
                   onChange={(e) => setTotalVisitantes(Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white disabled:opacity-50"
+                  className="input disabled:opacity-50"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Observações e Pedidos de Oração</label>
+              <label className="label">Observações e Pedidos de Oração</label>
               <textarea
                 rows={3}
                 disabled={relatorioAtual?.status === 'FECHADO'}
                 value={observacoes}
                 onChange={(e) => setObservacoes(e.target.value)}
                 placeholder="Ex: Tivemos 2 decisões de fé e 1 testemunho de cura..."
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white disabled:opacity-50"
+                className="input disabled:opacity-50"
               />
             </div>
 
             {/* BOTÃO CÂMERA DO CELULAR */}
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-2">Foto da Célula (Obrigatória na reunião)</label>
+              <label className="label">Foto da Célula (Obrigatória na reunião)</label>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -302,18 +327,21 @@ export const CelulaView: React.FC = () => {
                   type="button"
                   disabled={relatorioAtual?.status === 'FECHADO'}
                   onClick={() => fileInputRef.current?.click()}
-                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 border border-slate-700 disabled:opacity-50"
+                  className="btn-ghost"
                 >
-                  <span>📷</span>
-                  <span>Tirar Foto pelo Celular</span>
+                  <Camera size={16} />
+                  Tirar Foto pelo Celular
                 </button>
                 {fotoBase64 && (
-                  <span className="text-xs text-emerald-400 font-medium">✓ Foto capturada pronta para envio</span>
+                  <span className="text-xs text-emerald-400 font-medium flex items-center gap-1.5">
+                    <Check size={14} />
+                    Foto capturada pronta para envio
+                  </span>
                 )}
               </div>
 
               {fotoBase64 && (
-                <div className="mt-3 w-32 h-24 rounded-xl overflow-hidden border border-slate-700 bg-black">
+                <div className="mt-3 w-32 h-24 rounded-xl overflow-hidden border border-slate-800 bg-slate-950">
                   <img src={fotoBase64} alt="Foto da Célula" className="w-full h-full object-cover" />
                 </div>
               )}
@@ -321,22 +349,16 @@ export const CelulaView: React.FC = () => {
 
             <div className="pt-3 flex flex-col sm:flex-row gap-3">
               {(!relatorioAtual || relatorioAtual.status === 'ABERTO') && (
-                <button
-                  type="submit"
-                  disabled={enviando}
-                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-sm transition-colors shadow-lg shadow-emerald-600/25 disabled:opacity-50"
-                >
+                <button type="submit" disabled={enviando} className="btn-primary flex-1">
+                  {enviando ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                   {enviando ? 'Gravando relatório...' : 'Salvar Relatório Semanal'}
                 </button>
               )}
 
               {relatorioAtual && relatorioAtual.status === 'ABERTO' && (
-                <button
-                  type="button"
-                  onClick={handleFecharRelatorio}
-                  className="py-3 px-6 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl text-sm transition-colors shadow-lg shadow-red-600/25"
-                >
-                  🔒 Fechar Relatório Definitivamente
+                <button type="button" onClick={handleFecharRelatorio} className="btn-danger">
+                  <Lock size={16} />
+                  Fechar Relatório Definitivamente
                 </button>
               )}
             </div>
@@ -346,9 +368,9 @@ export const CelulaView: React.FC = () => {
 
       {/* ABA: MEMBROS & VISITANTES */}
       {subAba === 'membros' && (
-        <section className="space-y-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5">
-            <h3 className="text-base font-bold text-white mb-3">Cadastrar Novo Membro</h3>
+        <section className="space-y-5">
+          <div className="card card-pad">
+            <h3 className="section-title mb-4">Cadastrar Novo Membro</h3>
             <form onSubmit={handleCadastrarMembro} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <input
                 type="text"
@@ -356,43 +378,57 @@ export const CelulaView: React.FC = () => {
                 placeholder="Nome completo do membro"
                 value={nomeNovoMembro}
                 onChange={(e) => setNomeNovoMembro(e.target.value)}
-                className="px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white"
+                className="input"
               />
               <input
                 type="text"
                 placeholder="Telefone / WhatsApp"
                 value={telefoneNovoMembro}
                 onChange={(e) => setTelefoneNovoMembro(e.target.value)}
-                className="px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white"
+                className="input"
               />
-              <button
-                type="submit"
-                className="py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-sm"
-              >
-                + Adicionar Membro
+              <button type="submit" className="btn-primary justify-center">
+                <UserPlus size={16} />
+                Adicionar Membro
               </button>
             </form>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5">
-            <h3 className="text-base font-bold text-white mb-3">Membros Cadastrados ({membros.length})</h3>
+          <div className="card card-pad">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <h3 className="section-title flex items-center gap-2">
+                <span className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
+                  <Users size={15} />
+                </span>
+                Membros Cadastrados
+              </h3>
+              <span className="badge-blue">{membros.length}</span>
+            </div>
             <div className="divide-y divide-slate-800">
               {membros.map((m) => (
-                <div key={m.id} className="py-2.5 flex items-center justify-between">
-                  <div>
-                    <span className="text-sm font-semibold text-white block">{m.nome}</span>
-                    {m.telefone && <span className="text-xs text-slate-400">{m.telefone}</span>}
+                <div key={m.id} className="py-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="w-9 h-9 shrink-0 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center text-xs font-bold">
+                      {m.nome ? m.nome.charAt(0).toUpperCase() : ''}
+                    </span>
+                    <div className="min-w-0">
+                      <span className="text-sm font-semibold text-white block truncate">{m.nome}</span>
+                      {m.telefone && (
+                        <span className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                          <Phone size={11} className="shrink-0" />
+                          {m.telefone}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold">
-                    Ativo
-                  </span>
+                  <span className="badge-emerald">Ativo</span>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 mt-4">
-            <h3 className="text-base font-bold text-white mb-3">Cadastrar Novo Visitante</h3>
+          <div className="card card-pad">
+            <h3 className="section-title mb-4">Cadastrar Novo Visitante</h3>
             <form onSubmit={handleCadastrarVisitante} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <input
                 type="text"
@@ -400,43 +436,60 @@ export const CelulaView: React.FC = () => {
                 placeholder="Nome do visitante"
                 value={nomeNovoVisitante}
                 onChange={(e) => setNomeNovoVisitante(e.target.value)}
-                className="px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white"
+                className="input"
               />
               <input
                 type="text"
                 placeholder="Telefone / WhatsApp"
                 value={telefoneNovoVisitante}
                 onChange={(e) => setTelefoneNovoVisitante(e.target.value)}
-                className="px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white"
+                className="input"
               />
-              <button
-                type="submit"
-                className="py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-sm"
-              >
-                + Adicionar Visitante
+              <button type="submit" className="btn-primary justify-center">
+                <UserPlus size={16} />
+                Adicionar Visitante
               </button>
             </form>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 mt-4">
-            <h3 className="text-base font-bold text-white mb-3">Visitantes Registrados ({visitantes.length})</h3>
-            <div className="divide-y divide-slate-800">
-              {visitantes.length === 0 ? (
-                <p className="text-xs text-slate-500 py-2">Nenhum visitante registrado ainda.</p>
-              ) : (
-                visitantes.map((v) => (
-                  <div key={v.id} className="py-2.5 flex items-center justify-between">
-                    <div>
-                      <span className="text-sm font-semibold text-white block">{v.nome}</span>
-                      {v.telefone && <span className="text-xs text-slate-400">{v.telefone}</span>}
-                    </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 font-semibold">
-                      Visitante
-                    </span>
-                  </div>
-                ))
-              )}
+          <div className="card card-pad">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <h3 className="section-title flex items-center gap-2">
+                <span className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
+                  <UserPlus size={15} />
+                </span>
+                Visitantes Registrados
+              </h3>
+              <span className="badge-indigo">{visitantes.length}</span>
             </div>
+            {visitantes.length === 0 ? (
+              <div className="empty-state border-0 bg-transparent p-6">
+                <Inbox size={22} className="mx-auto mb-2 text-slate-600" />
+                Nenhum visitante registrado ainda.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-800">
+                {visitantes.map((v) => (
+                  <div key={v.id} className="py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="w-9 h-9 shrink-0 rounded-full bg-indigo-500/10 text-indigo-400 flex items-center justify-center text-xs font-bold">
+                        {v.nome ? v.nome.charAt(0).toUpperCase() : ''}
+                      </span>
+                      <div className="min-w-0">
+                        <span className="text-sm font-semibold text-white block truncate">{v.nome}</span>
+                        {v.telefone && (
+                          <span className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                            <Phone size={11} className="shrink-0" />
+                            {v.telefone}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="badge-blue">Visitante</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
       )}
@@ -445,4 +498,3 @@ export const CelulaView: React.FC = () => {
 };
 
 export default CelulaView;
-
