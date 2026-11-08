@@ -23,7 +23,13 @@ export class VisualService {
 
     return {
       igreja_id: usuario.igreja_id,
-      visual: CONFIG_VISUAL_PADRAO
+      visual: {
+        corPrimaria: config?.corPrimaria || CONFIG_VISUAL_PADRAO.corPrimaria,
+        corSecundaria: config?.corSecundaria || CONFIG_VISUAL_PADRAO.corSecundaria,
+        corFundo: config?.corFundo || CONFIG_VISUAL_PADRAO.corFundo,
+        logoUrl: config?.logoUrl ?? null,
+        layoutDivulgacao: config?.layoutDivulgacao || CONFIG_VISUAL_PADRAO.layoutDivulgacao
+      }
     };
   }
 
@@ -35,12 +41,33 @@ export class VisualService {
       throw new PermissaoError('Apenas Mídia e Pastor podem alterar a identidade visual da igreja.');
     }
 
-    // Persiste e atualiza a configuração
+    const config = await prisma.configuracaoIgreja.upsert({
+      where: { igreja_id: usuario.igreja_id },
+      update: {
+        ...(dados.corPrimaria !== undefined ? { corPrimaria: dados.corPrimaria } : {}),
+        ...(dados.corSecundaria !== undefined ? { corSecundaria: dados.corSecundaria } : {}),
+        ...(dados.corFundo !== undefined ? { corFundo: dados.corFundo } : {}),
+        ...(dados.logoUrl !== undefined ? { logoUrl: dados.logoUrl } : {}),
+        ...(dados.layoutDivulgacao !== undefined ? { layoutDivulgacao: dados.layoutDivulgacao } : {})
+      },
+      create: {
+        igreja_id: usuario.igreja_id,
+        corPrimaria: dados.corPrimaria || CONFIG_VISUAL_PADRAO.corPrimaria,
+        corSecundaria: dados.corSecundaria || CONFIG_VISUAL_PADRAO.corSecundaria,
+        corFundo: dados.corFundo || CONFIG_VISUAL_PADRAO.corFundo,
+        logoUrl: dados.logoUrl ?? null,
+        layoutDivulgacao: dados.layoutDivulgacao || CONFIG_VISUAL_PADRAO.layoutDivulgacao
+      }
+    });
+
     return {
       igreja_id: usuario.igreja_id,
       visual: {
-        ...CONFIG_VISUAL_PADRAO,
-        ...dados
+        corPrimaria: config.corPrimaria,
+        corSecundaria: config.corSecundaria,
+        corFundo: config.corFundo,
+        logoUrl: config.logoUrl,
+        layoutDivulgacao: config.layoutDivulgacao
       },
       atualizadoPor: usuario.id || (usuario as any).sub,
       atualizadoEm: new Date().toISOString()

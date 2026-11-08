@@ -106,6 +106,12 @@ export const VitrineView: React.FC = () => {
                   </div>
                 )}
 
+                {item.tipo === 'VIDEO' && item.arquivoUrl && !item.videoUrl && (
+                  <div className="aspect-video w-full bg-black">
+                    <video src={item.arquivoUrl} controls className="w-full h-full" title={item.titulo} />
+                  </div>
+                )}
+
                 {item.arquivoUrl && item.tipo !== 'VIDEO' && (
                   <div className="aspect-video w-full bg-slate-950 flex items-center justify-center overflow-hidden">
                     <img src={item.arquivoUrl} alt={item.titulo} className="w-full h-full object-cover" />

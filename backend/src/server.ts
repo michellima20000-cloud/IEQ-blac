@@ -37,7 +37,7 @@ app.use(cors({
 
 // 2. Middlewares essenciais
 app.use(globalRateLimiter);
-app.use(express.json());
+app.use(express.json({ limit: '75mb' }));
 
 // 3. Documentação Swagger/OpenAPI
 app.use('/api/v1/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));

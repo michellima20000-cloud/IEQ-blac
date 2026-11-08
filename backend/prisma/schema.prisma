@@ -208,6 +208,7 @@ model EventoCalendario {
   igreja_id      String
   titulo         String
   descricao      String?
+  tipo           String    @default("OUTRO")
   dataInicio     DateTime
   dataFim        DateTime
   local          String?
@@ -224,6 +225,11 @@ model ConfiguracaoIgreja {
   id                    String   @id @default(uuid())
   igreja_id             String   @unique
   prazoRetencaoFotosDias Int      @default(60)
+  corPrimaria           String   @default("#2563eb")
+  corSecundaria         String   @default("#f59e0b")
+  corFundo              String   @default("#0f172a")
+  logoUrl               String?
+  layoutDivulgacao      String   @default("GRID")
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 

@@ -20,13 +20,14 @@ interface Evento {
   dataInicio: string;
   dataFim?: string;
   tipo: string;
+  local?: string;
 }
 
 interface ConfigVisual {
   corPrimaria: string;
   corSecundaria: string;
   logoUrl?: string;
-  layout: string;
+  layoutDivulgacao: string;
 }
 
 type Aba = 'uploads' | 'calendario' | 'visual' | 'status';
@@ -44,6 +45,27 @@ const STATUS_COR: Record<string, string> = {
   PUBLICADO: 'bg-green-500/20 text-green-300 border-green-500/30',
   DEVOLVIDO: 'bg-red-500/20 text-red-300 border-red-500/30',
 };
+
+function msgErro(err: any, fallback: string): string {
+  return err?.response?.data?.message ?? err?.message ?? fallback;
+}
+
+function lerArquivoDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('Falha ao ler o arquivo.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function isoParaDatetimeLocal(iso?: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 export default function MidiaView() {
   const [aba, setAba] = useState<Aba>('uploads');
@@ -70,11 +92,12 @@ export default function MidiaView() {
   const [eventoInicio, setEventoInicio] = useState('');
   const [eventoFim, setEventoFim] = useState('');
   const [eventoTipo, setEventoTipo] = useState('CULTO');
+  const [eventoLocal, setEventoLocal] = useState('');
 
   // Form visual
-  const [corPrimaria, setCorPrimaria] = useState('#0ea5e9');
-  const [corSecundaria, setCorSecundaria] = useState('#1e293b');
-  const [layoutOpt, setLayoutOpt] = useState('padrao');
+  const [corPrimaria, setCorPrimaria] = useState('#2563eb');
+  const [corSecundaria, setCorSecundaria] = useState('#f59e0b');
+  const [layoutOpt, setLayoutOpt] = useState('GRID');
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const logoRef = useRef<HTMLInputElement>(null);
 
@@ -89,8 +112,16 @@ export default function MidiaView() {
   async function carregarMidias() {
     setCarregando(true);
     try {
-      const r = await api.get('/midia');
-      setMidias(r.data?.itens ?? r.data ?? []);
+      const r = await api.get('/midia/minhas');
+      const lista = r.data?.conteudos ?? r.data?.itens ?? r.data ?? [];
+      // Mapeia campos do backend para a interface local
+      setMidias(lista.map((m: any) => ({
+        ...m,
+        criadoEm: m.createdAt || m.criadoEm,
+        youtubeUrl: m.videoUrl || m.youtubeUrl,
+        url: m.arquivoUrl || m.url,
+      })));
+      setErro('');
     } catch {
       setErro('Não foi possível carregar as mídias.');
     } finally {
@@ -101,8 +132,13 @@ export default function MidiaView() {
   async function carregarEventos() {
     setCarregando(true);
     try {
-      const r = await api.get('/midia/calendario');
-      setEventos(r.data?.eventos ?? r.data ?? []);
+      const r = await api.get('/calendario');
+      setEventos((r.data?.eventos ?? r.data ?? []).map((ev: any) => ({
+        ...ev,
+        dataInicio: ev.dataInicio || ev.inicio,
+        dataFim: ev.dataFim || ev.fim,
+      })));
+      setErro('');
     } catch {
       setErro('Não foi possível carregar o calendário.');
     } finally {
@@ -113,12 +149,12 @@ export default function MidiaView() {
   async function carregarVisual() {
     setCarregando(true);
     try {
-      const r = await api.get('/midia/visual');
-      const cfg: ConfigVisual = r.data?.config ?? r.data ?? { corPrimaria: '#0ea5e9', corSecundaria: '#1e293b', layout: 'padrao' };
+      const r = await api.get('/configuracoes/visual');
+      const cfg: ConfigVisual = r.data?.visual ?? r.data ?? { corPrimaria: '#2563eb', corSecundaria: '#f59e0b', layoutDivulgacao: 'GRID' };
       setVisual(cfg);
       setCorPrimaria(cfg.corPrimaria);
       setCorSecundaria(cfg.corSecundaria);
-      setLayoutOpt(cfg.layout);
+      setLayoutOpt(cfg.layoutDivulgacao || 'GRID');
     } catch {
       setErro('Não foi possível carregar as configurações visuais.');
     } finally {
@@ -133,27 +169,34 @@ export default function MidiaView() {
     if (uploadTipo === 'VIDEO' && !uploadYoutube && !uploadArquivo) {
       setErro('Informe o link do YouTube ou selecione um arquivo de vídeo (máx. 50 MB).'); return;
     }
+    if ((uploadTipo === 'BANNER' || uploadTipo === 'FOTO') && !uploadArquivo) {
+      setErro('Selecione um arquivo de imagem.'); return;
+    }
     if (uploadArquivo && uploadArquivo.size > 50 * 1024 * 1024) {
       setErro('O arquivo excede o limite de 50 MB.'); return;
     }
 
     setCarregando(true);
     try {
-      const form = new FormData();
-      form.append('tipo', uploadTipo);
-      form.append('titulo', uploadTitulo);
-      if (uploadDescricao) form.append('descricao', uploadDescricao);
-      if (uploadArquivo) form.append('arquivo', uploadArquivo);
-      if (uploadYoutube) form.append('youtubeUrl', uploadYoutube);
-      form.append('requerAprovacao', String(uploadRequerAprovacao));
+      const payload: any = {
+        tipo: uploadTipo,
+        titulo: uploadTitulo,
+        descricao: uploadDescricao || null,
+        precisaAprovacao: uploadRequerAprovacao,
+      };
+      if (uploadYoutube) payload.videoUrl = uploadYoutube;
+      if (uploadArquivo) {
+        payload.arquivoUrl = await lerArquivoDataUrl(uploadArquivo);
+        payload.tamanhoArquivoBytes = uploadArquivo.size;
+      }
 
-      await api.post('/midia/upload', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+      await api.post('/midia', payload);
       setSucesso('Mídia enviada com sucesso!');
       setUploadTitulo(''); setUploadDescricao(''); setUploadYoutube('');
       setUploadArquivo(null); if (fileRef.current) fileRef.current.value = '';
       await carregarMidias();
     } catch (err: any) {
-      setErro(err?.response?.data?.erro ?? 'Erro ao enviar a mídia.');
+      setErro(msgErro(err, 'Erro ao enviar a mídia.'));
     } finally {
       setCarregando(false);
     }
@@ -163,11 +206,11 @@ export default function MidiaView() {
     limparMsg();
     setCarregando(true);
     try {
-      await api.patch(`/midia/${id}/reenviar`);
+      await api.patch(`/midia/${id}`, { reenviarAprovacao: true });
       setSucesso('Mídia reenviada para aprovação.');
       await carregarMidias();
     } catch (err: any) {
-      setErro(err?.response?.data?.erro ?? 'Erro ao reenviar.');
+      setErro(msgErro(err, 'Erro ao reenviar.'));
     } finally {
       setCarregando(false);
     }
@@ -179,14 +222,21 @@ export default function MidiaView() {
     if (!eventoTitulo.trim() || !eventoInicio) { setErro('Preencha título e data de início.'); return; }
     setCarregando(true);
     try {
-      const payload = { titulo: eventoTitulo, descricao: eventoDesc, dataInicio: eventoInicio, dataFim: eventoFim || undefined, tipo: eventoTipo };
-      if (eventoId) await api.put(`/midia/calendario/${eventoId}`, payload);
-      else await api.post('/midia/calendario', payload);
+      const payload = {
+        titulo: eventoTitulo,
+        descricao: eventoDesc || null,
+        dataInicio: eventoInicio,
+        dataFim: eventoFim || eventoInicio,
+        tipo: eventoTipo,
+        local: eventoLocal || null,
+      };
+      if (eventoId) await api.patch(`/calendario/${eventoId}`, payload);
+      else await api.post('/calendario', payload);
       setSucesso(eventoId ? 'Evento atualizado!' : 'Evento criado!');
       limparEvento();
       await carregarEventos();
     } catch (err: any) {
-      setErro(err?.response?.data?.erro ?? 'Erro ao salvar evento.');
+      setErro(msgErro(err, 'Erro ao salvar evento.'));
     } finally {
       setCarregando(false);
     }
@@ -197,11 +247,11 @@ export default function MidiaView() {
     limparMsg();
     setCarregando(true);
     try {
-      await api.delete(`/midia/calendario/${id}`);
+      await api.delete(`/calendario/${id}`);
       setSucesso('Evento excluído.');
       await carregarEventos();
     } catch (err: any) {
-      setErro(err?.response?.data?.erro ?? 'Erro ao excluir evento.');
+      setErro(msgErro(err, 'Erro ao excluir evento.'));
     } finally {
       setCarregando(false);
     }
@@ -211,14 +261,15 @@ export default function MidiaView() {
     setEventoId(ev.id);
     setEventoTitulo(ev.titulo);
     setEventoDesc(ev.descricao ?? '');
-    setEventoInicio(ev.dataInicio.slice(0, 16));
-    setEventoFim(ev.dataFim ? ev.dataFim.slice(0, 16) : '');
-    setEventoTipo(ev.tipo);
+    setEventoInicio(isoParaDatetimeLocal(ev.dataInicio));
+    setEventoFim(isoParaDatetimeLocal(ev.dataFim));
+    setEventoTipo(ev.tipo || 'OUTRO');
+    setEventoLocal(ev.local ?? '');
   }
 
   function limparEvento() {
     setEventoId(null); setEventoTitulo(''); setEventoDesc('');
-    setEventoInicio(''); setEventoFim(''); setEventoTipo('CULTO');
+    setEventoInicio(''); setEventoFim(''); setEventoTipo('CULTO'); setEventoLocal('');
   }
 
   async function salvarVisual(e: React.FormEvent) {
@@ -226,16 +277,18 @@ export default function MidiaView() {
     limparMsg();
     setCarregando(true);
     try {
-      const form = new FormData();
-      form.append('corPrimaria', corPrimaria);
-      form.append('corSecundaria', corSecundaria);
-      form.append('layout', layoutOpt);
-      if (logoFile) form.append('logo', logoFile);
-      await api.put('/midia/visual', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+      const payload: any = {
+        corPrimaria,
+        corSecundaria,
+        layoutDivulgacao: layoutOpt,
+      };
+      if (logoFile) payload.logoUrl = await lerArquivoDataUrl(logoFile);
+      await api.patch('/configuracoes/visual', payload);
       setSucesso('Configurações visuais salvas!');
+      setLogoFile(null); if (logoRef.current) logoRef.current.value = '';
       await carregarVisual();
     } catch (err: any) {
-      setErro(err?.response?.data?.erro ?? 'Erro ao salvar configurações.');
+      setErro(msgErro(err, 'Erro ao salvar configurações.'));
     } finally {
       setCarregando(false);
     }
@@ -456,6 +509,17 @@ export default function MidiaView() {
                 />
               </div>
 
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Local</label>
+                <input
+                  type="text"
+                  value={eventoLocal}
+                  onChange={e => setEventoLocal(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100"
+                  placeholder="Ex.: Templo principal, Online..."
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-slate-400 block mb-1">Início *</label>
@@ -503,7 +567,10 @@ export default function MidiaView() {
                 <div key={ev.id} className="bg-slate-800 border border-slate-700 rounded-xl p-4 flex items-start justify-between gap-2">
                   <div>
                     <p className="font-medium text-slate-100 text-sm">{ev.titulo}</p>
-                    <p className="text-xs text-slate-500">{ev.tipo} · {new Date(ev.dataInicio).toLocaleString('pt-BR')}</p>
+                    <p className="text-xs text-slate-500">
+                      {ev.tipo} · {new Date(ev.dataInicio).toLocaleString('pt-BR')}
+                      {ev.local ? ` · 📍 ${ev.local}` : ''}
+                    </p>
                     {ev.descricao && <p className="text-xs text-slate-400 mt-0.5">{ev.descricao}</p>}
                   </div>
                   <div className="flex flex-col gap-1">
@@ -565,9 +632,9 @@ export default function MidiaView() {
                 onChange={e => setLayoutOpt(e.target.value)}
                 className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100"
               >
-                <option value="padrao">Padrão</option>
-                <option value="compacto">Compacto</option>
-                <option value="cartaz">Cartaz</option>
+                <option value="GRID">Grade</option>
+                <option value="CARROSSEL">Carrossel</option>
+                <option value="LISTA">Lista</option>
               </select>
             </div>
 

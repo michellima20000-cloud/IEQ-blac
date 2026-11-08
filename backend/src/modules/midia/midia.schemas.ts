@@ -43,7 +43,10 @@ export const criarEventoSchema = z.object({
   titulo: z.string().min(3, 'Título do evento é obrigatório'),
   descricao: z.string().optional().nullable(),
   dataInicio: z.string().or(z.date()),
-  dataFim: z.string().or(z.date()),
+  dataFim: z.string().or(z.date()).optional(),
+  tipo: z.enum(['CULTO', 'CONFERENCIA', 'REUNIAO', 'DATA_ESPECIAL', 'OUTRO'], {
+    errorMap: () => ({ message: 'Tipo de evento inválido' })
+  }).optional().default('OUTRO'),
   local: z.string().optional().nullable()
 });
 
@@ -52,6 +55,9 @@ export const atualizarEventoSchema = z.object({
   descricao: z.string().optional().nullable(),
   dataInicio: z.string().or(z.date()).optional(),
   dataFim: z.string().or(z.date()).optional(),
+  tipo: z.enum(['CULTO', 'CONFERENCIA', 'REUNIAO', 'DATA_ESPECIAL', 'OUTRO'], {
+    errorMap: () => ({ message: 'Tipo de evento inválido' })
+  }).optional(),
   local: z.string().optional().nullable()
 });
 

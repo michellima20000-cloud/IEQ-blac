@@ -17,8 +17,9 @@ export class CalendarioService {
         igreja_id: usuario.igreja_id,
         titulo: dados.titulo,
         descricao: dados.descricao || null,
+        tipo: dados.tipo || 'OUTRO',
         dataInicio: new Date(dados.dataInicio),
-        dataFim: new Date(dados.dataFim),
+        dataFim: new Date(dados.dataFim ?? dados.dataInicio),
         local: dados.local || null
       }
     });
@@ -59,6 +60,7 @@ export class CalendarioService {
         ...(dados.descricao !== undefined ? { descricao: dados.descricao } : {}),
         ...(dados.dataInicio ? { dataInicio: new Date(dados.dataInicio) } : {}),
         ...(dados.dataFim ? { dataFim: new Date(dados.dataFim) } : {}),
+        ...(dados.tipo ? { tipo: dados.tipo } : {}),
         ...(dados.local !== undefined ? { local: dados.local } : {})
       }
     });
