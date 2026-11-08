@@ -50,5 +50,30 @@ export class QueueManager {
       limpeza: limpezaResultado
     };
   }
+
+  /**
+   * Rotina diária GLOBAL (usada pelo agendador do servidor):
+   * roda o backup e a limpeza de fotos vencidas para TODAS as igrejas.
+   * Sem isto, o histórico de backups fica vazio e o painel do pastor
+   * exibe o alerta crítico "Nenhum backup localizado nas últimas 48 horas".
+   */
+  static async runRotinaDiariaGlobal() {
+    // 1. Backup diário criptografado
+    const backup = await BackupService.executarBackupDiario();
+    console.log(`[QueueManager] Backup diário OK: ${backup.nomeArquivo} (${backup.tamanhoBytes} bytes)`);
+
+    // 2. Limpeza de fotos vencidas, igreja por igreja
+    try {
+      const { prisma } = await import('../config/prisma.ts');
+      const igrejas = await prisma.igreja.findMany({ select: { id: true } });
+      for (const igreja of igrejas) {
+        await CleanupService.executarLimpezaFotosVencidas(igreja.id);
+      }
+    } catch (err: any) {
+      console.warn('[QueueManager] Aviso na limpeza de fotos vencidas:', err.message);
+    }
+
+    return backup;
+  }
 }
 
