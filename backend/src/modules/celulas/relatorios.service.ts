@@ -117,11 +117,12 @@ export class RelatoriosService {
   /**
    * Gera URL assinada com expiração de 15 minutos para foto do relatório
    */
-  static gerarUrlAssinadaFoto(relatorioId: string, fotoUrl: string): string {
+  static gerarUrlAssinadaFoto(relatorioId: string): string {
+    // O token carrega APENAS a referência (a foto pode ter vários MB;
+    // embutir o base64 no JWT geraria URLs gigantes e falharia no servidor)
     const tokenAssinado = signJwt({
       tipo: 'FOTO_RELATORIO',
-      relatorioId,
-      fotoUrl
+      relatorioId
     }, ENV.JWT_SECRET, '15m');
 
     return `/api/v1/relatorios/${relatorioId}/foto?token=${tokenAssinado}`;
@@ -154,6 +155,11 @@ export class RelatoriosService {
     });
 
     const uid = usuario.id || (usuario as any).sub;
+    // Referência curta da foto no log (evita gravar base64 inteiro na auditoria)
+    const referenciaFoto = relatorio.fotoUrl.startsWith('data:')
+      ? `${relatorio.fotoUrl.slice(0, 48)}...(${relatorio.fotoUrl.length} chars)`
+      : relatorio.fotoUrl;
+
     // 3. Registra no Log de Auditoria
     await prisma.logAuditoria.create({
       data: {
@@ -162,7 +168,10 @@ export class RelatoriosService {
         acao: 'VISUALIZAR_FOTO_RELATORIO',
         recurso: `RelatorioCelula:${relatorioId}`,
         detalhesJson: JSON.stringify({
-          fotoUrl: relatorio.fotoUrl,
+          // guarda apenas a referência (a foto pode ter vários MB em base64)
+          fotoUrl: relatorio.fotoUrl.startsWith('data:')
+            ? `${relatorio.fotoUrl.slice(0, 48)}...(${relatorio.fotoUrl.length} chars)`
+            : relatorio.fotoUrl,
           visualizadoPor: uid,
           perfil: usuario.perfil,
           data: new Date().toISOString()

@@ -57,7 +57,7 @@ export class RedesService {
     // Anexa a URL assinada para cada relatório que tem foto
     const relatoriosComUrlAssinada = relatoriosFechados.map((rel) => ({
       ...rel,
-      fotoUrlAssinada: rel.fotoUrl ? RelatoriosService.gerarUrlAssinadaFoto(rel.id, rel.fotoUrl) : null
+      fotoUrlAssinada: rel.fotoUrl ? RelatoriosService.gerarUrlAssinadaFoto(rel.id) : null
     }));
 
     // 2. Consolidado semanal da rede

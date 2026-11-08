@@ -192,9 +192,8 @@ describe('Etapa 3 - Módulo de Células, Relatórios e Permissões', () => {
   describe('6. URL Assinada de Foto & Log de Auditoria', () => {
     it('deve gerar URL assinada com expiração de 15 minutos contendo HMAC', () => {
       const relatorioId = 'rel-xyz-123';
-      const fotoUrl = 'https://minio.local/ieq/celula1.webp';
 
-      const urlAssinada = RelatoriosService.gerarUrlAssinadaFoto(relatorioId, fotoUrl);
+      const urlAssinada = RelatoriosService.gerarUrlAssinadaFoto(relatorioId);
       assert.ok(urlAssinada.includes('/api/v1/relatorios/rel-xyz-123/foto?token='), 'URL deve ter formato assinado');
 
       const tokenExtraido = urlAssinada.split('token=')[1];
@@ -202,15 +201,15 @@ describe('Etapa 3 - Módulo de Células, Relatórios e Permissões', () => {
 
       assert.strictEqual(decoded.tipo, 'FOTO_RELATORIO');
       assert.strictEqual(decoded.relatorioId, relatorioId);
-      assert.strictEqual(decoded.fotoUrl, fotoUrl);
+      // O token NÃO deve embutir a foto (base64 de vários MB estoura o tamanho da URL)
+      assert.strictEqual(decoded.fotoUrl, undefined);
       assert.ok(decoded.exp > decoded.iat, 'Token deve ter expiração futura');
     });
 
     it('deve rejeitar token de foto adulterado ou vencido', () => {
       const tokenExpirado = signJwt({
         tipo: 'FOTO_RELATORIO',
-        relatorioId: 'rel-1',
-        fotoUrl: 'fake.webp'
+        relatorioId: 'rel-1'
       }, ENV.JWT_SECRET, '-1s');
 
       assert.throws(() => {
