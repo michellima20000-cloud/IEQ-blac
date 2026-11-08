@@ -3,9 +3,10 @@ import {
   LayoutDashboard, ClipboardList, Bell, Users, Settings, X, ShieldAlert,
   Network, UserCheck, UserPlus, Activity, FileText, ArrowRight, Check,
   Undo2, Pencil, Trash2, RotateCcw, MapPin, Globe, HardDrive, Trash,
-  Calendar
+  Calendar, Search
 } from 'lucide-react';
 import { ApiClient } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 
 const subAbas = [
   { id: 'dashboard', label: 'Indicadores', Icon: LayoutDashboard },
@@ -45,6 +46,17 @@ export const PastorView: React.FC = () => {
   const [identificadorCelula, setIdentificadorCelula] = useState('');
   const [nomeRede, setNomeRede] = useState('');
   const [redesDisponiveis, setRedesDisponiveis] = useState<any[]>([]);
+  const [buscaUsuario, setBuscaUsuario] = useState('');
+
+  const { usuario: usuarioLogado } = useAuth();
+
+  const usuariosFiltrados = usuarios.filter((u) => {
+    const termo = buscaUsuario.trim().toLowerCase();
+    if (!termo) return true;
+    return [u.nome, u.email, u.perfil, u.celula?.nome, u.rede?.nome, u.celula?.rede?.nome]
+      .filter(Boolean)
+      .some((campo: any) => String(campo).toLowerCase().includes(termo));
+  });
 
   // Configurações
   const [prazoRetencao, setPrazoRetencao] = useState(60);
@@ -713,14 +725,45 @@ export const PastorView: React.FC = () => {
           </div>
 
           <div className="card card-pad">
-            <h3 className="section-title mb-1">Usuários Cadastrados</h3>
-            <p className="section-sub mb-3">{usuarios.length} no total</p>
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+              <div>
+                <h3 className="section-title mb-1">
+                  Usuários Cadastrados
+                  <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 align-middle">
+                    {usuarios.length}
+                  </span>
+                </h3>
+                <p className="section-sub">
+                  {usuariosFiltrados.length === usuarios.length
+                    ? 'Todos os usuários da igreja'
+                    : `${usuariosFiltrados.length} de ${usuarios.length} exibidos`}
+                </p>
+              </div>
+              <div className="relative">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                <input
+                  type="text"
+                  value={buscaUsuario}
+                  onChange={(e) => setBuscaUsuario(e.target.value)}
+                  placeholder="Buscar por nome, e-mail, célula..."
+                  className="input !pl-8 !py-2 w-56 text-sm"
+                />
+              </div>
+            </div>
             <div className="divide-y divide-slate-800/80">
-              {usuarios.map((u) => (
+              {usuariosFiltrados.length === 0 && (
+                <div className="empty-state border-0 bg-transparent py-6">
+                  Nenhum usuário corresponde à busca "{buscaUsuario}".
+                </div>
+              )}
+              {usuariosFiltrados.map((u) => {
+                const ehProprioUsuario = usuarioLogado?.id === u.id;
+                return (
                 <div key={u.id} className={`py-3 flex flex-wrap items-center justify-between gap-2 ${!u.ativo ? 'opacity-60' : ''}`}>
                   <div className="space-y-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-semibold text-white">{u.nome}</span>
+                      {ehProprioUsuario && <span className="badge-amber">Você</span>}
                       {u.celula?.nome && (
                         <span className="badge-emerald">
                           <MapPin size={10} />
@@ -767,8 +810,9 @@ export const PastorView: React.FC = () => {
                       ) : (
                         <button
                           onClick={() => excluirUsuario(u)}
-                          title="Excluir usuário"
-                          className="btn-soft-danger btn-sm"
+                          disabled={ehProprioUsuario}
+                          title={ehProprioUsuario ? 'Você não pode excluir a própria conta' : 'Excluir usuário'}
+                          className="btn-soft-danger btn-sm disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <Trash2 size={12} />
                           Excluir
@@ -777,7 +821,8 @@ export const PastorView: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
