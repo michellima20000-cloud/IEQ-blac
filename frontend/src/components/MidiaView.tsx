@@ -1089,7 +1089,7 @@ export default function MidiaView() {
       )}
 
       {aba === 'visual' && (
-        <form onSubmit={salvarVisual} className="space-y-6" aria-label="Configurações visuais">
+        <form onSubmit={salvarVisual} className="space-y-4" aria-label="Configurações visuais">
           <div className="card card-pad">
             <div className="flex items-center gap-2">
               <span className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
@@ -1102,8 +1102,10 @@ export default function MidiaView() {
             </p>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+            <div className="space-y-4">
           <div className="card card-pad">
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-3 mb-3">
               <span className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0 text-emerald-400">
                 <ImageIcon size={16} />
               </span>
@@ -1193,14 +1195,15 @@ export default function MidiaView() {
               ))}
             </div>
             <div
-              className="mt-5 h-3 rounded-full"
+              className="mt-4 h-3 rounded-full"
               style={{ backgroundImage: `linear-gradient(90deg, ${corPrimaria}, ${corSecundaria})` }}
               aria-hidden="true"
             />
           </div>
-
+            </div>
+            <div className="space-y-4">
           <div className="card card-pad">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-3 mb-3">
               <span className="w-8 h-8 rounded-xl bg-indigo-500/10 flex items-center justify-center shrink-0 text-indigo-400">
                 <Layout size={16} />
               </span>
@@ -1232,7 +1235,7 @@ export default function MidiaView() {
           </div>
 
           <div className="card card-pad">
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-3 mb-3">
               <span className="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0 text-blue-400">
                 <Monitor size={16} />
               </span>
@@ -1253,18 +1256,20 @@ export default function MidiaView() {
                 Cabeçalho da Igreja
               </div>
               <div
-                className="p-6 text-slate-300 text-sm text-center border-t-2"
+                className="p-4 text-slate-300 text-sm text-center border-t-2"
                 style={{ backgroundColor: '#0f172a', borderColor: corSecundaria }}
               >
                 Área de conteúdo • Layout {layoutOpt === 'GRID' ? 'Grade' : layoutOpt === 'CARROSSEL' ? 'Carrossel' : 'Lista'}
               </div>
             </div>
+            </div>
+          </div>
           </div>
 
           <button
             type="submit"
             disabled={carregando}
-            className="btn-primary w-full py-4 text-base font-semibold shadow-lg hover:shadow-indigo-500/30 transition-all mb-4"
+            className="btn-primary w-full py-3.5 text-base font-semibold shadow-lg hover:shadow-indigo-500/30 transition-all"
           >
             <Check size={16} />
             {carregando ? 'Salvando...' : 'Salvar Configurações Visuais'}
