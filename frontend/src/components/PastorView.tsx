@@ -40,8 +40,6 @@ export const PastorView: React.FC = () => {
   const [usuarios, setUsuarios] = useState<any[]>([]);
   const [usuarioEditandoId, setUsuarioEditandoId] = useState<string | null>(null);
   const [nomeNovoUser, setNomeNovoUser] = useState('');
-  const [modalRelatorioEditando, setModalRelatorioEditando] = useState<string | null>(null);
-  const [relatorioEditar, setRelatorioEditar] = useState<any | null>(null);
   const [emailNovoUser, setEmailNovoUser] = useState('');
   const [senhaNovoUser, setSenhaNovoUser] = useState('');
   const [perfilNovoUser, setPerfilNovoUser] = useState<'CELULA' | 'REDE' | 'MIDIA' | 'PASTOR'>('CELULA');
@@ -119,29 +117,6 @@ export const PastorView: React.FC = () => {
     }
   };
 
-  const abrirModalEditarRelatorio = (id: string, relatorio: any) => {
-    setRelatorioEditar(relatorio);
-    setModalRelatorioEditando(id);
-    document.getElementById('modal-relatorio')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  };
-
-  const fecharModalEditarRelatorio = () => {
-    setModalRelatorioEditando(null);
-    setRelatorioEditar(null);
-  };
-
-  const excluirRelatorio = async (id: string) => {
-    setMensagemErro(null);
-    try {
-      const res = await ApiClient.delete(`/relatorios/${id}`);
-      setMensagemSucesso(res.message || 'Relatório excluído com sucesso.');
-      carregarDadosPastor();
-      fecharModalEditarRelatorio();
-    } catch (err: any) {
-      setMensagemErro(err.message);
-    }
-  };
-
   const limparFormularioUsuario = () => {
     setUsuarioEditandoId(null);
     setNomeNovoUser('');
@@ -184,25 +159,6 @@ export const PastorView: React.FC = () => {
       }
 
       carregarDadosPastor();
-    } catch (err: any) {
-      setMensagemErro(err.message);
-    }
-  };
-
-  const salvarEdicaoRelatorio = async () => {
-    if (!relatorioEditar) return;
-    setMensagemErro(null);
-    try {
-      const dadosAtualizados = {
-        presentes: relatorioEditar.presentes,
-        visitantes: relatorioEditar.visitantes,
-        observacoes: relatorioEditar.observacoes,
-        manterFoto: relatorioEditar.manterFoto
-      };
-      await ApiClient.patch(`/relatorios/${relatorioEditar.id}`, dadosAtualizados);
-      setMensagemSucesso('Relatório atualizado com sucesso!');
-      carregarDadosPastor();
-      fecharModalEditarRelatorio();
     } catch (err: any) {
       setMensagemErro(err.message);
     }
@@ -433,28 +389,6 @@ export const PastorView: React.FC = () => {
                         />
                       </div>
                     )}
-
-                    {/* Botões de ação para Pastor e Líder de Rede da mesma rede */}
-                    {usuarioLogado && (
-                      usuarioLogado.perfil === 'PASTOR' || 
-                      (usuarioLogado.perfil === 'REDE' && rel.celula?.redeId === usuarioLogado.redeId) ? (
-                      <div className="flex gap-2 pt-2">
-                        <button
-                          onClick={() => abrirModalEditarRelatorio(rel.id, rel)}
-                          title="Editar relatório"
-                          className="btn-ghost btn-sm px-2 py-1 text-sm text-indigo-300 hover:text-indigo-400 rounded"
-                        >
-                          <Pencil size={12} />
-                        </button>
-                        <button
-                          onClick={() => excluirRelatorio(rel.id)}
-                          title="Excluir relatório"
-                          className="btn-ghost btn-sm px-2 py-1 text-sm text-red-300 hover:text-red-400 rounded"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    ) : null}
                   </div>
                 ))}
               </div>

@@ -29,10 +29,6 @@ export const RedeView: React.FC = () => {
     carregarConsolidado();
   }, []);
 
-  // Estado para modal de edição de relatório
-  const [modalRelatorioRede, setModalRelatorioRede] = useState<string | null>(null);
-  const [relatorioRedeEditando, setRelatorioRedeEditando] = useState<any | null>(null);
-
   useEffect(() => {
     const relatorios: any[] = dadosRede?.relatorios || [];
     relatorios.forEach((rel) => {
@@ -50,50 +46,6 @@ export const RedeView: React.FC = () => {
       setFotos((prev) => ({ ...prev, [rel.id]: fotoUtilizavel(url) ? url : null }));
     } catch {
       setFotos((prev) => ({ ...prev, [rel.id]: null }));
-    }
-  };
-
-  const abrirModalEditarRelatorioRede = (id: string, relatorio: any) => {
-    setRelatorioRedeEditando(relatorio);
-    setModalRelatorioRede(id);
-  };
-
-  const fecharModalEditarRelatorioRede = () => {
-    setModalRelatorioRede(null);
-    setRelatorioRedeEditando(null);
-  };
-
-  const excluirRelatorioRede = async (id: string) => {
-    const confirmacao = window.confirm(
-      `Tem certeza que deseja excluir o relatório #${id}?\n\nOs dados numéricos serão preservados e a foto removida do armazenamento.`
-    );
-    if (!confirmacao) return;
-    setErro(null);
-    try {
-      const res = await ApiClient.delete(`/relatorios/${id}`);
-      setErro(res.message || 'Relatório excluído com sucesso.');
-      carregarConsolidado();
-      fecharModalEditarRelatorioRede();
-    } catch (err: any) {
-      setErro(err.message);
-    }
-  };
-
-  const salvarEdicaoRelatorioRede = async () => {
-    if (!relatorioRedeEditando) return;
-    setErro(null);
-    try {
-      const dadosAtualizados = {
-        presentes: relatorioRedeEditando.presentes,
-        visitantes: relatorioRedeEditando.visitantes,
-        observacoes: relatorioRedeEditando.observacoes
-      };
-      await ApiClient.patch(`/relatorios/${relatorioRedeEditando.id}`, dadosAtualizados);
-      setErro('Relatório atualizado com sucesso!');
-      carregarConsolidado();
-      fecharModalEditarRelatorioRede();
-    } catch (err: any) {
-      setErro(err.message);
     }
   };
 
@@ -242,7 +194,7 @@ export const RedeView: React.FC = () => {
                   )}
                 </div>
 
-{rel.fotoUrlAssinada && fotos[rel.id] !== null && (
+                {rel.fotoUrlAssinada && fotos[rel.id] !== null && (
                   <div className="sm:w-40 flex-shrink-0">
                     {fotos[rel.id] ? (
                       <button
@@ -260,7 +212,7 @@ export const RedeView: React.FC = () => {
                         <span className="absolute bottom-1.5 left-0 right-0 text-[10px] font-semibold text-white flex items-center justify-center gap-1.5">
                           <ImageIcon size={11} />
                           Ver foto
-                        </button>
+                        </span>
                       </button>
                     ) : (
                       <div className="w-full h-24 sm:h-full min-h-[96px] rounded-xl border border-dashed border-slate-700/70 bg-slate-950/60 flex items-center justify-center animate-pulse">
@@ -269,27 +221,6 @@ export const RedeView: React.FC = () => {
                     )}
                   </div>
                 )}
-                {/* Botões de ação para Pastor e Líder de Rede da mesma rede */}
-                {usuario && (
-                  usuario.perfil === 'PASTOR' || 
-                  (usuario.perfil === 'REDE' && rel.celula?.redeId === usuario.redeId) ? (
-                  <div className="flex gap-2 pt-2">
-                    <button
-                      onClick={() => abrirModalEditarRelatorioRede(rel.id, rel)}
-                      title="Editar relatório"
-                      className="btn-ghost btn-sm px-2 py-1 text-sm text-indigo-300 hover:text-indigo-400 rounded"
-                    >
-                      <Pencil size={12} />
-                    </button>
-                    <button
-                      onClick={() => excluirRelatorioRede(rel.id)}
-                      title="Excluir relatório"
-                      className="btn-ghost btn-sm px-2 py-1 text-sm text-red-300 hover:text-red-400 rounded"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                ) : null}
               </div>
             ))}
           </div>
