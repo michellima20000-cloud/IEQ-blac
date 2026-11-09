@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CalendarDays, Megaphone, MapPin, Clock, Video, Newspaper } from 'lucide-react';
+import { CalendarDays, Megaphone, MapPin, Clock, Video, Newspaper, X } from 'lucide-react';
 import { ApiClient } from '../api/client';
 
 interface MidiaPublicada {
@@ -11,12 +11,6 @@ interface MidiaPublicada {
   videoUrl?: string;
   createdAt: string;
   autorId?: string;
-}
-
-interface UsuarioLogado {
-  id: string;
-  nome: string;
-  perfil: string;
 }
 
 interface Evento {
@@ -40,78 +34,15 @@ export const VitrineView: React.FC = () => {
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [usuarioLogado, setUsuarioLogado] = useState<UsuarioLogado | null>(null);
+  const [ampliado, setAmpliado] = useState<MidiaPublicada | null>(null);
 
   useEffect(() => {
     carregarDados();
-    carregarUsuario();
     carregarIdentidadeVisual();
     const aoAtualizar = () => carregarIdentidadeVisual();
     window.addEventListener('visual-atualizada', aoAtualizar);
     return () => window.removeEventListener('visual-atualizada', aoAtualizar);
   }, []);
-
-  const carregarUsuario = async () => {
-    try {
-      const res = await ApiClient.get('/auth/me');
-      setUsuarioLogado(res.usuario);
-    } catch {
-      // Falha graciosa: vitrine continua em modo leitura
-    }
-  };
-
-  const carregarIdentidadeVisual = async () => {
-    try {
-      const res = await ApiClient.get('/configuracoes/visual');
-      const cfg = (res as any)?.visual ?? res ?? null;
-      setLogoUrl(cfg?.logoUrl ?? null);
-    } catch {
-      // Falha graciosa: vitrine sem logo
-    }
-  };
-
-  const excluirPublicacao = async (id: string, titulo: string) => {
-    if (!window.confirm(`Excluir a publicação "${titulo}" da vitrine?`)) return;
-    try {
-      await ApiClient.delete(`/midia/${id}`);
-      // cacheDel no backend invalida a vitrine; recarrega dados frescos
-      await carregarDados();
-    } catch {
-      window.alert('Não foi possível excluir. Verifique sua permissão.');
-    }
-  };
-
-  const editarTitulo = async (id: string, tituloAtual: string) => {
-    const novoTitulo = window.prompt('Novo título da publicação:', tituloAtual);
-    if (!novoTitulo || novoTitulo === tituloAtual) return;
-    try {
-      await ApiClient.patch(`/midia/${id}`, { titulo: novoTitulo });
-      await carregarDados();
-    } catch {
-      window.alert('Não foi possível editar. Verifique sua permissão.');
-    }
-  };
-
-  const excluirEvento = async (id: string, titulo: string) => {
-    if (!window.confirm(`Excluir o evento "${titulo}" do calendário?`)) return;
-    try {
-      await ApiClient.delete(`/calendario/${id}`);
-      await carregarDados();
-    } catch {
-      window.alert('Não foi possível excluir o evento. Verifique sua permissão.');
-    }
-  };
-
-  const editarTituloEvento = async (id: string, tituloAtual: string) => {
-    const novoTitulo = window.prompt('Novo título do evento:', tituloAtual);
-    if (!novoTitulo || novoTitulo === tituloAtual) return;
-    try {
-      await ApiClient.patch(`/calendario/${id}`, { titulo: novoTitulo });
-      await carregarDados();
-    } catch {
-      window.alert('Não foi possível editar o evento. Verifique sua permissão.');
-    }
-  };
 
   const carregarDados = async () => {
     setCarregando(true);
@@ -129,7 +60,15 @@ export const VitrineView: React.FC = () => {
     }
   };
 
-  const podeGerenciar = usuarioLogado != null && ['MIDIA', 'PASTOR'].includes(usuarioLogado.perfil);
+  const carregarIdentidadeVisual = async () => {
+    try {
+      const res = await ApiClient.get('/configuracoes/visual');
+      const cfg = (res as any)?.visual ?? res ?? null;
+      setLogoUrl(cfg?.logoUrl ?? null);
+    } catch {
+      // Falha graciosa: vitrine sem logo
+    }
+  };
 
   if (carregando) {
     return (
@@ -198,22 +137,6 @@ export const VitrineView: React.FC = () => {
                       </p>
                     )}
                     {ev.descricao && <p className="text-xs text-slate-500 line-clamp-2 mt-1">{ev.descricao}</p>}
-                    {podeGerenciar && (
-                      <div className="flex items-center gap-2 mt-2">
-                        <button
-                          onClick={() => editarTituloEvento(ev.id, ev.titulo)}
-                          className="text-[11px] font-medium text-blue-400 hover:text-blue-300 transition-colors"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          onClick={() => excluirEvento(ev.id, ev.titulo)}
-                          className="text-[11px] font-medium text-red-400 hover:text-red-300 transition-colors"
-                        >
-                          Excluir
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </div>
               );
@@ -241,8 +164,6 @@ export const VitrineView: React.FC = () => {
             {publicacoes.map((item) => {
               const badge = badgeTipo[item.tipo] || badgeTipo.AVISO;
               const isVideo = item.tipo === 'VIDEO';
-              const autorId = item.autorId || (item as any).autor?.id;
-              const ehProprio = usuarioLogado != null && autorId === usuarioLogado.id && ['MIDIA', 'PASTOR'].includes(usuarioLogado.perfil);
               return (
                 <article key={item.id} className="card overflow-hidden flex flex-col card-hover">
                   {isVideo && item.videoUrl && item.videoUrl.includes('youtube') && (
@@ -264,9 +185,18 @@ export const VitrineView: React.FC = () => {
                   )}
 
                   {item.arquivoUrl && !isVideo && (
-                    <div className="aspect-video w-full bg-slate-950 overflow-hidden">
-                      <img src={item.arquivoUrl} alt={item.titulo} className="w-full h-full object-cover" />
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAmpliado(item)}
+                      aria-label={`Ampliar ${item.titulo}`}
+                      className="block w-full aspect-video bg-slate-950 overflow-hidden cursor-zoom-in group/img"
+                    >
+                      <img
+                        src={item.arquivoUrl}
+                        alt={item.titulo}
+                        className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-300"
+                      />
+                    </button>
                   )}
 
                   {!item.arquivoUrl && !item.videoUrl && (
@@ -288,22 +218,6 @@ export const VitrineView: React.FC = () => {
                         <p className="text-sm text-slate-400 mt-1 line-clamp-3">{item.descricao}</p>
                       )}
                     </div>
-                    {ehProprio && (
-                      <div className="flex items-center gap-2 pt-2 border-t border-slate-800">
-                        <button
-                          onClick={() => editarTitulo(item.id, item.titulo)}
-                          className="flex items-center gap-1 text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors"
-                        >
-                          <Newspaper size={13} /> Editar
-                        </button>
-                        <button
-                          onClick={() => excluirPublicacao(item.id, item.titulo)}
-                          className="flex items-center gap-1 text-xs font-medium text-red-400 hover:text-red-300 transition-colors"
-                        >
-                          <Megaphone size={13} /> Excluir
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </article>
               );
@@ -311,6 +225,48 @@ export const VitrineView: React.FC = () => {
           </div>
         )}
       </section>
+
+      {/* Visualizador em destaque (lightbox) */}
+      {ampliado && (
+        <div
+          className="fixed inset-0 z-[70] bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 sm:p-8"
+          onClick={() => setAmpliado(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Visualização ampliada: ${ampliado.titulo}`}
+        >
+          <button
+            type="button"
+            onClick={() => setAmpliado(null)}
+            aria-label="Fechar visualização"
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-slate-900/80 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 flex items-center justify-center transition-colors z-10"
+          >
+            <X size={18} />
+          </button>
+          <div
+            className="max-w-4xl w-full max-h-full flex flex-col gap-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={ampliado.arquivoUrl}
+              alt={ampliado.titulo}
+              className="w-full max-h-[75vh] object-contain rounded-2xl border border-slate-800 shadow-2xl"
+            />
+            <div className="rounded-xl bg-slate-950/90 border border-slate-800 p-3.5">
+              <span className={badgeTipo[ampliado.tipo]?.cor || badgeTipo.AVISO.cor}>
+                {badgeTipo[ampliado.tipo]?.label || badgeTipo.AVISO.label}
+              </span>
+              <h4 className="text-lg font-bold text-white mt-1.5">{ampliado.titulo}</h4>
+              {ampliado.descricao && (
+                <p className="text-sm text-slate-400 mt-1">{ampliado.descricao}</p>
+              )}
+              <p className="text-xs text-slate-500 mt-1.5">
+                Publicado em {new Date(ampliado.createdAt).toLocaleDateString('pt-BR')} • toque fora ou no ✕ para fechar
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
