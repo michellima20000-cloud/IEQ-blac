@@ -38,11 +38,15 @@ export class MidiaService {
    * REGRA MANDATÓRIA: Conteúdo pendente, rascunho ou devolvido NUNCA aparece na vitrine.
    */
   static async listarVitrine(usuario: UsuarioAutenticado) {
+    const where: any = {
+      igreja_id: usuario.igreja_id,
+      status: 'PUBLICADO'
+    };
+    if (usuario.perfil === 'MIDIA') {
+      where.autorId = usuario.id || (usuario as any).sub;
+    }
     return prisma.conteudoMidia.findMany({
-      where: {
-        igreja_id: usuario.igreja_id,
-        status: 'PUBLICADO'
-      },
+      where,
       include: {
         autor: {
           select: { id: true, nome: true, perfil: true }

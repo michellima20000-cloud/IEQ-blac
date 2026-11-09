@@ -10,6 +10,13 @@ interface MidiaPublicada {
   arquivoUrl?: string;
   videoUrl?: string;
   createdAt: string;
+  autorId?: string;
+}
+
+interface UsuarioLogado {
+  id: string;
+  nome: string;
+  perfil: string;
 }
 
 interface Evento {
@@ -32,10 +39,43 @@ export const VitrineView: React.FC = () => {
   const [publicacoes, setPublicacoes] = useState<MidiaPublicada[]>([]);
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [usuarioLogado, setUsuarioLogado] = useState<UsuarioLogado | null>(null);
 
   useEffect(() => {
     carregarDados();
+    carregarUsuario();
   }, []);
+
+  const carregarUsuario = async () => {
+    try {
+      const res = await ApiClient.get('/auth/me');
+      setUsuarioLogado(res.usuario);
+    } catch {
+      // Falha graciosa: vitrine continua em modo leitura
+    }
+  };
+
+  const excluirPublicacao = async (id: string, titulo: string) => {
+    if (!window.confirm(`Excluir a publicação "${titulo}" da vitrine?`)) return;
+    try {
+      await ApiClient.delete(`/midia/${id}`);
+      // cacheDel no backend invalida a vitrine; recarrega dados frescos
+      await carregarDados();
+    } catch {
+      window.alert('Não foi possível excluir. Verifique sua permissão.');
+    }
+  };
+
+  const editarTitulo = async (id: string, tituloAtual: string) => {
+    const novoTitulo = window.prompt('Novo título da publicação:', tituloAtual);
+    if (!novoTitulo || novoTitulo === tituloAtual) return;
+    try {
+      await ApiClient.patch(`/midia/${id}`, { titulo: novoTitulo });
+      await carregarDados();
+    } catch {
+      window.alert('Não foi possível editar. Verifique sua permissão.');
+    }
+  };
 
   const carregarDados = async () => {
     setCarregando(true);
@@ -136,6 +176,8 @@ export const VitrineView: React.FC = () => {
             {publicacoes.map((item) => {
               const badge = badgeTipo[item.tipo] || badgeTipo.AVISO;
               const isVideo = item.tipo === 'VIDEO';
+              const autorId = item.autorId || (item as any).autor?.id;
+              const ehProprio = usuarioLogado != null && autorId === usuarioLogado.id && ['MIDIA', 'PASTOR'].includes(usuarioLogado.perfil);
               return (
                 <article key={item.id} className="card overflow-hidden flex flex-col card-hover">
                   {isVideo && item.videoUrl && item.videoUrl.includes('youtube') && (
@@ -181,6 +223,22 @@ export const VitrineView: React.FC = () => {
                         <p className="text-sm text-slate-400 mt-1 line-clamp-3">{item.descricao}</p>
                       )}
                     </div>
+                    {ehProprio && (
+                      <div className="flex items-center gap-2 pt-2 border-t border-slate-800">
+                        <button
+                          onClick={() => editarTitulo(item.id, item.titulo)}
+                          className="flex items-center gap-1 text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors"
+                        >
+                          <Newspaper size={13} /> Editar
+                        </button>
+                        <button
+                          onClick={() => excluirPublicacao(item.id, item.titulo)}
+                          className="flex items-center gap-1 text-xs font-medium text-red-400 hover:text-red-300 transition-colors"
+                        >
+                          <Megaphone size={13} /> Excluir
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </article>
               );
