@@ -51,7 +51,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const iniciais = (usuario.nome || '?').trim().slice(0, 1).toUpperCase();
 
   return (
-    <div className="min-h-screen text-slate-100 flex flex-col pb-28 sm:pb-24">
+    <div className="min-h-screen text-slate-100 flex flex-col pb-32">
       {/* Top Header */}
       <header className="sticky top-0 z-30 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-xl">
         <div
