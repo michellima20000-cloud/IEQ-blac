@@ -504,6 +504,8 @@ export default function MidiaView() {
       setSucesso('Configurações visuais salvas!');
       setLogoFile(null); if (logoRef.current) logoRef.current.value = '';
       await carregarVisual();
+      // Avisa outras telas (cabeçalho, vitrine) para recarregar a identidade visual
+      window.dispatchEvent(new Event('visual-atualizada'));
     } catch (err: any) {
       setErro(msgErro(err, 'Erro ao salvar configurações.'));
     } finally {

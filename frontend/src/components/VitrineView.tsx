@@ -39,11 +39,16 @@ export const VitrineView: React.FC = () => {
   const [publicacoes, setPublicacoes] = useState<MidiaPublicada[]>([]);
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [usuarioLogado, setUsuarioLogado] = useState<UsuarioLogado | null>(null);
 
   useEffect(() => {
     carregarDados();
     carregarUsuario();
+    carregarIdentidadeVisual();
+    const aoAtualizar = () => carregarIdentidadeVisual();
+    window.addEventListener('visual-atualizada', aoAtualizar);
+    return () => window.removeEventListener('visual-atualizada', aoAtualizar);
   }, []);
 
   const carregarUsuario = async () => {
@@ -52,6 +57,16 @@ export const VitrineView: React.FC = () => {
       setUsuarioLogado(res.usuario);
     } catch {
       // Falha graciosa: vitrine continua em modo leitura
+    }
+  };
+
+  const carregarIdentidadeVisual = async () => {
+    try {
+      const res = await ApiClient.get('/configuracoes/visual');
+      const cfg = (res as any)?.visual ?? res ?? null;
+      setLogoUrl(cfg?.logoUrl ?? null);
+    } catch {
+      // Falha graciosa: vitrine sem logo
     }
   };
 
@@ -127,6 +142,17 @@ export const VitrineView: React.FC = () => {
 
   return (
     <div className="space-y-6 safe-bottom anim-fade-up">
+      {/* Identidade visual da igreja */}
+      {logoUrl && (
+        <div className="flex justify-center">
+          <img
+            src={logoUrl}
+            alt="Logo da igreja"
+            className="max-h-24 w-auto object-contain drop-shadow-lg"
+          />
+        </div>
+      )}
+
       {/* Título da Vitrine */}
       <div>
         <span className="eyebrow flex items-center gap-1.5">

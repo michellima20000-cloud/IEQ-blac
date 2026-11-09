@@ -29,20 +29,34 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   useEffect(() => {
     if (!usuario) { setVisual(null); return; }
     let cancelado = false;
-    api.get('/configuracoes/visual')
-      .then((r) => {
-        if (cancelado) return;
-        const cfg = (r.data as any)?.visual ?? r.data ?? null;
-        setVisual(cfg);
-        if (cfg?.corPrimaria) {
-          document.documentElement.style.setProperty('--cor-primaria', cfg.corPrimaria);
-        }
-        if (cfg?.corSecundaria) {
-          document.documentElement.style.setProperty('--cor-secundaria', cfg.corSecundaria);
-        }
-      })
-      .catch(() => { /* falha graciosa: usa avatar com iniciais */ });
-    return () => { cancelado = true; };
+    const carregarVisual = () => {
+      api.get('/configuracoes/visual')
+        .then((r) => {
+          if (cancelado) return;
+          const cfg = (r.data as any)?.visual ?? r.data ?? null;
+          setVisual(cfg);
+          if (cfg?.corPrimaria) {
+            document.documentElement.style.setProperty('--cor-primaria', cfg.corPrimaria);
+          }
+          if (cfg?.corSecundaria) {
+            document.documentElement.style.setProperty('--cor-secundaria', cfg.corSecundaria);
+          }
+        })
+        .catch(() => { /* falha graciosa: usa avatar com iniciais */ });
+    };
+    carregarVisual();
+    // Revalida quando a identidade visual é alterada em outra tela
+    const aoAtualizar = () => carregarVisual();
+    window.addEventListener('visual-atualizada', aoAtualizar);
+    // Tenta novamente ao voltar o foco (cobrir falha de token no primeiro load)
+    const aoFocar = () => { if (!visual) carregarVisual(); };
+    window.addEventListener('focus', aoFocar);
+    return () => {
+      cancelado = true;
+      window.removeEventListener('visual-atualizada', aoAtualizar);
+      window.removeEventListener('focus', aoFocar);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usuario?.id]);
 
   if (!usuario) return <>{children}</>;
