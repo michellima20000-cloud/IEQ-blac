@@ -393,6 +393,8 @@ export default function MidiaView() {
     try {
       await api.delete(`/midia/${id}`);
       setSucesso('Mídia excluída.');
+      // Remove imediatamente da lista local para sumir na UI sem esperar o recarregamento
+      setMidias(prev => prev.filter(m => m.id !== id));
       await carregarMidias();
     } catch (err: any) {
       setErro(msgErro(err, 'Erro ao excluir mídia.'));
