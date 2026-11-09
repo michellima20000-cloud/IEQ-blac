@@ -1266,14 +1266,18 @@ export default function MidiaView() {
           </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={carregando}
-            className="btn-primary w-full py-3.5 text-base font-semibold shadow-lg hover:shadow-indigo-500/30 transition-all"
-          >
-            <Check size={16} />
-            {carregando ? 'Salvando...' : 'Salvar Configurações Visuais'}
-          </button>
+          <div className="sticky bottom-24 z-40">
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/90 backdrop-blur-xl p-2 shadow-2xl shadow-black/60">
+              <button
+                type="submit"
+                disabled={carregando}
+                className="btn-primary w-full py-3.5 text-base font-semibold"
+              >
+                <Check size={16} />
+                {carregando ? 'Salvando...' : 'Salvar Configurações Visuais'}
+              </button>
+            </div>
+          </div>
         </form>
       )}
       </div>
