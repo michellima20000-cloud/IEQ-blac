@@ -132,7 +132,6 @@
       placeholder-slate-500;
     transition: border-color .3s cubic-bezier(.4,0,.2,1), box-shadow .3s cubic-bezier(.4,0,.2,1), background-color .3s cubic-bezier(.4,0,.2,1);
   }
-  .input:hover:not(:focus) { border-color: slate; }
   .input:hover:not(:focus) {
     border-color: rgba(51, 65, 85, 1);
   }

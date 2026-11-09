@@ -1187,9 +1187,19 @@ export default function MidiaView() {
                 type="file"
                 accept="image/*"
                 onChange={e => setLogoFile(e.target.files?.[0] ?? null)}
-                className="input w-full"
+                className="input sr-only peer"
                 aria-label="Enviar logo da igreja"
               />
+              <label
+                htmlFor="visual-logo"
+                className="flex items-center gap-2 w-full cursor-pointer rounded-xl border border-slate-700 bg-slate-950/80 px-3.5 py-2.5 text-sm text-slate-300 hover:border-blue-500/60 hover:bg-slate-900 transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500/50"
+              >
+                <ImageIcon size={14} className="shrink-0 text-blue-400" />
+                <span className="truncate">{logoFile ? logoFile.name : 'Selecionar nova logo (PNG/JPG/SVG)'}</span>
+                {!logoFile && (
+                  <span className="ml-auto text-xs text-slate-500 shrink-0">Nenhuma imagem escolhida</span>
+                )}
+              </label>
             </div>
           </div>
 
