@@ -3,9 +3,9 @@ import type { LucideIcon } from 'lucide-react';
 import {
   Megaphone, Upload, ClipboardList, Calendar, Palette, ImagePlus,
   Check, Inbox, MapPin, Pencil, Trash2, RotateCcw, Youtube,
-  CircleCheck, TriangleAlert,
+  CircleCheck, TriangleAlert, X, Download
 } from 'lucide-react';
-import { api } from '../api/client';
+import { api, ApiClient } from '../api/client';
 
 interface MediaItem {
   id: string;
@@ -65,6 +65,40 @@ function lerArquivoDataUrl(file: File): Promise<string> {
   });
 }
 
+function redimensionarImagem(file: File, maxWidth = 1920, qualidade = 0.85): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let largura = img.width;
+      let altura = img.height;
+      if (largura <= maxWidth) {
+        resolve(file);
+        return;
+      }
+      altura = Math.round((altura * maxWidth) / largura);
+      largura = maxWidth;
+      const canvas = document.createElement('canvas');
+      canvas.width = largura;
+      canvas.height = altura;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { resolve(file); return; }
+      ctx.drawImage(img, 0, 0, largura, altura);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) { resolve(file); return; }
+          const nome = file.name.replace(/\.[^/.]+$/, '.jpg');
+          const novoArquivo = new File([blob], nome, { type: 'image/jpeg', lastModified: Date.now() });
+          resolve(novoArquivo);
+        },
+        'image/jpeg',
+        qualidade
+      );
+    };
+    img.onerror = () => reject(new Error('Falha ao processar a imagem.'));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
 function isoParaDatetimeLocal(iso?: string): string {
   if (!iso) return '';
   const d = new Date(iso);
@@ -82,16 +116,22 @@ export default function MidiaView() {
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
 
-  // Form upload
+  const [editMidiaId, setEditMidiaId] = useState<string | null>(null);
+  const [editTitulo, setEditTitulo] = useState('');
+  const [editDescricao, setEditDescricao] = useState('');
+  const [editErro, setEditErro] = useState<string | null>(null);
+
   const [uploadTipo, setUploadTipo] = useState<'BANNER' | 'FOTO' | 'AVISO' | 'VIDEO'>('BANNER');
   const [uploadTitulo, setUploadTitulo] = useState('');
   const [uploadDescricao, setUploadDescricao] = useState('');
   const [uploadArquivo, setUploadArquivo] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [arquivoInfo, setArquivoInfo] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadYoutube, setUploadYoutube] = useState('');
   const [uploadRequerAprovacao, setUploadRequerAprovacao] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploadErros, setUploadErros] = useState<Record<string, string>>({});
 
-  // Form evento
   const [eventoId, setEventoId] = useState<string | null>(null);
   const [eventoTitulo, setEventoTitulo] = useState('');
   const [eventoDesc, setEventoDesc] = useState('');
@@ -99,13 +139,49 @@ export default function MidiaView() {
   const [eventoFim, setEventoFim] = useState('');
   const [eventoTipo, setEventoTipo] = useState('CULTO');
   const [eventoLocal, setEventoLocal] = useState('');
+  const [eventoErros, setEventoErros] = useState<Record<string, string>>({});
 
-  // Form visual
   const [corPrimaria, setCorPrimaria] = useState('#2563eb');
   const [corSecundaria, setCorSecundaria] = useState('#f59e0b');
   const [layoutOpt, setLayoutOpt] = useState('GRID');
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const logoRef = useRef<HTMLInputElement>(null);
+
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+  const appInstalado =
+    typeof window !== 'undefined' &&
+    window.matchMedia('(display-mode: standalone)').matches;
+
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      if (!appInstalado) setShowInstallBanner(true);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', () => {
+      setShowInstallBanner(false);
+      setDeferredPrompt(null);
+    });
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener('appinstalled', () => {});
+    };
+  }, [appInstalado]);
+
+  const instalarApp = () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then((resultado: any) => {
+      if (resultado.outcome === 'accepted') {
+        setShowInstallBanner(false);
+        setDeferredPrompt(null);
+      }
+    });
+  };
 
   const limparMsg = () => { setErro(''); setSucesso(''); };
 
@@ -120,7 +196,6 @@ export default function MidiaView() {
     try {
       const r = await api.get('/midia/minhas');
       const lista = r.data?.conteudos ?? r.data?.itens ?? r.data ?? [];
-      // Mapeia campos do backend para a interface local
       setMidias(lista.map((m: any) => ({
         ...m,
         criadoEm: m.createdAt || m.criadoEm,
@@ -171,48 +246,107 @@ export default function MidiaView() {
   async function enviarMidia(e: React.FormEvent) {
     e.preventDefault();
     limparMsg();
-    if (!uploadTitulo.trim()) { setErro('Informe o título.'); return; }
+    setUploadErros({});
+
+    let valido = true;
+    const erros: Record<string, string> = {};
+
+    if (!uploadTitulo.trim()) {
+      erros.titulo = 'Informe o título.';
+      valido = false;
+    }
     if (uploadTipo === 'VIDEO' && !uploadYoutube && !uploadArquivo) {
-      setErro('Informe o link do YouTube ou selecione um arquivo de vídeo (máx. 50 MB).'); return;
+      erros.video = 'Informe o link do YouTube ou selecione um arquivo de vídeo (máx. 50 MB).';
+      valido = false;
     }
     if ((uploadTipo === 'BANNER' || uploadTipo === 'FOTO') && !uploadArquivo) {
-      setErro('Selecione um arquivo de imagem.'); return;
+      erros.arquivo = 'Selecione um arquivo de imagem.';
+      valido = false;
     }
     if (uploadArquivo && uploadArquivo.size > 50 * 1024 * 1024) {
-      setErro('O arquivo excede o limite de 50 MB.'); return;
+      erros.arquivo = 'O arquivo excede o limite de 50 MB.';
+      valido = false;
     }
 
-    setCarregando(true);
-    try {
-      let corpo: any = {
-        tipo: uploadTipo,
-        titulo: uploadTitulo,
-        descricao: uploadDescricao || null,
-        precisaAprovacao: uploadRequerAprovacao,
-      };
-      if (uploadYoutube) corpo.videoUrl = uploadYoutube;
-      if (uploadArquivo) {
-        // Multipart com o arquivo binário (sem converter para base64,
-        // que estourava a requisição e causava o erro "Falha ao buscar")
-        const fd = new FormData();
-        fd.append('tipo', corpo.tipo);
-        fd.append('titulo', corpo.titulo);
-        if (corpo.descricao) fd.append('descricao', corpo.descricao);
-        fd.append('videoUrl', corpo.videoUrl || '');
-        fd.append('precisaAprovacao', String(corpo.precisaAprovacao));
-        fd.append('arquivo', uploadArquivo);
-        corpo = fd;
-      }
+    setUploadErros(erros);
+    if (!valido) return;
 
-      await api.post('/midia', corpo);
+    const token = ApiClient.getAccessToken();
+    if (!token) { setErro('Sessão expirada. Faça login novamente.'); return; }
+
+    let arquivoParaEnvio = uploadArquivo;
+    if ((uploadTipo === 'BANNER' || uploadTipo === 'FOTO') && uploadArquivo?.type.startsWith('image/')) {
+      try {
+        arquivoParaEnvio = await redimensionarImagem(uploadArquivo, 1920, 0.85);
+      } catch {
+        // segue com o arquivo original se o processamento falhar
+      }
+    }
+
+    const fd = new FormData();
+    fd.append('tipo', uploadTipo);
+    fd.append('titulo', uploadTitulo);
+    if (uploadDescricao) fd.append('descricao', uploadDescricao);
+    if (uploadYoutube) fd.append('videoUrl', uploadYoutube);
+    fd.append('precisaAprovacao', String(uploadRequerAprovacao));
+    if (arquivoParaEnvio) fd.append('arquivo', arquivoParaEnvio);
+
+    const UPLOAD_TIMEOUT_MS = 180_000;
+    setCarregando(true);
+    setUploadProgress(0);
+
+    try {
+      await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        const tempoLimite = setTimeout(() => {
+          xhr.abort();
+          reject(new Error('O upload demorou mais que 3 minutos. Tente um arquivo menor ou verifique sua conexão.'));
+        }, UPLOAD_TIMEOUT_MS);
+
+        xhr.upload.addEventListener('progress', (ev) => {
+          if (ev.lengthComputable) {
+            setUploadProgress(Math.round((ev.loaded / ev.total) * 100));
+          }
+        });
+
+        xhr.addEventListener('load', () => {
+          clearTimeout(tempoLimite);
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve(xhr.responseText);
+          } else {
+            let mensagem = 'Erro ao enviar a mídia.';
+            try { mensagem = JSON.parse(xhr.responseText)?.message || mensagem; } catch { /* ignora */ }
+            reject(new Error(mensagem));
+          }
+        });
+
+        xhr.addEventListener('error', () => {
+          clearTimeout(tempoLimite);
+          reject(new Error('Falha de conexão ao enviar a mídia. Verifique sua internet.'));
+        });
+
+        xhr.addEventListener('abort', () => {
+          clearTimeout(tempoLimite);
+          reject(new Error('Upload cancelado.'));
+        });
+
+        xhr.open('POST', `${ApiClient['getBaseUrl']()}/midia`);
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        xhr.send(fd);
+      });
+
       setSucesso('Mídia enviada com sucesso!');
       setUploadTitulo(''); setUploadDescricao(''); setUploadYoutube('');
-      setUploadArquivo(null); if (fileRef.current) fileRef.current.value = '';
+      setUploadArquivo(null); setPreviewUrl(null); setArquivoInfo(null); setUploadProgress(0);
+      setUploadErros({});
+      if (fileRef.current) fileRef.current.value = '';
       await carregarMidias();
     } catch (err: any) {
-      setErro(msgErro(err, 'Erro ao enviar a mídia.'));
+      setUploadProgress(0);
+      setErro(msgErro(err, 'Falha ao enviar a mídia. Verifique sua conexão e tente novamente.'));
     } finally {
       setCarregando(false);
+      setUploadProgress(0);
     }
   }
 
@@ -230,10 +364,66 @@ export default function MidiaView() {
     }
   }
 
+  async function salvarEdicaoMidia(e: React.FormEvent) {
+    e.preventDefault();
+    limparMsg();
+    setEditErro(null);
+    if (!editMidiaId) return;
+    if (!editTitulo.trim()) { setEditErro('Informe o título.'); return; }
+    setCarregando(true);
+    try {
+      await api.patch(`/midia/${editMidiaId}`, { titulo: editTitulo, descricao: editDescricao || null });
+      setSucesso('Mídia atualizada.');
+      setEditMidiaId(null);
+      setEditTitulo('');
+      setEditDescricao('');
+      await carregarMidias();
+    } catch (err: any) {
+      setEditErro(msgErro(err, 'Erro ao atualizar mídia.'));
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  async function excluirMidia(id: string) {
+    if (!window.confirm('Excluir esta mídia?')) return;
+    limparMsg();
+    setCarregando(true);
+    try {
+      await api.delete(`/midia/${id}`);
+      setSucesso('Mídia excluída.');
+      await carregarMidias();
+    } catch (err: any) {
+      setErro(msgErro(err, 'Erro ao excluir mídia.'));
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  function editarMidia(m: MediaItem) {
+    setEditMidiaId(m.id);
+    setEditTitulo(m.titulo);
+    setEditDescricao(m.descricao ?? '');
+    setEditErro(null);
+  }
+
+  function cancelarEdicaoMidia() {
+    setEditMidiaId(null);
+    setEditTitulo('');
+    setEditDescricao('');
+    setEditErro(null);
+  }
+
   async function salvarEvento(e: React.FormEvent) {
     e.preventDefault();
     limparMsg();
-    if (!eventoTitulo.trim() || !eventoInicio) { setErro('Preencha título e data de início.'); return; }
+    setEventoErros({});
+    let valido = true;
+    const erros: Record<string, string> = {};
+    if (!eventoTitulo.trim()) { erros.titulo = 'Preencha o título.'; valido = false; }
+    if (!eventoInicio) { erros.inicio = 'Preencha a data de início.'; valido = false; }
+    setEventoErros(erros);
+    if (!valido) return;
     setCarregando(true);
     try {
       const payload = {
@@ -279,11 +469,13 @@ export default function MidiaView() {
     setEventoFim(isoParaDatetimeLocal(ev.dataFim));
     setEventoTipo(ev.tipo || 'OUTRO');
     setEventoLocal(ev.local ?? '');
+    setEventoErros({});
   }
 
   function limparEvento() {
     setEventoId(null); setEventoTitulo(''); setEventoDesc('');
     setEventoInicio(''); setEventoFim(''); setEventoTipo('CULTO'); setEventoLocal('');
+    setEventoErros({});
   }
 
   async function salvarVisual(e: React.FormEvent) {
@@ -315,9 +507,16 @@ export default function MidiaView() {
     { id: 'visual', label: 'Visual', Icon: Palette },
   ];
 
+  function InputErro({ id, mensagem }: { id: string; mensagem: string }) {
+    return (
+      <p id={id} className="text-[11px] text-red-400 mt-1" role="alert" aria-live="polite">
+        {mensagem}
+      </p>
+    );
+  }
+
   return (
-    <div className="max-w-3xl mx-auto space-y-5">
-      {/* Header da Mídia */}
+    <div className="max-w-3xl mx-auto space-y-5 safe-bottom">
       <div className="card card-pad relative overflow-hidden">
         <div className="absolute -top-24 -right-16 w-56 h-56 rounded-full bg-blue-600/15 blur-3xl pointer-events-none" />
         <div className="absolute -bottom-20 -left-10 w-44 h-44 rounded-full bg-indigo-600/10 blur-3xl pointer-events-none" />
@@ -333,12 +532,25 @@ export default function MidiaView() {
         </div>
       </div>
 
-      {/* Abas */}
-      <nav className="flex flex-wrap gap-2">
+      {showInstallBanner && !appInstalado && (
+        <div className="flex justify-end">
+          <button
+            onClick={instalarApp}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/30 rounded text-xs text-blue-400"
+            aria-label="Instalar aplicativo"
+          >
+            <Download size={14} className="shrink-0" />
+            Instalar app
+          </button>
+        </div>
+      )}
+
+      <nav className="flex flex-wrap gap-2" aria-label="Abas da área de mídia">
         {abas.map(a => (
           <button
             key={a.id}
             onClick={() => setAba(a.id)}
+            aria-pressed={aba === a.id}
             className={`tab flex items-center gap-1.5 ${aba === a.id ? 'tab-active' : ''}`}
           >
             <a.Icon size={14} />
@@ -347,9 +559,8 @@ export default function MidiaView() {
         ))}
       </nav>
 
-      {/* Mensagens */}
       {erro && (
-        <div className="alert-error">
+        <div className="alert-error" role="alert">
           <span className="flex items-center gap-2 min-w-0">
             <TriangleAlert size={15} className="shrink-0" />
             <span>{erro}</span>
@@ -357,7 +568,7 @@ export default function MidiaView() {
         </div>
       )}
       {sucesso && (
-        <div className="alert-success">
+        <div className="alert-success" role="status" aria-live="polite">
           <span className="flex items-center gap-2 min-w-0">
             <CircleCheck size={15} className="shrink-0" />
             <span>{sucesso}</span>
@@ -365,9 +576,8 @@ export default function MidiaView() {
         </div>
       )}
 
-      {/* ABA: Enviar */}
       {aba === 'uploads' && (
-        <form onSubmit={enviarMidia} className="card card-pad space-y-4">
+        <form onSubmit={enviarMidia} className="card card-pad space-y-4" aria-label="Enviar nova mídia">
           <div className="flex items-center gap-2">
             <span className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
               <ImagePlus size={15} />
@@ -376,8 +586,9 @@ export default function MidiaView() {
           </div>
 
           <div>
-            <label className="label">Tipo</label>
+            <label className="label" htmlFor="upload-tipo">Tipo</label>
             <select
+              id="upload-tipo"
               value={uploadTipo}
               onChange={e => setUploadTipo(e.target.value as any)}
               className="input"
@@ -390,19 +601,25 @@ export default function MidiaView() {
           </div>
 
           <div>
-            <label className="label">Título *</label>
+            <label className="label" htmlFor="upload-titulo">Título <span className="text-red-500" aria-hidden="true">*</span></label>
             <input
+              id="upload-titulo"
               type="text"
               value={uploadTitulo}
               onChange={e => setUploadTitulo(e.target.value)}
-              className="input"
+              className={`input ${uploadErros.titulo ? 'border-red-500/50 focus:border-red-500' : ''}`}
               placeholder="Título da mídia"
+              aria-required="true"
+              aria-invalid={!!uploadErros.titulo}
+              aria-describedby={uploadErros.titulo ? 'erro-upload-titulo' : undefined}
             />
+            {uploadErros.titulo && <InputErro id="erro-upload-titulo" mensagem={uploadErros.titulo} />}
           </div>
 
           <div>
-            <label className="label">Descrição</label>
+            <label className="label" htmlFor="upload-descricao">Descrição</label>
             <textarea
+              id="upload-descricao"
               value={uploadDescricao}
               onChange={e => setUploadDescricao(e.target.value)}
               rows={3}
@@ -414,19 +631,24 @@ export default function MidiaView() {
           {uploadTipo === 'VIDEO' ? (
             <div className="space-y-3">
               <div>
-                <label className="label">Link do YouTube (não listado)</label>
+                <label className="label" htmlFor="upload-youtube">Link do YouTube (não listado)</label>
                 <input
+                  id="upload-youtube"
                   type="url"
                   value={uploadYoutube}
                   onChange={e => setUploadYoutube(e.target.value)}
-                  className="input"
+                  className={`input ${uploadErros.video ? 'border-red-500/50 focus:border-red-500' : ''}`}
                   placeholder="https://www.youtube.com/watch?v=..."
+                  aria-invalid={!!uploadErros.video}
+                  aria-describedby={uploadErros.video ? 'erro-upload-video' : undefined}
                 />
+                {uploadErros.video && <InputErro id="erro-upload-video" mensagem={uploadErros.video} />}
               </div>
               <p className="text-xs text-slate-500 text-center">— ou —</p>
               <div>
-                <label className="label">Arquivo de vídeo (máx. 50 MB)</label>
+                <label className="label" htmlFor="upload-video-arquivo">Arquivo de vídeo (máx. 50 MB)</label>
                 <input
+                  id="upload-video-arquivo"
                   ref={fileRef}
                   type="file"
                   accept="video/*"
@@ -437,19 +659,70 @@ export default function MidiaView() {
             </div>
           ) : (
             <div>
-              <label className="label">Arquivo (imagem)</label>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                onChange={e => setUploadArquivo(e.target.files?.[0] ?? null)}
-                className="input"
-              />
+              <label className="label" htmlFor="upload-imagem">Arquivo (imagem)</label>
+              <div className="relative">
+                <input
+                  id="upload-imagem"
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    setUploadArquivo(file);
+                    setUploadErros(prev => { const next = { ...prev }; delete next.arquivo; return next; });
+                    if (!file) { setPreviewUrl(null); setArquivoInfo(null); return; }
+                    setPreviewUrl(URL.createObjectURL(file));
+                    const img = new Image();
+                    img.src = URL.createObjectURL(file);
+                    img.onload = () => {
+                      const kb = Math.round(file.size / 1024);
+                      setArquivoInfo(`${img.width} × ${img.height} • ${kb} KB`);
+                      URL.revokeObjectURL(img.src);
+                    };
+                  }}
+                  className="input sr-only peer"
+                  aria-label="Selecionar imagem"
+                />
+                <label
+                  htmlFor="upload-imagem"
+                  className="flex items-center gap-2 w-full cursor-pointer rounded-xl border border-slate-700 bg-slate-950/80 px-3.5 py-2.5 text-sm text-slate-300 hover:border-blue-500/60 hover:bg-slate-900 transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500/50"
+                >
+                  <ImagePlus size={14} className="shrink-0 text-blue-400" />
+                  <span>{uploadArquivo ? uploadArquivo.name : 'Escolher arquivo'}</span>
+                  {!uploadArquivo && (
+                    <span className="ml-auto text-xs text-slate-500">Nenhum arquivo escolhido</span>
+                  )}
+                </label>
+                {uploadErros.arquivo && <InputErro id="erro-upload-arquivo" mensagem={uploadErros.arquivo} />}
+              </div>
+              {previewUrl && (
+                <div className="mt-2 relative rounded-xl overflow-hidden border border-slate-700 bg-slate-950">
+                  <img src={previewUrl} alt="Pré-visualização da imagem" className="w-full h-48 object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUploadArquivo(null); setPreviewUrl(null); setArquivoInfo(null);
+                      setUploadErros(prev => { const next = { ...prev }; delete next.arquivo; return next; });
+                      if (fileRef.current) fileRef.current.value = '';
+                    }}
+                    className="absolute top-2 right-2 bg-black/60 hover:bg-black/90 text-white rounded-full w-7 h-7 flex items-center justify-center"
+                    aria-label="Remover imagem"
+                  >
+                    <X size={14} />
+                  </button>
+                  {arquivoInfo && (
+                    <div className="absolute bottom-2 left-2 bg-black/60 text-[11px] text-slate-300 px-2 py-1 rounded">
+                      {arquivoInfo}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
-          <label className="card-soft card-hover px-3.5 py-3 flex items-center gap-2.5 cursor-pointer">
+          <label className="card-soft card-hover px-3.5 py-3 flex items-center gap-2.5 cursor-pointer" htmlFor="upload-aprovacao">
             <input
+              id="upload-aprovacao"
               type="checkbox"
               checked={uploadRequerAprovacao}
               onChange={e => setUploadRequerAprovacao(e.target.checked)}
@@ -466,12 +739,26 @@ export default function MidiaView() {
             <Upload size={16} />
             {carregando ? 'Enviando...' : 'Enviar Mídia'}
           </button>
+
+          {uploadProgress > 0 && uploadProgress < 100 && (
+            <div className="mt-3">
+              <div className="w-full bg-slate-800 rounded-full h-2">
+                <div
+                  className="bg-blue-500 h-2 rounded-full transition-all duration-100"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-[11px] text-slate-400 mt-1">
+                <span>Enviando arquivo...</span>
+                <span>{uploadProgress}%</span>
+              </div>
+            </div>
+          )}
         </form>
       )}
 
-      {/* ABA: Status */}
       {aba === 'status' && (
-        <section className="card card-pad">
+        <section className="card card-pad" aria-label="Minhas mídias">
           <div className="flex items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2">
               <span className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
@@ -484,69 +771,132 @@ export default function MidiaView() {
 
           {carregando && (
             <div className="loading-state">
-              <div className="w-7 h-7 border-[3px] border-blue-500 border-t-transparent rounded-full animate-spin" />
+              <div className="w-7 h-7 border-[3px] border-blue-500 border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+              <span className="sr-only">Carregando mídias...</span>
               Carregando...
             </div>
           )}
           {!carregando && midias.length === 0 && (
             <div className="empty-state border-0 bg-transparent p-8">
-              <Inbox size={22} className="block mx-auto mb-2 text-slate-600" />
+              <Inbox size={22} className="block mx-auto mb-2 text-slate-600" aria-hidden="true" />
               Nenhuma mídia enviada ainda.
             </div>
           )}
 
           <div className="space-y-3">
-            {midias.map(m => (
-              <div key={m.id} className="card-soft card-hover p-4 space-y-2">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-white">{m.titulo}</p>
-                    <p className="text-xs text-slate-400 mt-1">{m.tipo} · {new Date(m.criadoEm).toLocaleDateString('pt-BR')}</p>
-                  </div>
-                  <span className={STATUS_COR[m.status]}>
-                    {STATUS_LABEL[m.status]}
-                  </span>
+            {midias.map(m => {
+              const editando = editMidiaId === m.id;
+              return (
+                <div key={m.id} className="card-soft card-hover p-4 space-y-2">
+                  {editando ? (
+                    <form onSubmit={salvarEdicaoMidia} className="space-y-3" aria-label={`Editar ${m.titulo}`}>
+                      <div>
+                        <label className="label" htmlFor={`edit-titulo-${m.id}`}>Título</label>
+                        <input
+                          id={`edit-titulo-${m.id}`}
+                          type="text"
+                          value={editTitulo}
+                          onChange={e => setEditTitulo(e.target.value)}
+                          className={`input ${editErro ? 'border-red-500/50 focus:border-red-500' : ''}`}
+                          autoFocus
+                          aria-invalid={!!editErro}
+                          aria-describedby={editErro ? `erro-edit-${m.id}` : undefined}
+                        />
+                        {editErro && <InputErro id={`erro-edit-${m.id}`} mensagem={editErro} />}
+                      </div>
+                      <div>
+                        <label className="label" htmlFor={`edit-descricao-${m.id}`}>Descrição</label>
+                        <textarea
+                          id={`edit-descricao-${m.id}`}
+                          value={editDescricao}
+                          onChange={e => setEditDescricao(e.target.value)}
+                          rows={2}
+                          className="input resize-none"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button type="submit" disabled={carregando} className="btn-primary flex-1">
+                          <Check size={14} />
+                          Salvar
+                        </button>
+                        <button type="button" onClick={cancelarEdicaoMidia} className="btn-ghost flex-1">
+                          Cancelar
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-white">{m.titulo}</p>
+                          <p className="text-xs text-slate-400 mt-1">{m.tipo} · {new Date(m.criadoEm).toLocaleDateString('pt-BR')}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className={STATUS_COR[m.status]}>
+                            {STATUS_LABEL[m.status]}
+                          </span>
+                          <button
+                            onClick={() => editarMidia(m)}
+                            disabled={carregando}
+                            className="btn-ghost btn-sm"
+                            title="Editar"
+                            aria-label={`Editar ${m.titulo}`}
+                          >
+                            <Pencil size={12} />
+                          </button>
+                          <button
+                            onClick={() => excluirMidia(m.id)}
+                            disabled={carregando}
+                            className="btn-soft-danger btn-sm"
+                            title="Excluir"
+                            aria-label={`Excluir ${m.titulo}`}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+                      {m.status === 'DEVOLVIDO' && m.comentarioPastor && (
+                        <div className="rounded-xl border border-red-500/25 bg-red-500/10 p-3 text-xs text-red-300" role="alert">
+                          <p className="font-semibold mb-1 flex items-center gap-1.5">
+                            <TriangleAlert size={12} />
+                            Comentário do pastor:
+                          </p>
+                          <p>{m.comentarioPastor}</p>
+                        </div>
+                      )}
+                      {m.status === 'DEVOLVIDO' && (
+                        <button
+                          onClick={() => reenviarMidia(m.id)}
+                          disabled={carregando}
+                          className="btn-soft-success btn-sm w-full"
+                        >
+                          <RotateCcw size={13} />
+                          Corrigir e Reenviar para Aprovação
+                        </button>
+                      )}
+                      {m.youtubeUrl && (
+                        <a
+                          href={m.youtubeUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-400 hover:text-blue-300 underline"
+                        >
+                          <Youtube size={13} />
+                          Ver vídeo no YouTube
+                        </a>
+                      )}
+                    </>
+                  )}
                 </div>
-                {m.status === 'DEVOLVIDO' && m.comentarioPastor && (
-                  <div className="rounded-xl border border-red-500/25 bg-red-500/10 p-3 text-xs text-red-300">
-                    <p className="font-semibold mb-1 flex items-center gap-1.5">
-                      <TriangleAlert size={12} />
-                      Comentário do pastor:
-                    </p>
-                    <p>{m.comentarioPastor}</p>
-                  </div>
-                )}
-                {m.status === 'DEVOLVIDO' && (
-                  <button
-                    onClick={() => reenviarMidia(m.id)}
-                    disabled={carregando}
-                    className="btn-soft-success btn-sm w-full"
-                  >
-                    <RotateCcw size={13} />
-                    Corrigir e Reenviar para Aprovação
-                  </button>
-                )}
-                {m.youtubeUrl && (
-                  <a
-                    href={m.youtubeUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-400 hover:text-blue-300 underline"
-                  >
-                    <Youtube size={13} />
-                    Ver vídeo no YouTube
-                  </a>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}
 
-      {/* ABA: Calendário */}
       {aba === 'calendario' && (
         <div className="space-y-5">
-          <form onSubmit={salvarEvento} className="card card-pad space-y-4">
+          <form onSubmit={salvarEvento} className="card card-pad space-y-4" aria-label={eventoId ? 'Editar evento' : 'Novo evento'}>
             <div className="flex items-center gap-2">
               <span className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
                 <Calendar size={15} />
@@ -555,8 +905,9 @@ export default function MidiaView() {
             </div>
 
             <div>
-              <label className="label">Tipo</label>
+              <label className="label" htmlFor="evento-tipo">Tipo</label>
               <select
+                id="evento-tipo"
                 value={eventoTipo}
                 onChange={e => setEventoTipo(e.target.value)}
                 className="input"
@@ -570,19 +921,25 @@ export default function MidiaView() {
             </div>
 
             <div>
-              <label className="label">Título *</label>
+              <label className="label" htmlFor="evento-titulo">Título <span className="text-red-500" aria-hidden="true">*</span></label>
               <input
+                id="evento-titulo"
                 type="text"
                 value={eventoTitulo}
                 onChange={e => setEventoTitulo(e.target.value)}
-                className="input"
+                className={`input ${eventoErros.titulo ? 'border-red-500/50 focus:border-red-500' : ''}`}
                 placeholder="Nome do evento"
+                aria-required="true"
+                aria-invalid={!!eventoErros.titulo}
+                aria-describedby={eventoErros.titulo ? 'erro-evento-titulo' : undefined}
               />
+              {eventoErros.titulo && <InputErro id="erro-evento-titulo" mensagem={eventoErros.titulo} />}
             </div>
 
             <div>
-              <label className="label">Descrição</label>
+              <label className="label" htmlFor="evento-descricao">Descrição</label>
               <textarea
+                id="evento-descricao"
                 value={eventoDesc}
                 onChange={e => setEventoDesc(e.target.value)}
                 rows={2}
@@ -591,8 +948,9 @@ export default function MidiaView() {
             </div>
 
             <div>
-              <label className="label">Local</label>
+              <label className="label" htmlFor="evento-local">Local</label>
               <input
+                id="evento-local"
                 type="text"
                 value={eventoLocal}
                 onChange={e => setEventoLocal(e.target.value)}
@@ -603,17 +961,23 @@ export default function MidiaView() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="label">Início *</label>
+                <label className="label" htmlFor="evento-inicio">Início <span className="text-red-500" aria-hidden="true">*</span></label>
                 <input
+                  id="evento-inicio"
                   type="datetime-local"
                   value={eventoInicio}
                   onChange={e => setEventoInicio(e.target.value)}
-                  className="input"
+                  className={`input ${eventoErros.inicio ? 'border-red-500/50 focus:border-red-500' : ''}`}
+                  aria-required="true"
+                  aria-invalid={!!eventoErros.inicio}
+                  aria-describedby={eventoErros.inicio ? 'erro-evento-inicio' : undefined}
                 />
+                {eventoErros.inicio && <InputErro id="erro-evento-inicio" mensagem={eventoErros.inicio} />}
               </div>
               <div>
-                <label className="label">Fim</label>
+                <label className="label" htmlFor="evento-fim">Fim</label>
                 <input
+                  id="evento-fim"
                   type="datetime-local"
                   value={eventoFim}
                   onChange={e => setEventoFim(e.target.value)}
@@ -639,7 +1003,7 @@ export default function MidiaView() {
             </div>
           </form>
 
-          <section className="card card-pad">
+          <section className="card card-pad" aria-label="Próximos eventos">
             <div className="flex items-center justify-between gap-3 mb-4">
               <div className="flex items-center gap-2">
                 <span className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
@@ -652,13 +1016,14 @@ export default function MidiaView() {
 
             {carregando && (
               <div className="loading-state">
-                <div className="w-7 h-7 border-[3px] border-blue-500 border-t-transparent rounded-full animate-spin" />
+                <div className="w-7 h-7 border-[3px] border-blue-500 border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+                <span className="sr-only">Carregando eventos...</span>
                 Carregando...
               </div>
             )}
             {!carregando && eventos.length === 0 && (
               <div className="empty-state border-0 bg-transparent p-8">
-                <Calendar size={22} className="block mx-auto mb-2 text-slate-600" />
+                <Calendar size={22} className="block mx-auto mb-2 text-slate-600" aria-hidden="true" />
                 Nenhum evento cadastrado.
               </div>
             )}
@@ -687,6 +1052,7 @@ export default function MidiaView() {
                     <button
                       onClick={() => editarEvento(ev)}
                       className="btn-ghost btn-sm"
+                      aria-label={`Editar evento ${ev.titulo}`}
                     >
                       <Pencil size={12} />
                       Editar
@@ -694,6 +1060,7 @@ export default function MidiaView() {
                     <button
                       onClick={() => excluirEvento(ev.id)}
                       className="btn-soft-danger btn-sm"
+                      aria-label={`Excluir evento ${ev.titulo}`}
                     >
                       <Trash2 size={12} />
                       Excluir
@@ -706,9 +1073,8 @@ export default function MidiaView() {
         </div>
       )}
 
-      {/* ABA: Visual */}
       {aba === 'visual' && (
-        <form onSubmit={salvarVisual} className="card card-pad space-y-4">
+        <form onSubmit={salvarVisual} className="card card-pad space-y-4" aria-label="Configurações visuais">
           <div className="flex items-center gap-2">
             <span className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
               <Palette size={15} />
@@ -718,9 +1084,10 @@ export default function MidiaView() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="label">Cor Primária</label>
+              <label className="label" htmlFor="visual-cor-primaria">Cor Primária</label>
               <div className="flex items-center gap-2">
                 <input
+                  id="visual-cor-primaria"
                   type="color"
                   value={corPrimaria}
                   onChange={e => setCorPrimaria(e.target.value)}
@@ -730,9 +1097,10 @@ export default function MidiaView() {
               </div>
             </div>
             <div>
-              <label className="label">Cor Secundária</label>
+              <label className="label" htmlFor="visual-cor-secundaria">Cor Secundária</label>
               <div className="flex items-center gap-2">
                 <input
+                  id="visual-cor-secundaria"
                   type="color"
                   value={corSecundaria}
                   onChange={e => setCorSecundaria(e.target.value)}
@@ -744,8 +1112,9 @@ export default function MidiaView() {
           </div>
 
           <div>
-            <label className="label">Layout das telas de divulgação</label>
+            <label className="label" htmlFor="visual-layout">Layout das telas de divulgação</label>
             <select
+              id="visual-layout"
               value={layoutOpt}
               onChange={e => setLayoutOpt(e.target.value)}
               className="input"
@@ -757,11 +1126,12 @@ export default function MidiaView() {
           </div>
 
           <div>
-            <label className="label">Logo da Igreja</label>
+            <label className="label" htmlFor="visual-logo">Logo da Igreja</label>
             {visual?.logoUrl && (
-              <img src={visual.logoUrl} alt="Logo atual" className="h-14 mb-2 rounded-xl border border-slate-700/70" />
+              <img src={visual.logoUrl} alt="Logo atual da igreja" className="h-14 mb-2 rounded-xl border border-slate-700/70" />
             )}
             <input
+              id="visual-logo"
               ref={logoRef}
               type="file"
               accept="image/*"
@@ -770,7 +1140,6 @@ export default function MidiaView() {
             />
           </div>
 
-          {/* Preview das cores */}
           <div className="rounded-xl overflow-hidden border border-slate-700/70">
             <div className="p-3 text-white text-sm font-semibold text-center" style={{ backgroundColor: corPrimaria }}>
               Exemplo de Cabeçalho

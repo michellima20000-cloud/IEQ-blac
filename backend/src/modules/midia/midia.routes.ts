@@ -61,6 +61,7 @@ router.get('/midia/vitrine', MidiaController.listarVitrine);
 router.get('/midia/minhas', MidiaController.listarMinhas);
 router.post('/midia', comTratamentoDeUpload, MidiaController.criar);
 router.patch('/midia/:id', validate(atualizarMidiaSchema), MidiaController.atualizarEReenviar);
+router.delete('/midia/:id', MidiaController.excluirMidia);
 
 // --- FLUXO DE APROVAÇÃO (EXCLUSIVO DO PASTOR) ---
 router.get('/midia/pendentes', requirePerfil('PASTOR'), MidiaController.listarPendentes);

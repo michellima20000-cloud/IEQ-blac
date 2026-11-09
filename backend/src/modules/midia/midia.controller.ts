@@ -110,6 +110,17 @@ export class MidiaController {
     }
   }
 
+  static async excluirMidia(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      await MidiaService.excluir(req.user as any, id);
+      await cacheDel(chavesCache.vitrine(req.user!.igreja_id));
+      res.json({ message: 'Mídia excluída com sucesso.' });
+    } catch (err: any) {
+      res.status(err.statusCode || 400).json({ error: err.name || 'Erro', message: err.message });
+    }
+  }
+
   static async atualizarEReenviar(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;

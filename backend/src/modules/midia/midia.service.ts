@@ -169,5 +169,27 @@ export class MidiaService {
       }
     });
   }
+
+  /**
+   * Exclui um conteúdo de mídia. MIDIA só exclui o próprio conteúdo;
+   * PASTOR pode excluir qualquer conteúdo da igreja.
+   */
+  static async excluir(usuario: UsuarioAutenticado, id: string) {
+    if (usuario.perfil !== 'MIDIA' && usuario.perfil !== 'PASTOR') {
+      throw new PermissaoError('Acesso não autorizado.');
+    }
+
+    const where: any = { id, igreja_id: usuario.igreja_id };
+    if (usuario.perfil === 'MIDIA') {
+      where.autorId = usuario.id || (usuario as any).sub;
+    }
+
+    const conteudo = await prisma.conteudoMidia.findFirst({ where });
+    if (!conteudo) {
+      throw new Error('Conteúdo não encontrado.');
+    }
+
+    return prisma.conteudoMidia.delete({ where: { id } });
+  }
 }
 
