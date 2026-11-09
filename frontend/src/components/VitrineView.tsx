@@ -103,7 +103,7 @@ export const VitrineView: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 safe-bottom anim-fade-up">
       {/* Título da Vitrine */}
       <div>
         <span className="eyebrow flex items-center gap-1.5">

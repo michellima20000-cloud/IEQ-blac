@@ -568,6 +568,9 @@ export default function MidiaView() {
             <TriangleAlert size={15} className="shrink-0" />
             <span>{erro}</span>
           </span>
+          <button onClick={limparMsg} aria-label="Fechar aviso" className="shrink-0 text-red-400/70 hover:text-red-300 transition-colors">
+            <X size={15} />
+          </button>
         </div>
       )}
       {sucesso && (
@@ -576,9 +579,13 @@ export default function MidiaView() {
             <CircleCheck size={15} className="shrink-0" />
             <span>{sucesso}</span>
           </span>
+          <button onClick={limparMsg} aria-label="Fechar confirmação" className="shrink-0 text-emerald-400/70 hover:text-emerald-300 transition-colors">
+            <X size={15} />
+          </button>
         </div>
       )}
 
+      <div key={aba} className="anim-fade-up">
       {aba === 'uploads' && (
         <form onSubmit={enviarMidia} className="card card-pad space-y-4" aria-label="Enviar nova mídia">
           <div className="flex items-center gap-2">
@@ -743,13 +750,10 @@ export default function MidiaView() {
             {carregando ? 'Enviando...' : 'Enviar Mídia'}
           </button>
 
-          {uploadProgress > 0 && uploadProgress < 100 && (
+          {uploadProgress > 0 && (
             <div className="mt-3">
-              <div className="w-full bg-slate-800 rounded-full h-2">
-                <div
-                  className="bg-blue-500 h-2 rounded-full transition-all duration-100"
-                  style={{ width: `${uploadProgress}%` }}
-                />
+              <div className="progress-track" role="progressbar" aria-valuenow={uploadProgress} aria-valuemin={0} aria-valuemax={100}>
+                <div className="progress-fill" style={{ width: `${uploadProgress}%` }} />
               </div>
               <div className="flex justify-between text-[11px] text-slate-400 mt-1">
                 <span>Enviando arquivo...</span>
@@ -1219,6 +1223,7 @@ export default function MidiaView() {
           </button>
         </form>
       )}
+      </div>
     </div>
   );
 }
