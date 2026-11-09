@@ -4,7 +4,7 @@ import {
   Megaphone, Upload, ClipboardList, Calendar, Palette, ImagePlus,
   Check, Inbox, MapPin, Pencil, Trash2, RotateCcw, Youtube,
   CircleCheck, TriangleAlert, X, Download, Layout, Monitor,
-  Image as ImageIcon
+  Image as ImageIcon, LayoutGrid, GalleryHorizontalEnd, List
 } from 'lucide-react';
 import { api, ApiClient } from '../api/client';
 
@@ -45,6 +45,14 @@ const STATUS_LABEL: Record<string, string> = {
   PUBLICADO: 'Publicado',
   DEVOLVIDO: 'Devolvido pelo pastor',
 };
+
+const CORES_PRIMARIA = ['#2563eb', '#4f46e5', '#7c3aed', '#0ea5e9', '#059669', '#16a34a', '#dc2626', '#db2777'];
+const CORES_SECUNDARIA = ['#f59e0b', '#fbbf24', '#f97316', '#22d3ee', '#84cc16', '#e879f9', '#38bdf8', '#eab308'];
+const LAYOUT_OPCOES: { value: string; label: string; desc: string; icon: LucideIcon }[] = [
+  { value: 'GRID', label: 'Grade', desc: 'Blocos em colunas', icon: LayoutGrid },
+  { value: 'CARROSSEL', label: 'Carrossel', desc: 'Deslize horizontal', icon: GalleryHorizontalEnd },
+  { value: 'LISTA', label: 'Lista', desc: 'Um abaixo do outro', icon: List }
+];
 
 const STATUS_COR: Record<string, string> = {
   RASCUNHO: 'badge-slate',
@@ -1096,67 +1104,87 @@ export default function MidiaView() {
 
           <div className="card card-pad">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-3">
-                <label className="label flex items-center gap-2" htmlFor="visual-cor-primaria">
-                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: corPrimaria }} />
-                  Cor Primária
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    id="visual-cor-primaria"
-                    type="color"
-                    value={corPrimaria}
-                    onChange={e => setCorPrimaria(e.target.value)}
-                    className="w-12 h-12 rounded-xl border border-slate-700/50 bg-slate-950 cursor-pointer p-0 shadow-lg hover:scale-105 transition-transform"
-                    aria-label="Selecionar cor primária"
-                  />
-                  <span className="text-xs font-mono text-slate-300 bg-slate-800/80 px-2 py-1 rounded border border-slate-700">
-                    {corPrimaria}
-                  </span>
+              {([
+                { id: 'visual-cor-primaria', label: 'Cor Primária', value: corPrimaria, setValue: setCorPrimaria, paleta: CORES_PRIMARIA },
+                { id: 'visual-cor-secundaria', label: 'Cor Secundária', value: corSecundaria, setValue: setCorSecundaria, paleta: CORES_SECUNDARIA }
+              ] as const).map((campo) => (
+                <div key={campo.id} className="space-y-3">
+                  <label className="label flex items-center gap-2" htmlFor={campo.id}>
+                    <span className="w-3 h-3 rounded-full ring-2 ring-white/10" style={{ backgroundColor: campo.value }} />
+                    {campo.label}
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <label
+                      className="relative w-11 h-11 rounded-xl cursor-pointer shrink-0 border border-white/10 hover:scale-105 transition-transform"
+                      style={{ backgroundColor: campo.value, boxShadow: `0 6px 18px -6px ${campo.value}` }}
+                      title="Abrir seletor de cor"
+                    >
+                      <input
+                        id={campo.id}
+                        type="color"
+                        value={campo.value}
+                        onChange={e => campo.setValue(e.target.value)}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        aria-label={`Selecionar ${campo.label.toLowerCase()}`}
+                      />
+                    </label>
+                    <code className="text-xs font-mono text-slate-200 bg-slate-800/80 px-2.5 py-1.5 rounded-lg border border-slate-700">
+                      {campo.value}
+                    </code>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5" role="group" aria-label={`Paletas rápidas — ${campo.label}`}>
+                    {campo.paleta.map((cor) => (
+                      <button
+                        key={cor}
+                        type="button"
+                        onClick={() => campo.setValue(cor)}
+                        aria-pressed={campo.value.toLowerCase() === cor}
+                        title={cor}
+                        className={`w-7 h-7 rounded-lg border border-white/10 hover:scale-110 transition-transform ${campo.value.toLowerCase() === cor ? 'ring-2 ring-white/70 ring-offset-2 ring-offset-slate-900' : ''}`}
+                        style={{ backgroundColor: cor }}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <div className="space-y-3">
-                <label className="label flex items-center gap-2" htmlFor="visual-cor-secundaria">
-                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: corSecundaria }} />
-                  Cor Secundária
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    id="visual-cor-secundaria"
-                    type="color"
-                    value={corSecundaria}
-                    onChange={e => setCorSecundaria(e.target.value)}
-                    className="w-12 h-12 rounded-xl border border-slate-700/50 bg-slate-950 cursor-pointer p-0 shadow-lg hover:scale-105 transition-transform"
-                    aria-label="Selecionar cor secundária"
-                  />
-                  <span className="text-xs font-mono text-slate-300 bg-slate-800/80 px-2 py-1 rounded border border-slate-700">
-                    {corSecundaria}
-                  </span>
-                </div>
-              </div>
+              ))}
             </div>
+            <div
+              className="mt-5 h-3 rounded-full"
+              style={{ backgroundImage: `linear-gradient(90deg, ${corPrimaria}, ${corSecundaria})` }}
+              aria-hidden="true"
+            />
           </div>
 
           <div className="card card-pad">
-            <div className="flex items-center justify-between gap-3 mb-4">
-              <label className="label flex items-center gap-2" htmlFor="visual-layout">
-                <span className="w-3 h-3 rounded-full text-indigo-400">
-                  <Layout size={12} />
-                </span>
-                Layout das telas de divulgação
-              </label>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="w-8 h-8 rounded-xl bg-indigo-500/10 flex items-center justify-center shrink-0 text-indigo-400">
+                <Layout size={16} />
+              </span>
+              <h3 className="text-sm font-semibold text-slate-300">Layout das telas de divulgação</h3>
             </div>
-            <select
-              id="visual-layout"
-              value={layoutOpt}
-              onChange={e => setLayoutOpt(e.target.value)}
-              className="input w-full"
-              aria-label="Layout de divulgação"
-            >
-              <option value="GRID">Grade</option>
-              <option value="CARROSSEL">Carrossel</option>
-              <option value="LISTA">Lista</option>
-            </select>
+            <div className="grid grid-cols-3 gap-3" role="radiogroup" aria-label="Layout de divulgação">
+              {LAYOUT_OPCOES.map((opt) => {
+                const Icone = opt.icon;
+                const ativo = layoutOpt === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setLayoutOpt(opt.value)}
+                    aria-pressed={ativo}
+                    className={`flex flex-col items-center gap-1.5 rounded-xl border p-4 text-center transition-all ${
+                      ativo
+                        ? 'border-blue-500 bg-blue-500/10 shadow-lg shadow-blue-600/20'
+                        : 'border-slate-700 bg-slate-950/60 hover:border-slate-500 hover:bg-slate-900'
+                    }`}
+                  >
+                    <Icone size={20} className={ativo ? 'text-blue-400' : 'text-slate-400'} />
+                    <span className={`text-xs font-semibold ${ativo ? 'text-white' : 'text-slate-300'}`}>{opt.label}</span>
+                    <span className="text-[10px] leading-tight text-slate-500">{opt.desc}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="card card-pad">
