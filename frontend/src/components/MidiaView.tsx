@@ -280,6 +280,15 @@ export default function MidiaView() {
     setUploadErros(erros);
     if (!valido) return;
 
+    // Garante um token fresco: se o access token expirou, o GET a seguir
+    // dispara o refresh automático do ApiClient antes do upload via XHR
+    // (o XHR não tem renovação automática de sessão).
+    try {
+      await api.get('/auth/me');
+    } catch {
+      setErro('Sessão expirada. Atualize a página (Ctrl+F5) e tente enviar novamente.');
+      return;
+    }
     const token = ApiClient.getAccessToken();
     if (!token) { setErro('Sessão expirada. Faça login novamente.'); return; }
 
@@ -324,7 +333,11 @@ export default function MidiaView() {
             resolve(xhr.responseText);
           } else {
             let mensagem = 'Erro ao enviar a mídia.';
-            try { mensagem = JSON.parse(xhr.responseText)?.message || mensagem; } catch { /* ignora */ }
+            if (xhr.status === 401) {
+              mensagem = 'Sessão expirada. Atualize a página (Ctrl+F5) e tente enviar novamente.';
+            } else {
+              try { mensagem = JSON.parse(xhr.responseText)?.message || mensagem; } catch { /* ignora */ }
+            }
             reject(new Error(mensagem));
           }
         });
