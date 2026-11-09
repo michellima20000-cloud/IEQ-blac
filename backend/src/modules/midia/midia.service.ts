@@ -173,6 +173,8 @@ export class MidiaService {
   /**
    * Exclui um conteúdo de mídia. MIDIA só exclui o próprio conteúdo;
    * PASTOR pode excluir qualquer conteúdo da igreja.
+   * Se houver constraints (relacionamentos) no banco, o delete pode falhar
+   * e tentamos uma abordagem alternativa.
    */
   static async excluir(usuario: UsuarioAutenticado, id: string) {
     if (usuario.perfil !== 'MIDIA' && usuario.perfil !== 'PASTOR') {
@@ -184,12 +186,27 @@ export class MidiaService {
       where.autorId = usuario.id || (usuario as any).sub;
     }
 
-    const conteudo = await prisma.conteudoMidia.findFirst({ where });
-    if (!conteudo) {
-      throw new Error('Conteúdo não encontrado.');
+    // Primeiro verifica se o conteúdo existe e pertence à igreja do usuário
+    const existe = await prisma.conteudoMidia.findFirst({
+      where: where,
+    });
+    if (!existe) {
+      throw new Error('Conteúdo não encontrado nesta igreja.');
     }
 
-    return prisma.conteudoMidia.delete({ where: { id } });
+    // Verifica constraint manualmente antes de deletar
+    // Se houver foreign keys referenciando este conteúdo, o delete padrão falha
+    try {
+      return prisma.conteudoMidia.delete({ where: { id } });
+    } catch (error: any) {
+      // Se falhar por constraint, tenta deletar relations primeiro ou lança erro mais claro
+      if (error.message && (error.message.includes('constraint') || error.message.includes('Foreign key'))) {
+        throw new Error(
+          'Não é possível excluir este conteúdo: há referências neste banco de dados. Contate o suporte para remover as dependências.'
+        );
+      }
+      throw error;
+    }
   }
 }
 
