@@ -77,6 +77,27 @@ export const VitrineView: React.FC = () => {
     }
   };
 
+  const excluirEvento = async (id: string, titulo: string) => {
+    if (!window.confirm(`Excluir o evento "${titulo}" do calendário?`)) return;
+    try {
+      await ApiClient.delete(`/calendario/${id}`);
+      await carregarDados();
+    } catch {
+      window.alert('Não foi possível excluir o evento. Verifique sua permissão.');
+    }
+  };
+
+  const editarTituloEvento = async (id: string, tituloAtual: string) => {
+    const novoTitulo = window.prompt('Novo título do evento:', tituloAtual);
+    if (!novoTitulo || novoTitulo === tituloAtual) return;
+    try {
+      await ApiClient.patch(`/calendario/${id}`, { titulo: novoTitulo });
+      await carregarDados();
+    } catch {
+      window.alert('Não foi possível editar o evento. Verifique sua permissão.');
+    }
+  };
+
   const carregarDados = async () => {
     setCarregando(true);
     try {
@@ -92,6 +113,8 @@ export const VitrineView: React.FC = () => {
       setCarregando(false);
     }
   };
+
+  const podeGerenciar = usuarioLogado != null && ['MIDIA', 'PASTOR'].includes(usuarioLogado.perfil);
 
   if (carregando) {
     return (
@@ -149,6 +172,22 @@ export const VitrineView: React.FC = () => {
                       </p>
                     )}
                     {ev.descricao && <p className="text-xs text-slate-500 line-clamp-2 mt-1">{ev.descricao}</p>}
+                    {podeGerenciar && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <button
+                          onClick={() => editarTituloEvento(ev.id, ev.titulo)}
+                          className="text-[11px] font-medium text-blue-400 hover:text-blue-300 transition-colors"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => excluirEvento(ev.id, ev.titulo)}
+                          className="text-[11px] font-medium text-red-400 hover:text-red-300 transition-colors"
+                        >
+                          Excluir
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
