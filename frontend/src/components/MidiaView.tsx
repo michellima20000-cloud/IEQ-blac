@@ -1205,19 +1205,29 @@ export default function MidiaView() {
 
           <div className="card card-pad">
             <div className="flex items-center gap-3 mb-4">
-              <span className="w-3 h-3 rounded-full text-blue-400">
-                <Monitor size={12} />
+              <span className="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0 text-blue-400">
+                <Monitor size={16} />
               </span>
               <h3 className="text-sm font-semibold text-slate-300">Pré-visualização</h3>
             </div>
             <div className="rounded-xl overflow-hidden border border-slate-700/70 shadow-xl">
               <div
-                className="p-4 text-white text-sm font-semibold text-center"
+                className="p-4 flex items-center justify-center gap-3 text-white text-sm font-semibold"
                 style={{ backgroundColor: corPrimaria }}
               >
+                {visual?.logoUrl && (
+                  <img
+                    src={visual.logoUrl}
+                    alt="Logo"
+                    className="w-7 h-7 rounded-lg object-contain bg-white/10 p-0.5"
+                  />
+                )}
                 Cabeçalho da Igreja
               </div>
-              <div className="p-6 text-slate-300 text-sm text-center" style={{ backgroundColor: '#0f172a' }}>
+              <div
+                className="p-6 text-slate-300 text-sm text-center border-t-2"
+                style={{ backgroundColor: '#0f172a', borderColor: corSecundaria }}
+              >
                 Área de conteúdo • Layout {layoutOpt === 'GRID' ? 'Grade' : layoutOpt === 'CARROSSEL' ? 'Carrossel' : 'Lista'}
               </div>
             </div>
@@ -1226,7 +1236,7 @@ export default function MidiaView() {
           <button
             type="submit"
             disabled={carregando}
-            className="btn-primary w-full py-4 text-base font-semibold shadow-lg hover:shadow-indigo-500/30 transition-all"
+            className="btn-primary w-full py-4 text-base font-semibold shadow-lg hover:shadow-indigo-500/30 transition-all mb-4"
           >
             <Check size={16} />
             {carregando ? 'Salvando...' : 'Salvar Configurações Visuais'}
