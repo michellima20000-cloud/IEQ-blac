@@ -3,7 +3,8 @@ import type { LucideIcon } from 'lucide-react';
 import {
   Megaphone, Upload, ClipboardList, Calendar, Palette, ImagePlus,
   Check, Inbox, MapPin, Pencil, Trash2, RotateCcw, Youtube,
-  CircleCheck, TriangleAlert, X, Download
+  CircleCheck, TriangleAlert, X, Download, Layout, Monitor,
+  Image as ImageIcon
 } from 'lucide-react';
 import { api, ApiClient } from '../api/client';
 
@@ -1074,50 +1075,77 @@ export default function MidiaView() {
       )}
 
       {aba === 'visual' && (
-        <form onSubmit={salvarVisual} className="card card-pad space-y-4" aria-label="Configurações visuais">
-          <div className="flex items-center gap-2">
-            <span className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
-              <Palette size={15} />
-            </span>
-            <h2 className="section-title">Personalização Visual</h2>
+        <form onSubmit={salvarVisual} className="space-y-6" aria-label="Configurações visuais">
+          <div className="card card-pad">
+            <div className="flex items-center gap-2">
+              <span className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                <Palette size={16} />
+              </span>
+              <h2 className="section-title">Personalização Visual</h2>
+            </div>
+            <p className="text-sm text-slate-400 mt-1">
+              Personalize as cores e identidade visual da sua igreja.
+            </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="label" htmlFor="visual-cor-primaria">Cor Primária</label>
-              <div className="flex items-center gap-2">
-                <input
-                  id="visual-cor-primaria"
-                  type="color"
-                  value={corPrimaria}
-                  onChange={e => setCorPrimaria(e.target.value)}
-                  className="w-10 h-10 rounded-lg border border-slate-700/70 bg-slate-950/80 cursor-pointer p-1"
-                />
-                <span className="text-xs text-slate-400 font-mono">{corPrimaria}</span>
+          <div className="card card-pad">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <label className="label flex items-center gap-2" htmlFor="visual-cor-primaria">
+                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: corPrimaria }} />
+                  Cor Primária
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    id="visual-cor-primaria"
+                    type="color"
+                    value={corPrimaria}
+                    onChange={e => setCorPrimaria(e.target.value)}
+                    className="w-12 h-12 rounded-xl border border-slate-700/50 bg-slate-950 cursor-pointer p-0 shadow-lg hover:scale-105 transition-transform"
+                    aria-label="Selecionar cor primária"
+                  />
+                  <span className="text-xs font-mono text-slate-300 bg-slate-800/80 px-2 py-1 rounded border border-slate-700">
+                    {corPrimaria}
+                  </span>
+                </div>
               </div>
-            </div>
-            <div>
-              <label className="label" htmlFor="visual-cor-secundaria">Cor Secundária</label>
-              <div className="flex items-center gap-2">
-                <input
-                  id="visual-cor-secundaria"
-                  type="color"
-                  value={corSecundaria}
-                  onChange={e => setCorSecundaria(e.target.value)}
-                  className="w-10 h-10 rounded-lg border border-slate-700/70 bg-slate-950/80 cursor-pointer p-1"
-                />
-                <span className="text-xs text-slate-400 font-mono">{corSecundaria}</span>
+              <div className="space-y-3">
+                <label className="label flex items-center gap-2" htmlFor="visual-cor-secundaria">
+                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: corSecundaria }} />
+                  Cor Secundária
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    id="visual-cor-secundaria"
+                    type="color"
+                    value={corSecundaria}
+                    onChange={e => setCorSecundaria(e.target.value)}
+                    className="w-12 h-12 rounded-xl border border-slate-700/50 bg-slate-950 cursor-pointer p-0 shadow-lg hover:scale-105 transition-transform"
+                    aria-label="Selecionar cor secundária"
+                  />
+                  <span className="text-xs font-mono text-slate-300 bg-slate-800/80 px-2 py-1 rounded border border-slate-700">
+                    {corSecundaria}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
-          <div>
-            <label className="label" htmlFor="visual-layout">Layout das telas de divulgação</label>
+          <div className="card card-pad">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <label className="label flex items-center gap-2" htmlFor="visual-layout">
+                <span className="w-3 h-3 rounded-full text-indigo-400">
+                  <Layout size={12} />
+                </span>
+                Layout das telas de divulgação
+              </label>
+            </div>
             <select
               id="visual-layout"
               value={layoutOpt}
               onChange={e => setLayoutOpt(e.target.value)}
-              className="input"
+              className="input w-full"
+              aria-label="Layout de divulgação"
             >
               <option value="GRID">Grade</option>
               <option value="CARROSSEL">Carrossel</option>
@@ -1125,34 +1153,64 @@ export default function MidiaView() {
             </select>
           </div>
 
-          <div>
-            <label className="label" htmlFor="visual-logo">Logo da Igreja</label>
-            {visual?.logoUrl && (
-              <img src={visual.logoUrl} alt="Logo atual da igreja" className="h-14 mb-2 rounded-xl border border-slate-700/70" />
-            )}
-            <input
-              id="visual-logo"
-              ref={logoRef}
-              type="file"
-              accept="image/*"
-              onChange={e => setLogoFile(e.target.files?.[0] ?? null)}
-              className="input"
-            />
+          <div className="card card-pad">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="w-3 h-3 rounded-full text-emerald-400">
+                <ImageIcon size={12} />
+              </span>
+              <label className="label flex items-center gap-2" htmlFor="visual-logo">
+                Logo da Igreja
+              </label>
+            </div>
+            <div className="space-y-3">
+              {visual?.logoUrl && (
+                <div className="flex items-center gap-3">
+                  <img
+                    src={visual.logoUrl}
+                    alt="Logo atual da igreja"
+                    className="h-16 w-auto rounded-xl border border-slate-700/70 shadow-lg"
+                  />
+                  <span className="text-xs text-slate-400 font-mono bg-slate-800/80 px-2 py-1 rounded border border-slate-700 truncate max-w-xs">
+                    {visual.logoUrl.length > 60 ? visual.logoUrl.slice(0, 57) + '...' : visual.logoUrl}
+                  </span>
+                </div>
+              )}
+              <input
+                id="visual-logo"
+                ref={logoRef}
+                type="file"
+                accept="image/*"
+                onChange={e => setLogoFile(e.target.files?.[0] ?? null)}
+                className="input w-full"
+                aria-label="Enviar logo da igreja"
+              />
+            </div>
           </div>
 
-          <div className="rounded-xl overflow-hidden border border-slate-700/70">
-            <div className="p-3 text-white text-sm font-semibold text-center" style={{ backgroundColor: corPrimaria }}>
-              Exemplo de Cabeçalho
+          <div className="card card-pad">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="w-3 h-3 rounded-full text-blue-400">
+                <Monitor size={12} />
+              </span>
+              <h3 className="text-sm font-semibold text-slate-300">Pré-visualização</h3>
             </div>
-            <div className="p-3 text-white text-xs text-center" style={{ backgroundColor: corSecundaria }}>
-              Área de conteúdo
+            <div className="rounded-xl overflow-hidden border border-slate-700/70 shadow-xl">
+              <div
+                className="p-4 text-white text-sm font-semibold text-center"
+                style={{ backgroundColor: corPrimaria }}
+              >
+                Cabeçalho da Igreja
+              </div>
+              <div className="p-6 text-slate-300 text-sm text-center" style={{ backgroundColor: '#0f172a' }}>
+                Área de conteúdo • Layout {layoutOpt === 'GRID' ? 'Grade' : layoutOpt === 'CARROSSEL' ? 'Carrossel' : 'Lista'}
+              </div>
             </div>
           </div>
 
           <button
             type="submit"
             disabled={carregando}
-            className="btn-primary w-full"
+            className="btn-primary w-full py-4 text-base font-semibold shadow-lg hover:shadow-indigo-500/30 transition-all"
           >
             <Check size={16} />
             {carregando ? 'Salvando...' : 'Salvar Configurações Visuais'}
