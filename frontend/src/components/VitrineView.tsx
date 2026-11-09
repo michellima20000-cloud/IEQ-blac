@@ -39,7 +39,10 @@ export const VitrineView: React.FC = () => {
   useEffect(() => {
     carregarDados();
     carregarIdentidadeVisual();
-    const aoAtualizar = () => carregarIdentidadeVisual();
+    const aoAtualizar = () => {
+      carregarIdentidadeVisual();
+      carregarDados();
+    };
     window.addEventListener('visual-atualizada', aoAtualizar);
     return () => window.removeEventListener('visual-atualizada', aoAtualizar);
   }, []);

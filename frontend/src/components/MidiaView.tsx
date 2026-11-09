@@ -417,6 +417,8 @@ export default function MidiaView() {
       // Remove imediatamente da lista local para sumir na UI sem esperar o recarregamento
       setMidias(prev => prev.filter(m => m.id !== id));
       await carregarMidias();
+      // Avisa outras telas (vitrine) para recarregar a lista de mídias
+      window.dispatchEvent(new Event('visual-atualizada'));
     } catch (err: any) {
       setErro(msgErro(err, 'Erro ao excluir mídia.'));
     } finally {
