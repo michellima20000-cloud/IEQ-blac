@@ -1,11 +1,17 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { LogOut } from 'lucide-react';
 import { useAuth, Perfil } from '../context/AuthContext';
+import { api } from '../api/client';
 
 interface LayoutProps {
   children: React.ReactNode;
   abaAtiva: string;
   setAbaAtiva: (aba: string) => void;
+}
+
+interface IdentidadeVisual {
+  logoUrl?: string | null;
+  corPrimaria?: string;
 }
 
 const perfilLabels: Record<Perfil, { label: string; cor: string }> = {
@@ -17,6 +23,27 @@ const perfilLabels: Record<Perfil, { label: string; cor: string }> = {
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { usuario, logout } = useAuth();
+  const [visual, setVisual] = useState<IdentidadeVisual | null>(null);
+
+  // Carrega a identidade visual da igreja (logo + cores) para exibir globalmente
+  useEffect(() => {
+    if (!usuario) { setVisual(null); return; }
+    let cancelado = false;
+    api.get('/configuracoes/visual')
+      .then((r) => {
+        if (cancelado) return;
+        const cfg = (r.data as any)?.visual ?? r.data ?? null;
+        setVisual(cfg);
+        if (cfg?.corPrimaria) {
+          document.documentElement.style.setProperty('--cor-primaria', cfg.corPrimaria);
+        }
+        if (cfg?.corSecundaria) {
+          document.documentElement.style.setProperty('--cor-secundaria', cfg.corSecundaria);
+        }
+      })
+      .catch(() => { /* falha graciosa: usa avatar com iniciais */ });
+    return () => { cancelado = true; };
+  }, [usuario?.id]);
 
   if (!usuario) return <>{children}</>;
 
@@ -27,12 +54,23 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     <div className="min-h-screen text-slate-100 flex flex-col pb-28 sm:pb-24">
       {/* Top Header */}
       <header className="sticky top-0 z-30 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-xl">
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-500/40 to-transparent" />
+        <div
+          className="absolute inset-x-0 top-0 h-px"
+          style={{ backgroundImage: 'linear-gradient(90deg, transparent, var(--cor-primaria, #3b82f6), transparent)' }}
+        />
         <div className="max-w-5xl mx-auto flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-extrabold text-white text-sm shadow-lg shadow-blue-600/25">
-              {iniciais}
-            </div>
+            {visual?.logoUrl ? (
+              <img
+                src={visual.logoUrl}
+                alt="Logo da igreja"
+                className="w-9 h-9 rounded-xl object-cover border border-slate-700/70 shadow-lg shadow-blue-600/25 bg-slate-900"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-extrabold text-white text-sm shadow-lg shadow-blue-600/25">
+                {iniciais}
+              </div>
+            )}
             <div className="min-w-0">
               <h1 className="text-sm font-bold tracking-tight text-white leading-tight truncate">
                 {usuario.igreja?.nome || 'IEQ Conecta'}
