@@ -44,11 +44,12 @@ export class RelatoriosService {
     });
   }
 
-  /**
-   * Edita relatório semanal.
-   * REGRA MANDATÓRIA: Depois de fechado, o relatório NÃO pode ser editado.
-   */
-  static async atualizar(usuario: UsuarioAutenticado, relatorioId: string, dados: AtualizarRelatorioInput) {
+/**
+ * Edita relatório semanal.
+ * REGRA MANDATÓRIA: Depois de fechado, o relatório NÃO pode ser editado.
+ * EXCEÇÃO: Líder de Rede da mesma rede pode editar relatórios fechados para correção.
+ */
+static async atualizar(usuario: UsuarioAutenticado, relatorioId: string, dados: AtualizarRelatorioInput) {
     const relatorio = await prisma.relatorioCelula.findUnique({
       where: { id: relatorioId },
       include: { celula: true }
@@ -65,7 +66,9 @@ export class RelatoriosService {
     });
 
     // TRAVA DE SEGURANÇA: Relatório fechado não pode ser editado
-    if (relatorio.status === 'FECHADO') {
+    // EXCEÇÃO: Líder de Rede da mesma rede pode editar relatórios fechados
+    const usuarioEhLiderRede = usuario.perfil === 'REDE' && usuario.redeId === relatorio.celula.redeId;
+    if (relatorio.status === 'FECHADO' && !usuarioEhLiderRede) {
       throw new PermissaoError('Relatório fechado não pode ser editado.');
     }
 
@@ -110,6 +113,54 @@ export class RelatoriosService {
       data: {
         status: 'FECHADO',
         dataFechamento: new Date()
+      }
+    });
+  }
+
+/**
+ * Exclui relatório semanal.
+ * Se o relatório possuir foto vinculada, a foto é removida do armazenamento
+ * e o campo fotoUrl é limpo, preservando os dados numéricos e observações.
+ * EXCEÇÃO: Líder de Rede da mesma rede pode excluir relatórios fechados.
+ * Relatório fechado NÃO pode ser excluído pelos líderes de célula comuns.
+ */
+static async excluir(usuario: UsuarioAutenticado, relatorioId: string) {
+    const relatorio = await prisma.relatorioCelula.findUnique({
+      where: { id: relatorioId },
+      include: { celula: true }
+    });
+
+    if (!relatorio) {
+      throw new Error('Relatório não encontrado.');
+    }
+
+    validarPermissao(usuario, 'RELATORIO', 'EXCLUIR', {
+      igreja_id: relatorio.igreja_id,
+      redeId: relatorio.celula.redeId,
+      celulaId: relatorio.celulaId
+    });
+
+    // TRAVA DE SEGURANÇA: Relatório fechado não pode ser excluído,
+    // EXCEÇÃO: Líder de Rede da mesma rede pode excluir relatórios fechados
+    const usuarioEhLiderRede = usuario.perfil === 'REDE' && usuario.redeId === relatorio.celula.redeId;
+    if (relatorio.status === 'FECHADO' && !usuarioEhLiderRede) {
+      throw new PermissaoError('Relatório fechado não pode ser excluído. Use a opção de editar para correção ou aguarde o pastor.');
+    }
+
+    // Remove foto do armazenamento se existir
+    if (relatorio.fotoUrl) {
+      const key = relatorio.fotoUrl.replace(/^minio:\/\/[^\/]+\//, '');
+      await StorageService.excluir(key);
+    }
+
+    // Atualiza no banco: remove a referência da foto, preserva todos os dados
+    return prisma.relatorioCelula.update({
+      where: { id: relatorioId },
+      data: {
+        fotoUrl: null,
+        observacoes: relatorio.observacoes
+          ? `${relatorio.observacoes} [Relatório excluído]`
+          : '[Relatório excluído]'
       }
     });
   }

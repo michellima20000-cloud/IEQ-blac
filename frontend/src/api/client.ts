@@ -86,49 +86,57 @@ export class ApiClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(url, {
-      ...options,
-      headers
-    });
+    const MAX_TENTATIVAS = 2;
 
-    if (response.status === 401 && endpoint !== '/auth/login' && endpoint !== '/auth/refresh') {
-      const refreshToken = this.getRefreshToken();
-      if (refreshToken) {
-        try {
-          const refreshRes = await fetch(`${BASE_URL}/auth/refresh`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ refreshToken })
-          });
+    for (let tentativa = 1; tentativa <= MAX_TENTATIVAS + 1; tentativa++) {
+      const response = await fetch(url, {
+        method: options.method || 'GET',
+        ...options,
+        headers: { ...headers, ...(options.headers || {}) }
+      });
 
-          if (refreshRes.ok) {
-            const tokens = await refreshRes.json();
-            this.setTokens(tokens.accessToken, tokens.refreshToken);
-            headers['Authorization'] = `Bearer ${tokens.accessToken}`;
+      if (response.status === 401 && endpoint !== '/auth/login' && endpoint !== '/auth/refresh') {
+        const refreshToken = this.getRefreshToken();
+        if (refreshToken && tentativa < MAX_TENTATIVAS + 1) {
+          try {
+            const refreshRes = await fetch(`${BASE_URL}/auth/refresh`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ refreshToken })
+            });
 
-            const retryResponse = await fetch(url, { ...options, headers });
-            if (!retryResponse.ok) {
-              const err = await retryResponse.json();
-              throw new Error(err.message || 'Erro na requisição');
+            if (refreshRes.ok) {
+              const tokens = await refreshRes.json();
+              this.setTokens(tokens.accessToken, tokens.refreshToken);
+              headers['Authorization'] = `Bearer ${tokens.accessToken}`;
+              continue; // Tenta a requisição novamente com novo token
             }
-            return retryResponse.json();
+          } catch {
+            this.clearTokens();
+            if (typeof window !== 'undefined') window.location.reload();
+            throw new Error('Falha ao renovar token');
           }
-        } catch {
-          this.clearTokens();
-          if (typeof window !== 'undefined') window.location.reload();
         }
+        const data = await response.json().catch(() => ({}));
+        const err: any = new Error(data.message || data.error || `Erro HTTP ${response.status}`);
+        err.response = { data, status: response.status };
+        throw err;
       }
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        const err: any = new Error(data.message || data.error || `Erro HTTP ${response.status}`);
+        err.response = { data, status: response.status };
+        throw err;
+      }
+
+      const data = await response.json().catch(() => ({}));
+      return data as T;
     }
 
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      const err: any = new Error(data.message || data.error || `Erro HTTP ${response.status}`);
-      err.response = { data, status: response.status };
-      throw err;
-    }
-
-    return data as T;
+    this.clearTokens();
+    if (typeof window !== 'undefined') window.location.reload();
+    throw new Error('Falha após múltiplas tentativas de refresh de token');
   }
 
   static get<T = any>(endpoint: string, params?: Record<string, any>): Promise<T> {

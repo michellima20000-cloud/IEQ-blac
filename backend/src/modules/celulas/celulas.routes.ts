@@ -43,6 +43,7 @@ router.get('/celulas/:celulaId/visitantes', CelulasController.listarVisitantes);
 router.post('/celulas/:celulaId/relatorios', validate(criarRelatorioSchema), CelulasController.criarRelatorio);
 router.patch('/relatorios/:id', validate(atualizarRelatorioSchema), CelulasController.atualizarRelatorio);
 router.post('/relatorios/:id/fechar', CelulasController.fecharRelatorio);
+router.delete('/relatorios/:id', validate(atualizarRelatorioSchema), CelulasController.excluirRelatorio);
 router.get('/relatorios/:id/foto', CelulasController.visualizarFoto);
 
 // --- CONSOLIDADO DA REDE (LÍDER DE REDE) ---

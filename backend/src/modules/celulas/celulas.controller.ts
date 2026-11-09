@@ -172,6 +172,16 @@ export class CelulasController {
     }
   }
 
+  static async excluirRelatorio(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const relatorio = await RelatoriosService.excluir(req.user as any, id);
+      res.json({ message: 'Relatório excluído com sucesso', relatorio });
+    } catch (err: any) {
+      res.status(err.statusCode || 403).json({ error: err.name || 'Erro', message: err.message });
+    }
+  }
+
   // --- REDE (LÍDER DE REDE) ---
   static async consolidadoRede(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {

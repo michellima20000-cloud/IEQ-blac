@@ -10,6 +10,9 @@ export interface BackupRegistro {
   status: 'SUCESSO' | 'FALHA';
 }
 
+// Horas de retenção antes de alertar o pastor (configurável via ambiente)
+const TEMPO_ALERTA_HORAS = STORAGE_CONFIG.backup.alertaAposHoras || 48;
+
 // Histórico de backups em memória para controle
 let historicoBackups: BackupRegistro[] = [];
 
@@ -60,7 +63,7 @@ export class BackupService {
 
     historicoBackups.push(novoBackup);
 
-    // Retenção: Mantém apenas os últimos 7 dias
+    // Retenção: Mantém apenas os últimos N dias (configurável)
     const limiteRetencao = new Date(Date.now() - STORAGE_CONFIG.backup.retencaoDias * 24 * 60 * 60 * 1000);
     historicoBackups = historicoBackups.filter((b) => b.dataCriacao >= limiteRetencao);
 
@@ -69,7 +72,7 @@ export class BackupService {
 
   /**
    * Verifica o status de saúde do backup para o Painel do Pastor.
-   * REGRA MANDATÓRIA: Mostra alerta no painel do pastor se a última cópia tiver mais de 48 horas.
+   * Alerta se o último backup tiver mais de TEMPO_ALERTA_HORAS (padrão: 48h).
    */
   static verificarStatusBackupParaPastor(): {
     alertaBackupPendente: boolean;
@@ -87,7 +90,7 @@ export class BackupService {
     if (!ultimoBackup) {
       return {
         alertaBackupPendente: true,
-        mensagemAlerta: 'ATENÇÃO: Nenhum backup do sistema foi localizado nas últimas 48 horas.',
+        mensagemAlerta: `ATENÇÃO: Nenhum backup do sistema foi localizado nas últimas ${TEMPO_ALERTA_HORAS} horas.`,
         ultimoBackup: null,
         horasDesdeUltimoBackup: 999,
         totalBackupsRetidos: 0
@@ -98,9 +101,9 @@ export class BackupService {
     const diffMs = agora - ultimoBackup.dataCriacao.getTime();
     const horasDesdeUltimoBackup = Number((diffMs / (1000 * 60 * 60)).toFixed(1));
 
-    const alertaBackupPendente = horasDesdeUltimoBackup > 48;
+    const alertaBackupPendente = horasDesdeUltimoBackup > TEMPO_ALERTA_HORAS;
     const mensagemAlerta = alertaBackupPendente
-      ? `ALERTA DE SEGURANÇA: O último backup tem mais de 48 horas (${horasDesdeUltimoBackup}h atrás). Verifique a rotina de replicação.`
+      ? `ALERTA DE SEGURANÇA: O último backup tem mais de ${TEMPO_ALERTA_HORAS}h (${horasDesdeUltimoBackup}h atrás). Verifique a rotina de replicação.`
       : null;
 
     return {

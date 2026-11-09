@@ -12,13 +12,18 @@ export class PermissaoError extends Error {
 
 /**
  * Validador Central de Regras de Permissão (RBAC) e Isolamento Multi-tenant
+ * 
+ * Lança PermissaoError quando o acesso é negado.
+ * Retorna true quando o acesso é permitido.
+ * 
+ * Padrão: throw on deny, return true on allow.
  */
 export function validarPermissao(
   usuario: UsuarioAutenticado,
   recurso: Recurso,
   acao: Acao,
   alvo: EntidadeAlvo
-): boolean {
+): true {
   // 1. ISOLAMENTO MULTI-TENANT: Ninguém acessa dados de outra igreja
   if (usuario.igreja_id !== alvo.igreja_id) {
     throw new PermissaoError('Acesso negado: Tentativa de acesso a dados de outra igreja.');
@@ -29,6 +34,8 @@ export function validarPermissao(
     if (['CELULA', 'MEMBRO', 'VISITANTE', 'RELATORIO'].includes(recurso)) {
       throw new PermissaoError('Acesso negado: Perfil Mídia não possui acesso ao módulo de células.');
     }
+    // Mídia pode acessar recursos próprios (não célula/relatório/membro/visitante)
+    return true;
   }
 
   // 3. REGRA DO PASTOR: Acesso irrestrito a todos os recursos da sua igreja
