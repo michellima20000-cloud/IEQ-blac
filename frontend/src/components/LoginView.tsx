@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Church, Mail, Lock, KeyRound, ArrowRight, CircleAlert, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Church, Mail, Lock, KeyRound, ArrowRight, CircleAlert, Loader2, Download, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export const LoginView: React.FC = () => {
@@ -9,6 +9,41 @@ export const LoginView: React.FC = () => {
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
+
+  // Instalação PWA
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+  const appInstalado =
+    typeof window !== 'undefined' &&
+    window.matchMedia('(display-mode: standalone)').matches;
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      if (!appInstalado) setShowInstallBanner(true);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', () => {
+      setShowInstallBanner(false);
+      setDeferredPrompt(null);
+    });
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener('appinstalled', () => {});
+    };
+  }, [appInstalado]);
+
+  const instalarApp = () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then((resultado: any) => {
+      if (resultado.outcome === 'accepted') {
+        setShowInstallBanner(false);
+        setDeferredPrompt(null);
+      }
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +68,19 @@ export const LoginView: React.FC = () => {
       </div>
 
       <div className="w-full max-w-md card p-6 sm:p-8 relative animate-fade-up shadow-card">
-        <div className="text-center mb-7">
+        <div className="text-center mb-7 relative">
+          {/* Botão discreto de instalação PWA */}
+          {showInstallBanner && !appInstalado && (
+            <div className="absolute top-0 right-0">
+              <button
+                onClick={instalarApp}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/30 rounded text-xs text-blue-400"
+              >
+                <Download size={14} className="shrink-0" />
+                Instalar app
+              </button>
+            </div>
+          )}
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-600/30 mb-4">
             <Church size={26} className="text-white" />
           </div>

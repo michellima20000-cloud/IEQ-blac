@@ -25,6 +25,10 @@ export class ApiClient {
     return typeof localStorage !== 'undefined' ? localStorage.getItem('ieq_access_token') : null;
   }
 
+  static getBaseUrl(): string {
+    return BASE_URL;
+  }
+
   static getRefreshToken(): string | null {
     return typeof localStorage !== 'undefined' ? localStorage.getItem('ieq_refresh_token') : null;
   }
