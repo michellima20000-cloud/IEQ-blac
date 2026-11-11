@@ -22,6 +22,54 @@ export class AdminService {
   }
 
   /**
+   * Bootstrap do primeiro ADM: só funciona enquanto NÃO existe nenhum ADM no sistema.
+   * Cria (ou promove) o usuário informado como ADM da igreja base (primeira igreja).
+   */
+  static async bootstrapAdm(dados: { email: string; senha: string; nome?: string; slugIgreja?: string }) {
+    const jaExisteAdm = await prisma.usuario.findFirst({ where: { perfil: 'ADM' } });
+    if (jaExisteAdm) {
+      throw new PermissaoError('O sistema já possui um Administrador. Bootstrap indisponível.', 403);
+    }
+
+    const igreja = dados.slugIgreja
+      ? await prisma.igreja.findUnique({ where: { slug: dados.slugIgreja } })
+      : await prisma.igreja.findFirst({ orderBy: { createdAt: 'asc' } });
+
+    if (!igreja) {
+      throw new Error('Nenhuma igreja encontrada no sistema.');
+    }
+
+    const senhaHash = await (await import('../auth/auth.service.ts')).AuthService.hashSenha(dados.senha);
+
+    const existente = await prisma.usuario.findFirst({
+      where: { igreja_id: igreja.id, email: dados.email }
+    });
+
+    if (existente) {
+      const promovido = await prisma.usuario.update({
+        where: { id: existente.id },
+        data: { perfil: 'ADM', ativo: true, senhaHash, redeId: null, celulaId: null },
+        select: { id: true, nome: true, email: true, perfil: true, ativo: true }
+      });
+      return { acao: 'promovido', igreja: { id: igreja.id, nome: igreja.nome, slug: igreja.slug }, usuario: promovido };
+    }
+
+    const criado = await prisma.usuario.create({
+      data: {
+        igreja_id: igreja.id,
+        nome: dados.nome || 'Administrador do Sistema',
+        email: dados.email,
+        senhaHash,
+        perfil: 'ADM',
+        ativo: true
+      },
+      select: { id: true, nome: true, email: true, perfil: true, ativo: true }
+    });
+
+    return { acao: 'criado', igreja: { id: igreja.id, nome: igreja.nome, slug: igreja.slug }, usuario: criado };
+  }
+
+  /**
    * Resumo global do sistema: igrejas, totais, backup e armazenamento
    */
   static async resumoSistema(usuario: UsuarioAutenticado) {

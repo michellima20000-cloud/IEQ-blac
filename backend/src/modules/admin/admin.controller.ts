@@ -9,6 +9,15 @@ export class AdminController {
     });
   }
 
+  static async bootstrapAdm(req: Request, res: Response): Promise<void> {
+    const { email, senha, nome, slugIgreja } = (req.body || {}) as any;
+    if (!email || !senha) {
+      res.status(400).json({ error: 'DadosInvalidos', message: 'Informe email e senha.' });
+      return;
+    }
+    this.responder(res, () => AdminService.bootstrapAdm({ email, senha, nome, slugIgreja }));
+  }
+
   static async resumoSistema(req: AuthenticatedRequest, res: Response): Promise<void> {
     this.responder(res, () => AdminService.resumoSistema(req.user as any));
   }

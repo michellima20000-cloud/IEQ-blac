@@ -8,6 +8,34 @@ import { atualizarUsuarioSchema } from '../usuarios/usuarios.schemas.ts';
 
 const router = Router();
 
+/**
+ * @swagger
+ * /admin/bootstrap:
+ *   post:
+ *     summary: Bootstrap do primeiro ADM (indisponível após existir um ADM no sistema)
+ *     tags: [Administração]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *               senha:
+ *                 type: string
+ *               nome:
+ *                 type: string
+ *               slugIgreja:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: ADM criado ou promovido
+ *       403:
+ *         description: Já existe um ADM no sistema
+ */
+router.post('/bootstrap', AdminController.bootstrapAdm);
+
 // Todas as rotas administrativas exigem autenticação e perfil ADM (superusuário)
 router.use(authMiddleware);
 router.use(requirePerfil('ADM'));
