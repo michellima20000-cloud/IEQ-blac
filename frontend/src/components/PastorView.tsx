@@ -62,31 +62,37 @@ export const PastorView: React.FC = () => {
   const lideresCelula = usuarios.filter((u: any) => u.perfil === 'CELULA' && u.celulaId).map((u: any) => ({ nome: u.nome, celula: u.celula?.nome }));
   const lideresRede = usuarios.filter((u: any) => u.perfil === 'REDE').map((u: any) => ({ nome: u.nome, rede: u.rede?.nome }));
 
-  // Mostra informação direta na tela (sem painel lateral)
-  const existente = document.getElementById('stat-click-alerta');
-  if (existente) existente.remove();
-  
+  // Mostra informação relacionada ao card clicado
   let conteudo = '';
   if (label === 'Células Ativas') {
-    conteudo = `Líderes de Célula:<br/>${lideresCelula.length > 0 ? lideresCelula.map(l => `- ${l.nome} (${l.celula})`).join('<br/>') : 'Nenhum líder de célula cadastrado'}`;
+    conteudo = lideresCelula.length > 0 
+      ? `Líderes: ${lideresCelula.map(l => l.nome).join(', ')}` 
+      : 'Sem líderes de célula';
   } else if (label === 'Membros Ativos') {
-    conteudo = `Líderes de Rede:<br/>${lideresRede.length > 0 ? lideresRede.map(l => `- ${l.nome} (${l.rede})`).join('<br/>') : 'Nenhum líder de rede cadastrado'}`;
+    conteudo = lideresRede.length > 0 
+      ? `Líderes: ${lideresRede.map(l => l.nome).join(', ')}` 
+      : 'Sem líderes de rede';
   } else {
     conteudo = `${label}: ${dashboard?.indicadores?.[campo] ?? '—'}`;
   }
 
+  // Remove qualquer aviso anterior
+  const existente = document.getElementById('stat-click-alerta');
+  if (existente) existente.remove();
+  
+  // Cria aviso alinhado ao card (posição relativa ao body, mas com informação do card)
   const div = document.createElement('div');
   div.id = 'stat-click-alerta';
   div.style = `
     position: fixed;
-    top: 20px; left: 50%;
-    transform: translateX(-50%);
-    background: #1f2937; color: white; padding: 12px 24px;
-    border-radius: 8px; z-index: 9999; font-size: 14px;
+    top: 80px; left: 20px;
+    background: #1f2937; color: white; padding: 12px 20px;
+    border-radius: 8px; z-index: 9999; font-size: 13px;
     box-shadow: 0 4px 12px rgba(0,0,0,.15);
-    white-space: pre-wrap;
+    max-width: 300px;
+    line-height: 1.6;
   `;
-  div.innerHTML = `${label}: ${conteudo}`;
+  div.innerHTML = `<strong>${label}</strong><br/><br/>${conteudo}`;
   document.body.appendChild(div);
   setTimeout(() => div.remove(), 5000);
   console.log('Stat clicked:', label, conteudo);
