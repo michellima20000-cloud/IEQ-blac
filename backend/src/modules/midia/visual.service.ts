@@ -34,6 +34,32 @@ export class VisualService {
   }
 
   /**
+   * Obtém a identidade visual pelo slug da igreja (endpoint público, usado na tela de login)
+   */
+  static async obterPorSlug(slug: string) {
+    const igreja = await prisma.igreja.findUnique({
+      where: { slug },
+      select: { id: true }
+    });
+
+    if (!igreja) {
+      return null;
+    }
+
+    const config = await prisma.configuracaoIgreja.findUnique({
+      where: { igreja_id: igreja.id }
+    });
+
+    return {
+      corPrimaria: config?.corPrimaria || CONFIG_VISUAL_PADRAO.corPrimaria,
+      corSecundaria: config?.corSecundaria || CONFIG_VISUAL_PADRAO.corSecundaria,
+      corFundo: config?.corFundo || CONFIG_VISUAL_PADRAO.corFundo,
+      logoUrl: config?.logoUrl ?? null,
+      layoutDivulgacao: config?.layoutDivulgacao || CONFIG_VISUAL_PADRAO.layoutDivulgacao
+    };
+  }
+
+  /**
    * Atualiza a personalização visual da igreja (Mídia ou Pastor)
    */
   static async atualizar(usuario: UsuarioAutenticado, dados: PersonalizacaoVisualInput) {

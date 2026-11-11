@@ -3,9 +3,11 @@ import authRoutes from './modules/auth/auth.routes.ts';
 import usuariosRoutes from './modules/usuarios/usuarios.routes.ts';
 import celulasRoutes from './modules/celulas/celulas.routes.ts';
 import midiaRoutes from './modules/midia/midia.routes.ts';
+import visualPublicoRoutes from './modules/midia/visual.publico.routes.ts';
 
 const v1Router = Router();
 
+v1Router.use('/', visualPublicoRoutes);
 v1Router.use('/auth', authRoutes);
 v1Router.use('/usuarios', usuariosRoutes);
 v1Router.use('/', celulasRoutes);

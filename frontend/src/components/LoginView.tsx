@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Church, Mail, Lock, KeyRound, ArrowRight, CircleAlert, Loader2, Download, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { ApiClient, fotoUtilizavel } from '../api/client';
 
 export const LoginView: React.FC = () => {
   const { login } = useAuth();
@@ -9,6 +10,31 @@ export const LoginView: React.FC = () => {
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+  // Carrega o logo da igreja (identidade visual) conforme o slug digitado
+  useEffect(() => {
+    const slug = slugIgreja.trim().toLowerCase();
+    if (!slug) {
+      setLogoUrl(null);
+      return;
+    }
+    let cancelado = false;
+    const t = setTimeout(async () => {
+      try {
+        const res: any = await ApiClient.get(`/publico/visual/${encodeURIComponent(slug)}`);
+        const visual = res?.visual ?? res;
+        const url = visual?.logoUrl ?? null;
+        if (!cancelado) setLogoUrl(fotoUtilizavel(url) ? url : null);
+      } catch {
+        if (!cancelado) setLogoUrl(null);
+      }
+    }, 450);
+    return () => {
+      cancelado = true;
+      clearTimeout(t);
+    };
+  }, [slugIgreja]);
 
   // Instalação PWA
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -81,9 +107,19 @@ export const LoginView: React.FC = () => {
               </button>
             </div>
           )}
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-600/30 mb-4">
-            <Church size={26} className="text-white" />
-          </div>
+          {logoUrl ? (
+            <div className="inline-flex items-center justify-center w-14 h-14 mb-4">
+              <img
+                src={logoUrl}
+                alt="Logo da igreja"
+                className="w-14 h-14 object-contain drop-shadow-lg"
+              />
+            </div>
+          ) : (
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-600/30 mb-4">
+              <Church size={26} className="text-white" />
+            </div>
+          )}
           <span className="badge-blue mb-3 inline-flex">Sistema da Igreja</span>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">IEQ Conecta</h1>
           <p className="text-slate-400 text-sm mt-1.5 text-balance">
