@@ -6,3 +6,6 @@ dist/
 backend/prisma/seed.js
 backend/tests/permissions.test.js
 
+
+.vercel
+.env*

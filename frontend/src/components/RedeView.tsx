@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Users, ClipboardCheck, UserCheck, UserPlus, TriangleAlert,
-  Calendar, Image as ImageIcon, Radio, X
+  Calendar, Image as ImageIcon, Radio, X, Pencil, Trash2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { ApiClient, fotoUtilizavel } from '../api/client';
@@ -22,6 +22,13 @@ export const RedeView: React.FC = () => {
   // Fotos dos relatórios: URL assinada -> conteúdo real da imagem
   const [fotos, setFotos] = useState<Record<string, string | null>>({});
   const [fotoModal, setFotoModal] = useState<string | null>(null);
+
+  // Edição/Exclusão de relatórios fechados (líder de rede)
+  const [relatorioEditando, setRelatorioEditando] = useState<any | null>(null);
+  const [formEdicao, setFormEdicao] = useState({ data: '', presentes: 0, visitantes: 0, observacoes: '' });
+  const [salvandoEdicao, setSalvandoEdicao] = useState(false);
+  const [excluindoId, setExcluindoId] = useState<string | null>(null);
+  const [mensagem, setMensagem] = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null);
 
   const redeId = usuario?.redeId;
 
@@ -46,6 +53,50 @@ export const RedeView: React.FC = () => {
       setFotos((prev) => ({ ...prev, [rel.id]: fotoUtilizavel(url) ? url : null }));
     } catch {
       setFotos((prev) => ({ ...prev, [rel.id]: null }));
+    }
+  };
+
+  const abrirEdicao = (rel: any) => {
+    setRelatorioEditando(rel);
+    setFormEdicao({
+      data: String(rel.data).slice(0, 10),
+      presentes: rel.presentes ?? 0,
+      visitantes: rel.visitantes ?? 0,
+      observacoes: rel.observacoes || ''
+    });
+  };
+
+  const salvarEdicao = async () => {
+    if (!relatorioEditando) return;
+    setSalvandoEdicao(true);
+    try {
+      await ApiClient.patch(`/relatorios/${relatorioEditando.id}`, {
+        data: formEdicao.data,
+        presentes: Number(formEdicao.presentes) || 0,
+        visitantes: Number(formEdicao.visitantes) || 0,
+        observacoes: formEdicao.observacoes || null
+      });
+      setRelatorioEditando(null);
+      setMensagem({ tipo: 'ok', texto: 'Relatório atualizado com sucesso.' });
+      await carregarConsolidado();
+    } catch (err: any) {
+      setMensagem({ tipo: 'erro', texto: err.message || 'Falha ao atualizar o relatório.' });
+    } finally {
+      setSalvandoEdicao(false);
+    }
+  };
+
+  const excluirRelatorio = async (rel: any) => {
+    if (!window.confirm(`Excluir definitivamente o relatório de ${rel.celula?.nome || 'célula'}? Esta ação não pode ser desfeita.`)) return;
+    setExcluindoId(rel.id);
+    try {
+      await ApiClient.delete(`/relatorios/${rel.id}`);
+      setMensagem({ tipo: 'ok', texto: 'Relatório excluído com sucesso.' });
+      await carregarConsolidado();
+    } catch (err: any) {
+      setMensagem({ tipo: 'erro', texto: err.message || 'Falha ao excluir o relatório.' });
+    } finally {
+      setExcluindoId(null);
     }
   };
 
@@ -89,6 +140,15 @@ export const RedeView: React.FC = () => {
 
   return (
     <div className="space-y-5">
+      {/* Mensagem de feedback (edição/exclusão) */}
+      {mensagem && (
+        <div className={mensagem.tipo === 'ok' ? 'alert-success' : 'alert-error'}>
+          <span>{mensagem.texto}</span>
+          <button type="button" onClick={() => setMensagem(null)} title="Fechar" className="ml-auto opacity-70 hover:opacity-100">
+            <X size={14} />
+          </button>
+        </div>
+      )}
       {/* Header da Rede */}
       <div className="card card-pad relative overflow-hidden">
         <div className="absolute -top-24 -right-16 w-56 h-56 rounded-full bg-blue-600/15 blur-3xl pointer-events-none" />
@@ -171,7 +231,6 @@ export const RedeView: React.FC = () => {
                     <span className="text-sm font-bold text-white">{rel.celula?.nome}</span>
                     <span className="badge-slate">Líder: {rel.lider?.nome}</span>
                   </div>
-
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400 mb-2.5">
                     <span className="flex items-center gap-1.5">
                       <Calendar size={12} className="text-slate-500" />
@@ -192,6 +251,28 @@ export const RedeView: React.FC = () => {
                       “{rel.observacoes}”
                     </p>
                   )}
+
+                  <div className="flex items-center gap-2 mt-3">
+                    <button
+                      type="button"
+                      onClick={() => abrirEdicao(rel)}
+                      title="Editar relatório"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-500/10 text-blue-300 border border-blue-500/30 hover:bg-blue-500/20 transition-colors"
+                    >
+                      <Pencil size={12} />
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => excluirRelatorio(rel)}
+                      disabled={excluindoId === rel.id}
+                      title="Excluir relatório"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 text-red-300 border border-red-500/30 hover:bg-red-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Trash2 size={12} />
+                      {excluindoId === rel.id ? 'Excluindo...' : 'Excluir'}
+                    </button>
+                  </div>
                 </div>
 
                 {rel.fotoUrlAssinada && fotos[rel.id] !== null && (
@@ -226,6 +307,92 @@ export const RedeView: React.FC = () => {
           </div>
         )}
       </section>
+
+      {/* Modal de Edição do Relatório */}
+      {relatorioEditando && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setRelatorioEditando(null); }}
+          className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        >
+          <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl animate-fade-up">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
+              <div>
+                <h4 className="text-sm font-bold text-white">Editar Relatório</h4>
+                <p className="text-xs text-slate-400">{relatorioEditando.celula?.nome} · Líder: {relatorioEditando.lider?.nome}</p>
+              </div>
+              <button
+                onClick={() => setRelatorioEditando(null)}
+                title="Fechar"
+                className="bg-slate-800 hover:bg-slate-700 text-white rounded-full w-8 h-8 flex items-center justify-center"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-slate-300 block mb-1">Data</label>
+                <input
+                  type="date"
+                  value={formEdicao.data}
+                  onChange={(e) => setFormEdicao((f) => ({ ...f, data: e.target.value }))}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-300 block mb-1">Presentes</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={formEdicao.presentes}
+                    onChange={(e) => setFormEdicao((f) => ({ ...f, presentes: Number(e.target.value) }))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-300 block mb-1">Visitantes</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={formEdicao.visitantes}
+                    onChange={(e) => setFormEdicao((f) => ({ ...f, visitantes: Number(e.target.value) }))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-300 block mb-1">Observações</label>
+                <textarea
+                  rows={3}
+                  value={formEdicao.observacoes}
+                  onChange={(e) => setFormEdicao((f) => ({ ...f, observacoes: e.target.value }))}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 resize-none"
+                  placeholder="Frase marcante, testemunhos..."
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 px-5 py-4 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setRelatorioEditando(null)}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-300 hover:text-white transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={salvarEdicao}
+                disabled={salvandoEdicao}
+                className="px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {salvandoEdicao ? 'Salvando...' : 'Salvar alterações'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Ampliação da Foto */}
       {fotoModal && (

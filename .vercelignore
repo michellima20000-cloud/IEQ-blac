@@ -1,0 +1,12 @@
+/backend
+/src
+/node_modules
+.git
+*.bat
+*.ps1
+.env
+.env.example
+docker-compose.yml
+render.yaml
+check-user.js
+PROJECT_STATUS.md

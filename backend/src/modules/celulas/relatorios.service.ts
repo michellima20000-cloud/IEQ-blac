@@ -1,5 +1,6 @@
 import { prisma } from '../../config/prisma.ts';
 import { validarPermissao, PermissaoError } from '../../permissions/rules.ts';
+import { StorageService } from '../../services/storage.service.ts';
 import { signJwt, verifyJwt } from '../../config/cryptoUtils.ts';
 import { ENV } from '../../config/env.ts';
 import type { UsuarioAutenticado } from '../../permissions/types.ts';
@@ -118,9 +119,8 @@ static async atualizar(usuario: UsuarioAutenticado, relatorioId: string, dados: 
   }
 
 /**
- * Exclui relatório semanal.
- * Se o relatório possuir foto vinculada, a foto é removida do armazenamento
- * e o campo fotoUrl é limpo, preservando os dados numéricos e observações.
+ * Exclui relatório semanal definitivamente.
+ * Se o relatório possuir foto vinculada, a foto é removida do armazenamento.
  * EXCEÇÃO: Líder de Rede da mesma rede pode excluir relatórios fechados.
  * Relatório fechado NÃO pode ser excluído pelos líderes de célula comuns.
  */
@@ -147,21 +147,19 @@ static async excluir(usuario: UsuarioAutenticado, relatorioId: string) {
       throw new PermissaoError('Relatório fechado não pode ser excluído. Use a opção de editar para correção ou aguarde o pastor.');
     }
 
-    // Remove foto do armazenamento se existir
-    if (relatorio.fotoUrl) {
-      const key = relatorio.fotoUrl.replace(/^minio:\/\/[^\/]+\//, '');
-      await StorageService.excluir(key);
+    // Remove foto do armazenamento se existir (não bloqueia a exclusão do registro)
+    if (relatorio.fotoUrl && !relatorio.fotoUrl.startsWith('data:')) {
+      try {
+        const key = relatorio.fotoUrl.replace(/^minio:\/\/[^\/]+\//, '');
+        await StorageService.excluir(key);
+      } catch (err) {
+        console.error('Falha ao remover foto do armazenamento:', err);
+      }
     }
 
-    // Atualiza no banco: remove a referência da foto, preserva todos os dados
-    return prisma.relatorioCelula.update({
-      where: { id: relatorioId },
-      data: {
-        fotoUrl: null,
-        observacoes: relatorio.observacoes
-          ? `${relatorio.observacoes} [Relatório excluído]`
-          : '[Relatório excluído]'
-      }
+    // Exclusão definitiva do relatório
+    return prisma.relatorioCelula.delete({
+      where: { id: relatorioId }
     });
   }
 
