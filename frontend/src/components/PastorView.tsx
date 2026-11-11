@@ -31,6 +31,12 @@ export const PastorView: React.FC = () => {
   const [carregando, setCarregando] = useState(true);
   const [fotoModal, setFotoModal] = useState<string | null>(null);
 
+  // Edição/Exclusão de relatórios (pastor)
+  const [relatorioEditando, setRelatorioEditando] = useState<any | null>(null);
+  const [formEdicao, setFormEdicao] = useState({ data: '', presentes: 0, visitantes: 0, observacoes: '' });
+  const [salvandoEdicao, setSalvandoEdicao] = useState(false);
+  const [excluindoId, setExcluindoId] = useState<string | null>(null);
+
   // Aprovações da Mídia
   const [pendentes, setPendentes] = useState<any[]>([]);
   const [comentarioDevolucao, setComentarioDevolucao] = useState('');
@@ -114,6 +120,52 @@ export const PastorView: React.FC = () => {
       carregarDadosPastor();
     } catch (err: any) {
       setMensagemErro(err.message);
+    }
+  };
+
+  const abrirEdicaoRelatorio = (rel: any) => {
+    setRelatorioEditando(rel);
+    setFormEdicao({
+      data: String(rel.data).slice(0, 10),
+      presentes: rel.presentes ?? 0,
+      visitantes: rel.visitantes ?? 0,
+      observacoes: rel.observacoes || ''
+    });
+  };
+
+  const salvarEdicaoRelatorio = async () => {
+    if (!relatorioEditando) return;
+    setSalvandoEdicao(true);
+    setMensagemErro(null);
+    try {
+      await ApiClient.patch(`/relatorios/${relatorioEditando.id}`, {
+        data: formEdicao.data,
+        presentes: Number(formEdicao.presentes) || 0,
+        visitantes: Number(formEdicao.visitantes) || 0,
+        observacoes: formEdicao.observacoes || null
+      });
+      setRelatorioEditando(null);
+      setMensagemSucesso('Relatório atualizado com sucesso!');
+      carregarDadosPastor();
+    } catch (err: any) {
+      setMensagemErro(err.message || 'Falha ao atualizar o relatório.');
+    } finally {
+      setSalvandoEdicao(false);
+    }
+  };
+
+  const excluirRelatorio = async (rel: any) => {
+    if (!window.confirm(`Excluir definitivamente o relatório de ${rel.celula?.nome || 'célula'}? Esta ação não pode ser desfeita.`)) return;
+    setExcluindoId(rel.id);
+    setMensagemErro(null);
+    try {
+      await ApiClient.delete(`/relatorios/${rel.id}`);
+      setMensagemSucesso('Relatório excluído com sucesso!');
+      carregarDadosPastor();
+    } catch (err: any) {
+      setMensagemErro(err.message || 'Falha ao excluir o relatório.');
+    } finally {
+      setExcluindoId(null);
     }
   };
 
@@ -379,6 +431,28 @@ export const PastorView: React.FC = () => {
                       </p>
                     )}
 
+                    <div className="flex items-center gap-2 pt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => abrirEdicaoRelatorio(rel)}
+                        title="Editar relatório"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-500/10 text-blue-300 border border-blue-500/30 hover:bg-blue-500/20 transition-colors"
+                      >
+                        <Pencil size={11} />
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => excluirRelatorio(rel)}
+                        disabled={excluindoId === rel.id}
+                        title="Excluir relatório"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-red-500/10 text-red-300 border border-red-500/30 hover:bg-red-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Trash2 size={11} />
+                        {excluindoId === rel.id ? 'Excluindo...' : 'Excluir'}
+                      </button>
+                    </div>
+
                     {fotoUtilizavel(rel.fotoUrl) && (
                       <div className="pt-1">
                         <img
@@ -472,6 +546,28 @@ export const PastorView: React.FC = () => {
                         </p>
                       </div>
                     )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => abrirEdicaoRelatorio(rel)}
+                      title="Editar relatório"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-500/10 text-blue-300 border border-blue-500/30 hover:bg-blue-500/20 transition-colors"
+                    >
+                      <Pencil size={12} />
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => excluirRelatorio(rel)}
+                      disabled={excluindoId === rel.id}
+                      title="Excluir relatório"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 text-red-300 border border-red-500/30 hover:bg-red-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Trash2 size={12} />
+                      {excluindoId === rel.id ? 'Excluindo...' : 'Excluir'}
+                    </button>
                   </div>
 
                   {fotoUtilizavel(rel.fotoUrl) && (
@@ -879,6 +975,92 @@ export const PastorView: React.FC = () => {
               <span className="stat-value text-emerald-400">
                 {dashboard?.armazenamento?.espacoALiberarFormatado || '0 MB'}
               </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Edição do Relatório */}
+      {relatorioEditando && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setRelatorioEditando(null); }}
+          className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        >
+          <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl animate-fade-up">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
+              <div>
+                <h4 className="text-sm font-bold text-white">Editar Relatório</h4>
+                <p className="text-xs text-slate-400">{relatorioEditando.celula?.nome} · Líder: {relatorioEditando.lider?.nome}</p>
+              </div>
+              <button
+                onClick={() => setRelatorioEditando(null)}
+                title="Fechar"
+                className="bg-slate-800 hover:bg-slate-700 text-white rounded-full w-8 h-8 flex items-center justify-center"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-slate-300 block mb-1">Data</label>
+                <input
+                  type="date"
+                  value={formEdicao.data}
+                  onChange={(e) => setFormEdicao((f) => ({ ...f, data: e.target.value }))}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-300 block mb-1">Presentes</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={formEdicao.presentes}
+                    onChange={(e) => setFormEdicao((f) => ({ ...f, presentes: Number(e.target.value) }))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-300 block mb-1">Visitantes</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={formEdicao.visitantes}
+                    onChange={(e) => setFormEdicao((f) => ({ ...f, visitantes: Number(e.target.value) }))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-300 block mb-1">Observações</label>
+                <textarea
+                  rows={3}
+                  value={formEdicao.observacoes}
+                  onChange={(e) => setFormEdicao((f) => ({ ...f, observacoes: e.target.value }))}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 resize-none"
+                  placeholder="Frase marcante, testemunhos..."
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 px-5 py-4 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setRelatorioEditando(null)}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-300 hover:text-white transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={salvarEdicaoRelatorio}
+                disabled={salvandoEdicao}
+                className="px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {salvandoEdicao ? 'Salvando...' : 'Salvar alterações'}
+              </button>
             </div>
           </div>
         </div>

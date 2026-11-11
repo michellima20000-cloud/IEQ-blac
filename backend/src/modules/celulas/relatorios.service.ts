@@ -48,7 +48,7 @@ export class RelatoriosService {
 /**
  * Edita relatório semanal.
  * REGRA MANDATÓRIA: Depois de fechado, o relatório NÃO pode ser editado.
- * EXCEÇÃO: Líder de Rede da mesma rede pode editar relatórios fechados para correção.
+ * EXCEÇÃO: Líder de Rede da mesma rede ou Pastor podem editar relatórios fechados para correção.
  */
 static async atualizar(usuario: UsuarioAutenticado, relatorioId: string, dados: AtualizarRelatorioInput) {
     const relatorio = await prisma.relatorioCelula.findUnique({
@@ -67,9 +67,11 @@ static async atualizar(usuario: UsuarioAutenticado, relatorioId: string, dados: 
     });
 
     // TRAVA DE SEGURANÇA: Relatório fechado não pode ser editado
-    // EXCEÇÃO: Líder de Rede da mesma rede pode editar relatórios fechados
-    const usuarioEhLiderRede = usuario.perfil === 'REDE' && usuario.redeId === relatorio.celula.redeId;
-    if (relatorio.status === 'FECHADO' && !usuarioEhLiderRede) {
+    // EXCEÇÃO: Líder de Rede da mesma rede ou Pastor podem editar relatórios fechados
+    const podeAlterarFechado =
+      usuario.perfil === 'PASTOR' ||
+      (usuario.perfil === 'REDE' && usuario.redeId === relatorio.celula.redeId);
+    if (relatorio.status === 'FECHADO' && !podeAlterarFechado) {
       throw new PermissaoError('Relatório fechado não pode ser editado.');
     }
 
@@ -121,7 +123,7 @@ static async atualizar(usuario: UsuarioAutenticado, relatorioId: string, dados: 
 /**
  * Exclui relatório semanal definitivamente.
  * Se o relatório possuir foto vinculada, a foto é removida do armazenamento.
- * EXCEÇÃO: Líder de Rede da mesma rede pode excluir relatórios fechados.
+ * EXCEÇÃO: Líder de Rede da mesma rede ou Pastor podem excluir relatórios fechados.
  * Relatório fechado NÃO pode ser excluído pelos líderes de célula comuns.
  */
 static async excluir(usuario: UsuarioAutenticado, relatorioId: string) {
@@ -141,9 +143,11 @@ static async excluir(usuario: UsuarioAutenticado, relatorioId: string) {
     });
 
     // TRAVA DE SEGURANÇA: Relatório fechado não pode ser excluído,
-    // EXCEÇÃO: Líder de Rede da mesma rede pode excluir relatórios fechados
-    const usuarioEhLiderRede = usuario.perfil === 'REDE' && usuario.redeId === relatorio.celula.redeId;
-    if (relatorio.status === 'FECHADO' && !usuarioEhLiderRede) {
+    // EXCEÇÃO: Líder de Rede da mesma rede ou Pastor podem excluir relatórios fechados
+    const podeAlterarFechado =
+      usuario.perfil === 'PASTOR' ||
+      (usuario.perfil === 'REDE' && usuario.redeId === relatorio.celula.redeId);
+    if (relatorio.status === 'FECHADO' && !podeAlterarFechado) {
       throw new PermissaoError('Relatório fechado não pode ser excluído. Use a opção de editar para correção ou aguarde o pastor.');
     }
 
