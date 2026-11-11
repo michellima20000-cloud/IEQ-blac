@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Lock, KeyRound, ArrowRight, CircleAlert, Loader2, Download, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { ApiClient, fotoUtilizavel } from '../api/client';
 
 export const LoginView: React.FC = () => {
   const { login } = useAuth();
@@ -9,6 +10,31 @@ export const LoginView: React.FC = () => {
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+  // Carrega o logo da igreja (identidade visual) conforme o slug digitado
+  useEffect(() => {
+    const slug = slugIgreja.trim().toLowerCase();
+    if (!slug) {
+      setLogoUrl(null);
+      return;
+    }
+    let cancelado = false;
+    const t = setTimeout(async () => {
+      try {
+        const res: any = await ApiClient.get(`/publico/visual/${encodeURIComponent(slug)}`);
+        const visual = res?.visual ?? res;
+        const url = visual?.logoUrl ?? null;
+        if (!cancelado) setLogoUrl(fotoUtilizavel(url) ? url : null);
+      } catch {
+        if (!cancelado) setLogoUrl(null);
+      }
+    }, 450);
+    return () => {
+      cancelado = true;
+      clearTimeout(t);
+    };
+  }, [slugIgreja]);
 
   // Instalação PWA
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -79,6 +105,15 @@ export const LoginView: React.FC = () => {
                 <Download size={14} className="shrink-0" />
                 Instalar app
               </button>
+            </div>
+          )}
+          {logoUrl && (
+            <div className="flex justify-center mb-4">
+              <img
+                src={logoUrl}
+                alt="Logo da igreja"
+                className="max-h-20 max-w-full object-contain drop-shadow-lg"
+              />
             </div>
           )}
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">IEQ Conecta</h1>
