@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { House, Store, Loader2 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginView from './components/LoginView';
@@ -53,10 +53,33 @@ function AppContent() {
     { id: 'vitrine' as AbaExtra, label: 'Vitrine', Icon: Store },
   ];
 
+  // Dock flutuante some ao rolar para baixo e reaparece ao rolar para cima
+  const [dockVisivel, setDockVisivel] = useState(true);
+  const ultimaPosicaoScroll = useRef(0);
+
+  useEffect(() => {
+    const aoRolar = () => {
+      const y = window.scrollY;
+      const anterior = ultimaPosicaoScroll.current;
+      if (y < anterior - 6 || y < 80) {
+        setDockVisivel(true);
+      } else if (y > anterior + 6) {
+        setDockVisivel(false);
+      }
+      ultimaPosicaoScroll.current = y;
+    };
+    window.addEventListener('scroll', aoRolar, { passive: true });
+    return () => window.removeEventListener('scroll', aoRolar);
+  }, []);
+
   return (
     <Layout abaAtiva={aba} setAbaAtiva={(novaAba: string) => setAba(novaAba as AbaExtra)}>
-      {/* Barra de navegação inferior (dock flutuante) */}
-      <nav className="fixed bottom-3 left-0 right-0 z-50 px-4 safe-bottom">
+      {/* Barra de navegação inferior (dock flutuante, some ao rolar para baixo) */}
+      <nav
+        className={`fixed bottom-3 left-0 right-0 z-50 px-4 safe-bottom transition-all duration-300 ${
+          dockVisivel ? 'translate-y-0 opacity-100' : 'translate-y-[120%] opacity-0 pointer-events-none'
+        }`}
+      >
         <div className="max-w-md mx-auto flex gap-1 rounded-2xl border border-slate-800/80 bg-slate-950/90 backdrop-blur-xl shadow-2xl shadow-black/50 p-1.5">
           {tabs.map(({ id, label, Icon }) => (
             <button
