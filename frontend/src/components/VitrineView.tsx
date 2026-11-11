@@ -161,18 +161,32 @@ export const VitrineView: React.FC = () => {
                   )}
 
                   {item.arquivoUrl && !isVideo && (
-                    <button
-                      type="button"
+                    <div
+                      className="relative aspect-video bg-slate-950 overflow-hidden cursor-pointer"
                       onClick={() => setAmpliado(item)}
-                      aria-label={`Ampliar ${item.titulo}`}
-                      className="block w-full aspect-video bg-slate-950 overflow-hidden cursor-zoom-in group/img"
                     >
                       <img
                         src={item.arquivoUrl}
                         alt={item.titulo}
-                        className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-300"
+                        className="w-full h-full object-cover transition-opacity duration-300"
+                        title={item.titulo}
                       />
-                    </button>
+                      {/* Overlay inferior com info aparece ao passar o mouse */}
+                      <div
+                        className="absolute bottom-0 left-0 right-0 bg-slate-950/80 backdrop-blur-sm p-4 transition-all duration-300 group-hover:opacity-100"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={badge.cor}>{badge.label}</span>
+                          <span className="text-[11px] text-slate-500">
+                            {new Date(item.createdAt).toLocaleDateString('pt-BR')}
+                          </span>
+                        </div>
+                        <h4 className="text-base font-bold text-white truncate">{item.titulo}</h4>
+                        {item.descricao && (
+                          <p className="text-sm text-slate-400 mt-1 line-clamp-2">{item.descricao}</p>
+                        )}
+                      </div>
+                    </div>
                   )}
 
                   {!item.arquivoUrl && !item.videoUrl && (
@@ -181,20 +195,22 @@ export const VitrineView: React.FC = () => {
                     </div>
                   )}
 
-                  <div className="p-4 flex-1 flex flex-col justify-between gap-2">
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <span className={badge.cor}>{badge.label}</span>
-                        <span className="text-[11px] text-slate-500">
-                          {new Date(item.createdAt).toLocaleDateString('pt-BR')}
-                        </span>
+                  {!item.arquivoUrl && !item.videoUrl && (
+                    <div className="p-4 flex-1 flex flex-col justify-between gap-2">
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <span className={badge.cor}>{badge.label}</span>
+                          <span className="text-[11px] text-slate-500">
+                            {new Date(item.createdAt).toLocaleDateString('pt-BR')}
+                          </span>
+                        </div>
+                        <h4 className="text-base font-bold text-white">{item.titulo}</h4>
+                        {item.descricao && (
+                          <p className="text-sm text-slate-400 mt-1 line-clamp-3">{item.descricao}</p>
+                        )}
                       </div>
-                      <h4 className="text-base font-bold text-white">{item.titulo}</h4>
-                      {item.descricao && (
-                        <p className="text-sm text-slate-400 mt-1 line-clamp-3">{item.descricao}</p>
-                      )}
                     </div>
-                  </div>
+                  )}
                 </article>
               );
             })}

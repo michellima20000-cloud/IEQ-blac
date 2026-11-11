@@ -49,7 +49,7 @@ export const PastorView: React.FC = () => {
   const [nomeNovoUser, setNomeNovoUser] = useState('');
   const [emailNovoUser, setEmailNovoUser] = useState('');
   const [senhaNovoUser, setSenhaNovoUser] = useState('');
-  const [perfilNovoUser, setPerfilNovoUser] = useState<'CELULA' | 'REDE' | 'MIDIA' | 'PASTOR' | 'ADM'>('CELULA');
+  const [perfilNovoUser, setPerfilNovoUser] = useState<'CELULA' | 'REDE' | 'MIDIA' | 'PASTOR'>('CELULA');
   const [identificadorCelula, setIdentificadorCelula] = useState('');
   const [nomeRede, setNomeRede] = useState('');
   const [redesDisponiveis, setRedesDisponiveis] = useState<any[]>([]);
@@ -57,7 +57,42 @@ export const PastorView: React.FC = () => {
 
   const { usuario: usuarioLogado } = useAuth();
 
-  const usuariosFiltrados = usuarios.filter((u) => {
+  const handleStatClick = (label: string, campo: string) => {
+  // Filtra usuários reais do sistema por perfil
+  const lideresCelula = usuarios.filter((u: any) => u.perfil === 'CELULA' && u.celulaId).map((u: any) => ({ nome: u.nome, celula: u.celula?.nome }));
+  const lideresRede = usuarios.filter((u: any) => u.perfil === 'REDE').map((u: any) => ({ nome: u.nome, rede: u.rede?.nome }));
+
+  // Mostra informação direta na tela (sem painel lateral)
+  const existente = document.getElementById('stat-click-alerta');
+  if (existente) existente.remove();
+  
+  let conteudo = '';
+  if (label === 'Células Ativas') {
+    conteudo = `Líderes de Célula:<br/>${lideresCelula.length > 0 ? lideresCelula.map(l => `- ${l.nome} (${l.celula})`).join('<br/>') : 'Nenhum líder de célula cadastrado'}`;
+  } else if (label === 'Membros Ativos') {
+    conteudo = `Líderes de Rede:<br/>${lideresRede.length > 0 ? lideresRede.map(l => `- ${l.nome} (${l.rede})`).join('<br/>') : 'Nenhum líder de rede cadastrado'}`;
+  } else {
+    conteudo = `${label}: ${dashboard?.indicadores?.[campo] ?? '—'}`;
+  }
+
+  const div = document.createElement('div');
+  div.id = 'stat-click-alerta';
+  div.style = `
+    position: fixed;
+    top: 20px; left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937; color: white; padding: 12px 24px;
+    border-radius: 8px; z-index: 9999; font-size: 14px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.15);
+    white-space: pre-wrap;
+  `;
+  div.innerHTML = `${label}: ${conteudo}`;
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 5000);
+  console.log('Stat clicked:', label, conteudo);
+};
+
+const usuariosFiltrados = usuarios.filter((u) => {
     const termo = buscaUsuario.trim().toLowerCase();
     if (!termo) return true;
     return [u.nome, u.email, u.perfil, u.celula?.nome, u.rede?.nome, u.celula?.rede?.nome]
@@ -356,7 +391,7 @@ export const PastorView: React.FC = () => {
         <div className="space-y-5">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {statsDashboard.map(({ campo, label, Icon, cor, bg }) => (
-              <div key={campo} className="stat card-hover">
+              <div key={campo} className="stat card-hover" onClick={() => handleStatClick(label, campo)}>
                 <div className="flex items-start justify-between">
                   <span className="stat-label">{label}</span>
                   <span className={`w-7 h-7 rounded-lg ${bg} ${cor} flex items-center justify-center`}>
@@ -727,7 +762,6 @@ export const PastorView: React.FC = () => {
                     <option value="REDE">Líder de Rede</option>
                     <option value="MIDIA">Equipe de Mídia</option>
                     {usuarioEditandoId && <option value="PASTOR">Pastor</option>}
-                    {usuarioEditandoId && <option value="ADM">Administrador</option>}
                   </select>
                 </div>
               </div>

@@ -19,7 +19,7 @@ const uploadMidia = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 50 * 1024 * 1024,
-    files: 1,
+    files: 10, // alterado de 1 para 10 — permite selecionar várias fotos de uma vez
     fields: 10,
     fieldSize: 1024 * 1024
   },
@@ -38,7 +38,7 @@ router.use(tenantMiddleware);
 
 // Traduz os erros do multer (arquivo muito grande, formato inválido) para 400
 function comTratamentoDeUpload(req: any, res: any, next: any) {
-  uploadMidia.single('arquivo')(req, res, (err: any) => {
+  uploadMidia.array('arquivos')(req, res, (err: any) => {
     if (!err) return next();
     const mensagem = err.code === 'LIMIT_FILE_SIZE'
       ? 'O arquivo excede o limite de 50 MB.'

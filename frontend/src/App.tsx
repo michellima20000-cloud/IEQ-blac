@@ -8,13 +8,32 @@ import RedeView from './components/RedeView';
 import PastorView from './components/PastorView';
 import MidiaView from './components/MidiaView';
 import VitrineView from './components/VitrineView';
-import AdminView from './components/AdminView';
 
 type AbaExtra = 'minha' | 'vitrine';
 
 function AppContent() {
   const { usuario, carregando } = useAuth();
   const [aba, setAba] = useState<AbaExtra>('minha');
+
+  // Dock flutuante some ao rolar para baixo e reaparece ao rolar para cima
+  // (todos os hooks ANTES de qualquer return condicional — React error #310)
+  const [dockVisivel, setDockVisivel] = useState(true);
+  const ultimaPosicaoScroll = useRef(0);
+
+  useEffect(() => {
+    const aoRolar = () => {
+      const y = window.scrollY;
+      const anterior = ultimaPosicaoScroll.current;
+      if (y < anterior - 6 || y < 80) {
+        setDockVisivel(true);
+      } else if (y > anterior + 6) {
+        setDockVisivel(false);
+      }
+      ultimaPosicaoScroll.current = y;
+    };
+    window.addEventListener('scroll', aoRolar, { passive: true });
+    return () => window.removeEventListener('scroll', aoRolar);
+  }, []);
 
   if (carregando) {
     return (
@@ -38,7 +57,6 @@ function AppContent() {
       case 'REDE':   return <RedeView />;
       case 'PASTOR': return <PastorView />;
       case 'MIDIA':  return <MidiaView />;
-      case 'ADM':    return <AdminView />;
       default:       return <VitrineView />;
     }
   }
@@ -48,32 +66,12 @@ function AppContent() {
     REDE: 'Minha Rede',
     PASTOR: 'Painel',
     MIDIA: 'Mídia',
-    ADM: 'Admin',
   };
 
   const tabs = [
     { id: 'minha' as AbaExtra, label: labelMinha[usuario.perfil] ?? 'Principal', Icon: House },
     { id: 'vitrine' as AbaExtra, label: 'Vitrine', Icon: Store },
   ];
-
-  // Dock flutuante some ao rolar para baixo e reaparece ao rolar para cima
-  const [dockVisivel, setDockVisivel] = useState(true);
-  const ultimaPosicaoScroll = useRef(0);
-
-  useEffect(() => {
-    const aoRolar = () => {
-      const y = window.scrollY;
-      const anterior = ultimaPosicaoScroll.current;
-      if (y < anterior - 6 || y < 80) {
-        setDockVisivel(true);
-      } else if (y > anterior + 6) {
-        setDockVisivel(false);
-      }
-      ultimaPosicaoScroll.current = y;
-    };
-    window.addEventListener('scroll', aoRolar, { passive: true });
-    return () => window.removeEventListener('scroll', aoRolar);
-  }, []);
 
   return (
     <Layout abaAtiva={aba} setAbaAtiva={(novaAba: string) => setAba(novaAba as AbaExtra)}>

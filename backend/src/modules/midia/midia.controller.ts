@@ -3,6 +3,7 @@ import { MidiaService } from './midia.service.ts';
 import { CalendarioService } from './calendario.service.ts';
 import { VisualService } from './visual.service.ts';
 import { criarMidiaSchema } from './midia.schemas.ts';
+import { ImageProcessor } from '../../services/imageProcessor.ts';
 import { cacheDel, cacheGet, cacheSet, chavesCache } from '../../config/upstash.ts';
 import type { AuthenticatedRequest } from '../../middlewares/auth.ts';
 import type {
@@ -18,19 +19,35 @@ export class MidiaController {
   // --- MÍDIA & VITRINE ---
   static async criar(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      // Multipart: campos chegam como strings pelo multer + buffer binário do arquivo
-      const arquivo = (req as any).file;
-      const dados: CriarMidiaInput = arquivo
+      // O multer.array('arquivos') pode retornar undefined (nenhum arquivo) ou um array de file objects
+      const arquivos = (req as any).files;
+      let arquivoUrl: string | null = null;
+      let nomeOriginal = '';
+      let tamanhoArquivoBytes = 0;
+
+      if (arquivos && arquivos.length > 0) {
+        // Processa apenas o primeiro arquivo selecionado (para manter compatibilidade com o schema único de arquivoUrl)
+        const arquivo = arquivos[0];
+        const processed = await ImageProcessor.processToWebP(arquivo.buffer, {
+          maxWidth: 1280,
+          quality: 80
+        });
+        arquivoUrl = `data:${processed.mimeType};base64,${processed.buffer.toString('base64')}`;
+        nomeOriginal = arquivo.originalname;
+        tamanhoArquivoBytes = processed.buffer.length;
+      }
+
+      const dados: CriarMidiaInput = arquivos && arquivos.length > 0
         ? await criarMidiaSchema.parseAsync({
             tipo: req.body.tipo,
             titulo: req.body.titulo,
             descricao: req.body.descricao || null,
             videoUrl: req.body.videoUrl || null,
             precisaAprovacao: req.body.precisaAprovacao === 'true',
-            tipoArquivo: arquivo.mimetype,
-            nomeOriginal: arquivo.originalname,
-            arquivoUrl: `data:${arquivo.mimetype};base64,${arquivo.buffer.toString('base64')}`,
-            tamanhoArquivoBytes: arquivo.size
+            tipoArquivo: arquivos?.[0]?.mimetype ?? '',
+            nomeOriginal,
+            arquivoUrl,
+            tamanhoArquivoBytes
           })
         : await criarMidiaSchema.parseAsync(req.body);
 

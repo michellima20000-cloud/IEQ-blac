@@ -134,6 +134,41 @@ export default function MidiaView() {
   const [uploadTitulo, setUploadTitulo] = useState('');
   const [uploadDescricao, setUploadDescricao] = useState('');
   const [uploadArquivo, setUploadArquivo] = useState<File | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  <input
+  id="upload-imagem"
+  ref={fileRef}
+  type="file"
+  accept="image/*"
+  multiple
+  onChange={async (e) => {
+    const files = e.target.files ?? [];
+    const newFiles = Array.from(files);
+    setSelectedFiles(prev => {
+      // Evita duplicatas pelo nome e tamanho
+      const existentes = new Set(prev.map(f => f.name + f.size));
+      return [...prev.filter(f => !existentes.has(f.name + f.size)), ...newFiles].filter(
+        (f, idx, self) => self.findIndex(f2 => f2.name === f.name && f2.size === f.size) === idx
+      );
+    });
+    setUploadArquivo(selectedFiles[0] ?? null);
+    // Pré-visualização das imagens selecionadas
+    const previewUrls = selectedFiles.map(f => URL.createObjectURL(f));
+    setPreviewUrl(previewUrls[0] ?? null);
+    // Limpar pré-visualizações antigas após renderização
+    // (os Object URLs serão revogados quando o componente desmonta ou ao trocar de arquivo)
+    const img = new Image();
+    img.src = previewUrls[0] ?? '';
+    img.onload = () => {
+      const kb = files[0] ? Math.round(files[0].size / 1024) : 0;
+      setArquivoInfo(`${img.width} × ${img.height} • ${kb} KB`);
+      // Revoga os Object URLs das pré-visualizações para evitar memory leak
+      previewUrls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }}
+  className="input sr-only peer"
+/>
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [arquivoInfo, setArquivoInfo] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -161,8 +196,6 @@ export default function MidiaView() {
   const appInstalado =
     typeof window !== 'undefined' &&
     window.matchMedia('(display-mode: standalone)').matches;
-
-  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const handler = (e: any) => {
@@ -696,28 +729,34 @@ export default function MidiaView() {
             <div>
               <label className="label" htmlFor="upload-imagem">Arquivo (imagem)</label>
               <div className="relative">
-                <input
-                  id="upload-imagem"
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0] ?? null;
-                    setUploadArquivo(file);
-                    setUploadErros(prev => { const next = { ...prev }; delete next.arquivo; return next; });
-                    if (!file) { setPreviewUrl(null); setArquivoInfo(null); return; }
-                    setPreviewUrl(URL.createObjectURL(file));
-                    const img = new Image();
-                    img.src = URL.createObjectURL(file);
-                    img.onload = () => {
-                      const kb = Math.round(file.size / 1024);
-                      setArquivoInfo(`${img.width} × ${img.height} • ${kb} KB`);
-                      URL.revokeObjectURL(img.src);
-                    };
-                  }}
-                  className="input sr-only peer"
-                  aria-label="Selecionar imagem"
-                />
+<input
+  id="upload-imagem"
+  ref={fileRef}
+  type="file"
+  accept="image/*"
+  multiple
+  onChange={async (e) => {
+    const files = e.target.files ?? [];
+    const newFiles = Array.from(files);
+    setSelectedFiles(prev => {
+      const existentes = new Set(prev.map(f => f.name + f.size));
+      return [...prev.filter(f => !existentes.has(f.name + f.size)), ...newFiles].filter(
+        (f, idx, self) => self.findIndex(f2 => f2.name === f.name && f2.size === f.size) === idx
+      );
+    });
+    setUploadArquivo(selectedFiles[0] ?? null);
+    const previewUrls = selectedFiles.map(f => URL.createObjectURL(f));
+    setPreviewUrl(previewUrls[0] ?? null);
+    const img = new Image();
+    img.src = previewUrls[0] ?? '';
+    img.onload = () => {
+      const kb = files[0] ? Math.round(files[0].size / 1024) : 0;
+      setArquivoInfo(`${img.width} × ${img.height} • ${kb} KB`);
+      previewUrls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }}
+  className="input sr-only peer"
+/>
                 <label
                   htmlFor="upload-imagem"
                   className="flex items-center gap-2 w-full cursor-pointer rounded-xl border border-slate-700 bg-slate-950/80 px-3.5 py-2.5 text-sm text-slate-300 hover:border-blue-500/60 hover:bg-slate-900 transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500/50"
