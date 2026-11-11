@@ -57,7 +57,7 @@ export const PastorView: React.FC = () => {
 
   const { usuario: usuarioLogado } = useAuth();
 
-  const handleStatClick = (label: string, campo: string) => {
+  const handleStatClick = (label: string, campo: string, event: React.MouseEvent) => {
   // Filtra usuários reais do sistema por perfil
   const lideresCelula = usuarios.filter((u: any) => u.perfil === 'CELULA' && u.celulaId).map((u: any) => ({ nome: u.nome, celula: u.celula?.nome }));
   const lideresRede = usuarios.filter((u: any) => u.perfil === 'REDE').map((u: any) => ({ nome: u.nome, rede: u.rede?.nome }));
@@ -80,17 +80,21 @@ export const PastorView: React.FC = () => {
   const existente = document.getElementById('stat-click-alerta');
   if (existente) existente.remove();
   
-  // Cria aviso alinhado ao card (posição relativa ao body, mas com informação do card)
+  // Obtém posição do card clicado
+  const cardRect = event.currentTarget.getBoundingClientRect();
+  
+  // Cria aviso posicionado abaixo do card clicado
   const div = document.createElement('div');
   div.id = 'stat-click-alerta';
   div.style = `
     position: fixed;
-    top: 80px; left: 20px;
+    top: ${cardRect.bottom + window.pageYOffset + 8}px; left: ${cardRect.left + window.pageXOffset}px;
     background: #1f2937; color: white; padding: 12px 20px;
     border-radius: 8px; z-index: 9999; font-size: 13px;
     box-shadow: 0 4px 12px rgba(0,0,0,.15);
     max-width: 300px;
     line-height: 1.6;
+    margin-top: 8px;
   `;
   div.innerHTML = `<strong>${label}</strong><br/><br/>${conteudo}`;
   document.body.appendChild(div);
@@ -397,7 +401,7 @@ const usuariosFiltrados = usuarios.filter((u) => {
         <div className="space-y-5">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {statsDashboard.map(({ campo, label, Icon, cor, bg }) => (
-              <div key={campo} className="stat card-hover" onClick={() => handleStatClick(label, campo)}>
+              <div key={campo} className="stat card-hover" onClick={(e) => handleStatClick(label, campo, e)}>
                 <div className="flex items-start justify-between">
                   <span className="stat-label">{label}</span>
                   <span className={`w-7 h-7 rounded-lg ${bg} ${cor} flex items-center justify-center`}>
