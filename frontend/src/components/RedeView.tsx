@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { ApiClient, fotoUtilizavel } from '../api/client';
+import { SkeletonPage } from './Skeleton';
 
 const stats = [
   { chave: 'totalCelulas', label: 'Células', Icon: Users, cor: 'text-blue-400', bg: 'bg-blue-500/10' },
@@ -116,12 +117,7 @@ export const RedeView: React.FC = () => {
   };
 
   if (carregando) {
-    return (
-      <div className="loading-state">
-        <div className="w-7 h-7 border-[3px] border-blue-500 border-t-transparent rounded-full animate-spin" />
-        Carregando dados da rede...
-      </div>
-    );
+    return <SkeletonPage />;
   }
 
   if (erro) {

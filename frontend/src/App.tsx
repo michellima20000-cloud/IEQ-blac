@@ -55,17 +55,17 @@ function AppContent() {
 
   return (
     <Layout abaAtiva={aba} setAbaAtiva={(novaAba: string) => setAba(novaAba as AbaExtra)}>
-      {/* Barra de navegação inferior */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-800/80 bg-slate-950/85 backdrop-blur-xl safe-bottom">
-        <div className="max-w-5xl mx-auto px-3 py-2 flex gap-2">
+      {/* Barra de navegação inferior (dock flutuante) */}
+      <nav className="fixed bottom-3 left-0 right-0 z-50 px-4 safe-bottom">
+        <div className="max-w-md mx-auto flex gap-1 rounded-2xl border border-slate-800/80 bg-slate-950/90 backdrop-blur-xl shadow-2xl shadow-black/50 p-1.5">
           {tabs.map(({ id, label, Icon }) => (
             <button
               key={id}
               onClick={() => setAba(id)}
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 ${
                 aba === id
-                  ? 'bg-blue-600/15 text-blue-400 border border-blue-500/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent'
+                  ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/30'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/70'
               }`}
             >
               <Icon size={16} />

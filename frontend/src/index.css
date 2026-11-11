@@ -35,6 +35,13 @@
     color: #fff;
   }
 
+  /* Foco acessível e consistente em todo o sistema */
+  :focus-visible {
+    outline: 2px solid rgba(59, 130, 246, 0.6);
+    outline-offset: 2px;
+    border-radius: 8px;
+  }
+
   ::-webkit-scrollbar {
     width: 9px;
     height: 9px;
@@ -220,8 +227,31 @@
   .empty-state {
     @apply card p-10 text-center text-sm text-slate-500;
   }
+  .empty-state svg { opacity: .45; }
   .loading-state {
     @apply flex flex-col items-center justify-center gap-3 py-16 text-slate-400 text-sm;
+  }
+
+  /* ---------- Skeletons (carregamento elegante) ---------- */
+  .skeleton {
+    @apply relative overflow-hidden rounded-lg bg-slate-800/50;
+  }
+  .skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.10), transparent);
+    animation: shimmer 1.5s infinite;
+  }
+  .skeleton-line {
+    @apply skeleton h-3.5;
+  }
+  .skeleton-card {
+    @apply skeleton card;
+  }
+  .skeleton-stat {
+    @apply skeleton card card-pad;
   }
 
   /* ---------- Stat card ---------- */

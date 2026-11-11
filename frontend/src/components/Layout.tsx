@@ -78,10 +78,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               <img
                 src={visual.logoUrl}
                 alt="Logo da igreja"
-                className="w-9 h-9 rounded-xl object-cover border border-slate-700/70 shadow-lg shadow-blue-600/25 bg-slate-900"
+                className="w-10 h-10 rounded-xl object-cover border border-slate-700/70 shadow-lg shadow-blue-600/25 bg-slate-900"
               />
             ) : (
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-extrabold text-white text-sm shadow-lg shadow-blue-600/25">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-extrabold text-white text-sm shadow-lg shadow-blue-600/25 ring-1 ring-blue-400/30">
                 {iniciais}
               </div>
             )}

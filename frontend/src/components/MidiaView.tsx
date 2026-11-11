@@ -802,10 +802,13 @@ export default function MidiaView() {
           </div>
 
           {carregando && (
-            <div className="loading-state">
-              <div className="w-7 h-7 border-[3px] border-blue-500 border-t-transparent rounded-full animate-spin" aria-hidden="true" />
-              <span className="sr-only">Carregando mídias...</span>
-              Carregando...
+            <div className="space-y-3" aria-busy="true">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="card-soft p-4 space-y-2.5" aria-hidden="true">
+                  <div className="skeleton-line w-1/3" />
+                  <div className="skeleton-line w-2/3" />
+                </div>
+              ))}
             </div>
           )}
           {!carregando && midias.length === 0 && (
@@ -1047,10 +1050,14 @@ export default function MidiaView() {
             </div>
 
             {carregando && (
-              <div className="loading-state">
-                <div className="w-7 h-7 border-[3px] border-blue-500 border-t-transparent rounded-full animate-spin" aria-hidden="true" />
-                <span className="sr-only">Carregando eventos...</span>
-                Carregando...
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3" aria-busy="true">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="card-soft p-4 space-y-2.5" aria-hidden="true">
+                    <div className="skeleton-line w-1/2" />
+                    <div className="skeleton-line w-1/3" />
+                    <div className="skeleton h-16 rounded-xl" />
+                  </div>
+                ))}
               </div>
             )}
             {!carregando && eventos.length === 0 && (

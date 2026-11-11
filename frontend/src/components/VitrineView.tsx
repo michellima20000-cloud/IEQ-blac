@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { CalendarDays, Megaphone, MapPin, Clock, Video, Newspaper, X } from 'lucide-react';
 import { ApiClient } from '../api/client';
+import { SkeletonGrid } from './Skeleton';
 
 interface MidiaPublicada {
   id: string;
@@ -74,12 +75,7 @@ export const VitrineView: React.FC = () => {
   };
 
   if (carregando) {
-    return (
-      <div className="loading-state">
-        <div className="w-7 h-7 border-[3px] border-blue-500 border-t-transparent rounded-full animate-spin" />
-        Carregando vitrine da igreja...
-      </div>
-    );
+    return <SkeletonGrid count={4} cols="grid-cols-1 md:grid-cols-2" />;
   }
 
   return (

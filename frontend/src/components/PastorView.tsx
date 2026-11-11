@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { ApiClient, fotoUtilizavel } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { SkeletonPage } from './Skeleton';
 
 const subAbas = [
   { id: 'dashboard', label: 'Indicadores', Icon: LayoutDashboard },
@@ -274,12 +275,7 @@ export const PastorView: React.FC = () => {
   };
 
   if (carregando) {
-    return (
-      <div className="loading-state">
-        <div className="w-7 h-7 border-[3px] border-blue-500 border-t-transparent rounded-full animate-spin" />
-        Carregando painel pastoral...
-      </div>
-    );
+    return <SkeletonPage />;
   }
 
   return (
