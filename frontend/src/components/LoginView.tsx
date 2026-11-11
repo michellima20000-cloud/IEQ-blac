@@ -120,7 +120,6 @@ export const LoginView: React.FC = () => {
               <Church size={26} className="text-white" />
             </div>
           )}
-          <span className="badge-blue mb-3 inline-flex">Sistema da Igreja</span>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">IEQ Conecta</h1>
           <p className="text-slate-400 text-sm mt-1.5 text-balance">
             Acesse sua conta para gerenciar células, relatórios e mídias
