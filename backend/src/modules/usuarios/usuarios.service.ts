@@ -244,8 +244,8 @@ export class UsuariosService {
     let redeId = dados.redeId !== undefined ? dados.redeId : usuario.redeId;
     let celulaId = dados.celulaId !== undefined ? dados.celulaId : usuario.celulaId;
 
-    if (perfilFinal === 'MIDIA') {
-      // Equipe de mídia não possui vínculos de célula/rede
+    if (perfilFinal === 'MIDIA' || perfilFinal === 'ADM') {
+      // Equipe de mídia e Administrador não possuem vínculos de célula/rede
       redeId = null;
       celulaId = null;
     } else if (perfilFinal === 'PASTOR') {

@@ -8,6 +8,7 @@ export async function main() {
 
   // Gera hash real da senha padrão usando scrypt nativo (sem dependências externas)
   const senhaHash = await hashPassword('Pastor@123');
+  const senhaHashAdmin = await hashPassword('Admin@123');
   console.log('🔐 Hash gerado com sucesso.');
 
   // Limpeza prévia
@@ -110,6 +111,16 @@ export async function main() {
   });
 
   // 5. Usuários - 1 de cada perfil na Igreja Matriz
+  const administrador = await prisma.usuario.create({
+    data: {
+      nome: 'Administrador do Sistema',
+      email: 'admin@ieq.com',
+      senhaHash: senhaHashAdmin,
+      perfil: Perfil.ADM,
+      igreja_id: igrejaMatriz.id
+    }
+  });
+
   const pastor = await prisma.usuario.create({
     data: {
       nome: 'Pastor Titular',
@@ -167,6 +178,7 @@ export async function main() {
   console.log('✅ Seed executado com sucesso:');
   console.log(` - Igreja Matriz: ${igrejaMatriz.id} (${igrejaMatriz.nome})`);
   console.log(` - Igreja Outra: ${igrejaOutra.id} (${igrejaOutra.nome})`);
+  console.log(` - Administrador (ADM): ${administrador.email}`);
   console.log(` - Pastor: ${pastor.email}`);
   console.log(` - Líder de Rede: ${liderRedeJovens.email}`);
   console.log(` - Líder de Célula: ${liderCelulaJovens1.email}`);

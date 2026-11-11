@@ -136,4 +136,18 @@ describe('RBAC & Isolamento Multi-tenant - Regras da Igreja', () => {
     assert.strictEqual(validarPermissao(usuarioPastor, 'RELATORIO', 'LER', alvoCelula1), true);
     assert.strictEqual(validarPermissao(usuarioPastor, 'MEMBRO', 'LER', alvoCelula2), true);
   });
+
+  it('6. ADM (superusuário) acessa todas as igrejas (bypass de isolamento)', () => {
+    const usuarioAdm = {
+      id: 'user-adm',
+      igreja_id: IGREJA_MATRIZ,
+      perfil: 'ADM'
+    };
+
+    assert.strictEqual(validarPermissao(usuarioAdm, 'CELULA', 'LER', alvoCelula1), true);
+    assert.strictEqual(validarPermissao(usuarioAdm, 'CELULA', 'LER', alvoCelula3), true);
+    assert.strictEqual(validarPermissao(usuarioAdm, 'RELATORIO', 'EDITAR', alvoOutraIgreja), true);
+    assert.strictEqual(validarPermissao(usuarioAdm, 'USUARIO', 'EXCLUIR', alvoOutraIgreja), true);
+    assert.strictEqual(validarPermissao(usuarioAdm, 'MIDIA', 'CRIAR', alvoOutraIgreja), true);
+  });
 });

@@ -11,7 +11,7 @@ const router = Router();
 // Todas as rotas de gestão de usuários exigem autenticação, tenant e perfil PASTOR
 router.use(authMiddleware);
 router.use(tenantMiddleware);
-router.use(requirePerfil('PASTOR'));
+router.use(requirePerfil('PASTOR', 'ADM'));
 
 /**
  * @swagger
@@ -38,7 +38,7 @@ router.use(requirePerfil('PASTOR'));
  *                 type: string
  *               perfil:
  *                 type: string
- *                 enum: [CELULA, REDE, MIDIA]
+ *                 enum: [CELULA, REDE, MIDIA, ADM]
  *               redeId:
  *                 type: string
  *                 format: uuid
@@ -68,7 +68,7 @@ router.post('/', validate(criarUsuarioSchema), UsuariosController.criar);
  *         name: perfil
  *         schema:
  *           type: string
- *           enum: [CELULA, REDE, PASTOR, MIDIA]
+ *           enum: [CELULA, REDE, PASTOR, MIDIA, ADM]
  *         description: Filtro opcional por perfil
  *     responses:
  *       200:
@@ -128,7 +128,7 @@ router.get('/:id', UsuariosController.buscarPorId);
  *                 type: string
  *               perfil:
  *                 type: string
- *                 enum: [CELULA, REDE, MIDIA, PASTOR]
+ *                 enum: [CELULA, REDE, MIDIA, PASTOR, ADM]
  *               ativo:
  *                 type: boolean
  *               redeId:

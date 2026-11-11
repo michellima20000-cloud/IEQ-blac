@@ -12,6 +12,7 @@ enum Perfil {
   REDE
   PASTOR
   MIDIA
+  ADM
 }
 
 enum StatusRelatorio {

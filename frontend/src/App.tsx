@@ -8,6 +8,7 @@ import RedeView from './components/RedeView';
 import PastorView from './components/PastorView';
 import MidiaView from './components/MidiaView';
 import VitrineView from './components/VitrineView';
+import AdminView from './components/AdminView';
 
 type AbaExtra = 'minha' | 'vitrine';
 
@@ -37,6 +38,7 @@ function AppContent() {
       case 'REDE':   return <RedeView />;
       case 'PASTOR': return <PastorView />;
       case 'MIDIA':  return <MidiaView />;
+      case 'ADM':    return <AdminView />;
       default:       return <VitrineView />;
     }
   }
@@ -46,6 +48,7 @@ function AppContent() {
     REDE: 'Minha Rede',
     PASTOR: 'Painel',
     MIDIA: 'Mídia',
+    ADM: 'Admin',
   };
 
   const tabs = [

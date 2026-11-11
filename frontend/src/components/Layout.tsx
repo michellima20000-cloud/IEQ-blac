@@ -18,7 +18,8 @@ const perfilLabels: Record<Perfil, { label: string; cor: string }> = {
   CELULA: { label: 'Líder de Célula', cor: 'badge-emerald' },
   REDE: { label: 'Líder de Rede', cor: 'badge-indigo' },
   PASTOR: { label: 'Pastor Titular', cor: 'badge-amber' },
-  MIDIA: { label: 'Equipe de Mídia', cor: 'badge-purple' }
+  MIDIA: { label: 'Equipe de Mídia', cor: 'badge-purple' },
+  ADM: { label: 'Administrador', cor: 'badge-red' }
 };
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {

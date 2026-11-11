@@ -49,7 +49,7 @@ export const PastorView: React.FC = () => {
   const [nomeNovoUser, setNomeNovoUser] = useState('');
   const [emailNovoUser, setEmailNovoUser] = useState('');
   const [senhaNovoUser, setSenhaNovoUser] = useState('');
-  const [perfilNovoUser, setPerfilNovoUser] = useState<'CELULA' | 'REDE' | 'MIDIA' | 'PASTOR'>('CELULA');
+  const [perfilNovoUser, setPerfilNovoUser] = useState<'CELULA' | 'REDE' | 'MIDIA' | 'PASTOR' | 'ADM'>('CELULA');
   const [identificadorCelula, setIdentificadorCelula] = useState('');
   const [nomeRede, setNomeRede] = useState('');
   const [redesDisponiveis, setRedesDisponiveis] = useState<any[]>([]);
@@ -727,6 +727,7 @@ export const PastorView: React.FC = () => {
                     <option value="REDE">Líder de Rede</option>
                     <option value="MIDIA">Equipe de Mídia</option>
                     {usuarioEditandoId && <option value="PASTOR">Pastor</option>}
+                    {usuarioEditandoId && <option value="ADM">Administrador</option>}
                   </select>
                 </div>
               </div>

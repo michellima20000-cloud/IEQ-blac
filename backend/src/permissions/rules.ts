@@ -24,6 +24,11 @@ export function validarPermissao(
   acao: Acao,
   alvo: EntidadeAlvo
 ): true {
+  // 0. SUPERUSUÁRIO (ADM): acesso irrestrito a TODAS as igrejas (bypass de tenant)
+  if (usuario.perfil === 'ADM') {
+    return true;
+  }
+
   // 1. ISOLAMENTO MULTI-TENANT: Ninguém acessa dados de outra igreja
   if (usuario.igreja_id !== alvo.igreja_id) {
     throw new PermissaoError('Acesso negado: Tentativa de acesso a dados de outra igreja.');

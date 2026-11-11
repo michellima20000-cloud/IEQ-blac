@@ -1,4 +1,4 @@
-export type Perfil = 'CELULA' | 'REDE' | 'PASTOR' | 'MIDIA';
+export type Perfil = 'CELULA' | 'REDE' | 'PASTOR' | 'MIDIA' | 'ADM';
 
 export interface UsuarioAutenticado {
   id: string;
