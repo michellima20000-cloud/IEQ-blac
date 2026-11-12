@@ -82,9 +82,14 @@ export const LoginView: React.FC = () => {
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleEntrar = async () => {
     setErro(null);
+
+    // Validação no app (sem submit nativo, o validador do navegador não roda)
+    if (!slugIgreja.trim()) { setErro('Informe o identificador da igreja.'); return; }
+    if (!email.trim()) { setErro('Informe o seu e-mail.'); return; }
+    if (!senha) { setErro('Informe a sua senha.'); return; }
+
     setCarregando(true);
 
     try {
@@ -93,6 +98,18 @@ export const LoginView: React.FC = () => {
       setErro(err.message || 'Falha ao autenticar. Verifique seus dados.');
     } finally {
       setCarregando(false);
+    }
+  };
+
+  /**
+   * O envio NÃO usa o submit nativo do <form> (o Chrome dispara o aviso
+   * "Verificar suas senhas" sempre que um formulário com senha é enviado).
+   * O Enter é tratado aqui e o botão é type="button".
+   */
+  const handleTecla = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key === 'Enter' && !carregando) {
+      e.preventDefault();
+      void handleEntrar();
     }
   };
 
@@ -150,13 +167,20 @@ export const LoginView: React.FC = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form
+          onSubmit={(e) => e.preventDefault()}
+          onKeyDown={handleTecla}
+          autoComplete="on"
+          className="space-y-4"
+        >
           <div>
             <label className="label">Identificador da Igreja (Slug)</label>
             <div className="relative">
               <KeyRound size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
               <input
                 type="text"
+                name="organizacao"
+                autoComplete="organization"
                 required
                 value={slugIgreja}
                 onChange={(e) => setSlugIgreja(e.target.value)}
@@ -172,6 +196,8 @@ export const LoginView: React.FC = () => {
               <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
               <input
                 type="email"
+                name="email"
+                autoComplete="username"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -187,6 +213,8 @@ export const LoginView: React.FC = () => {
               <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
               <input
                 type="password"
+                name="senha"
+                autoComplete="current-password"
                 required
                 value={senha}
                 onChange={(e) => setSenha(e.target.value)}
@@ -196,7 +224,7 @@ export const LoginView: React.FC = () => {
             </div>
           </div>
 
-          <button type="submit" disabled={carregando} className="btn-primary w-full py-3 mt-1">
+          <button type="button" onClick={() => void handleEntrar()} disabled={carregando} className="btn-primary w-full py-3 mt-1">
             {carregando ? (
               <>
                 <Loader2 size={16} className="animate-spin" />

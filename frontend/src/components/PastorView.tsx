@@ -240,9 +240,17 @@ const usuariosFiltrados = usuarios.filter((u) => {
     setNomeRede('');
   };
 
-  const handleCadastrarUsuario = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCadastrarUsuario = async (e?: any) => {
+    if (e?.preventDefault) e.preventDefault();
     setMensagemErro(null);
+
+    // Validação no próprio app (o formulário não usa submit nativo,
+    // então o validador do navegador não é acionado)
+    if (!nomeNovoUser.trim()) { setMensagemErro('Informe o nome completo.'); return; }
+    if (!emailNovoUser.trim()) { setMensagemErro('Informe o e-mail de acesso.'); return; }
+    if (!usuarioEditandoId && senhaNovoUser.length < 6) { setMensagemErro('A senha inicial deve ter no mínimo 6 caracteres.'); return; }
+    if (perfilNovoUser === 'CELULA' && !identificadorCelula.trim()) { setMensagemErro('Informe o número/identificador da célula.'); return; }
+    if ((perfilNovoUser === 'REDE' || perfilNovoUser === 'CELULA') && !nomeRede.trim()) { setMensagemErro('Informe o nome da rede.'); return; }
 
     try {
       if (usuarioEditandoId) {
@@ -787,7 +795,16 @@ const usuariosFiltrados = usuarios.filter((u) => {
                   : 'Cadastre líderes de célula, líderes de rede ou a equipe de mídia com seus vínculos'}
               </p>
             </div>
-            <form onSubmit={handleCadastrarUsuario} className="space-y-3">
+            <form
+              onSubmit={(e) => e.preventDefault()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  void handleCadastrarUsuario();
+                }
+              }}
+              className="space-y-3"
+            >
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
                   <label className="label">Nome Completo</label>
@@ -817,6 +834,8 @@ const usuariosFiltrados = usuarios.filter((u) => {
                   </label>
                   <input
                     type="password"
+                    name="senhaNovoUsuario"
+                    autoComplete="new-password"
                     required={!usuarioEditandoId}
                     placeholder={usuarioEditandoId ? 'Deixe em branco para manter a atual' : 'Mínimo 6 dígitos'}
                     value={senhaNovoUser}
@@ -912,7 +931,11 @@ const usuariosFiltrados = usuarios.filter((u) => {
               )}
 
               <div className="flex gap-2">
-                <button type="submit" className={usuarioEditandoId ? 'btn-success flex-1' : 'btn-primary flex-1'}>
+                <button
+                  type="button"
+                  onClick={() => void handleCadastrarUsuario()}
+                  className={usuarioEditandoId ? 'btn-success flex-1' : 'btn-primary flex-1'}
+                >
                   {usuarioEditandoId ? 'Salvar Alterações' : 'Cadastrar Usuário'}
                 </button>
                 {usuarioEditandoId && (
