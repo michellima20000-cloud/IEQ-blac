@@ -4,7 +4,7 @@ import {
   Megaphone, Upload, ClipboardList, Calendar, Palette, ImagePlus,
   Check, Inbox, MapPin, Pencil, Trash2, RotateCcw, Youtube,
   CircleCheck, TriangleAlert, X, Download, Layout, Monitor,
-  Image as ImageIcon, LayoutGrid, GalleryHorizontalEnd, List
+  Image as ImageIcon, LayoutGrid, GalleryHorizontalEnd, List, CheckCircle
 } from 'lucide-react';
 import { api, ApiClient } from '../api/client';
 
@@ -193,9 +193,13 @@ export default function MidiaView() {
 
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
-  const appInstalado =
+  const [appInstalado, setAppInstalado] = useState(false);
+  const appInstaladoCheck =
     typeof window !== 'undefined' &&
     window.matchMedia('(display-mode: standalone)').matches;
+  useEffect(() => {
+    setAppInstalado(appInstaladoCheck);
+  }, [appInstaladoCheck]);
 
   useEffect(() => {
     const handler = (e: any) => {
@@ -207,6 +211,7 @@ export default function MidiaView() {
     window.addEventListener('appinstalled', () => {
       setShowInstallBanner(false);
       setDeferredPrompt(null);
+      setAppInstalado(true);
     });
     return () => {
       window.removeEventListener('beforeinstallprompt', handler);
@@ -602,6 +607,17 @@ export default function MidiaView() {
           >
             <Download size={14} className="shrink-0" />
             Instalar app
+          </button>
+        </div>
+      )}
+      {appInstalado && showInstallBanner && (
+        <div className="flex justify-end">
+          <button
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-green-600/10 hover:bg-green-600/20 border border-green-500/30 rounded text-xs text-green-400"
+            aria-label="Aplicativo instalado"
+          >
+            <CheckCircle size={14} className="shrink-0" />
+            App instalado
           </button>
         </div>
       )}

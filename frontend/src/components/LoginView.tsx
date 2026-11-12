@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Lock, KeyRound, ArrowRight, CircleAlert, Loader2, Download, X } from 'lucide-react';
+import { Mail, Lock, KeyRound, ArrowRight, CircleAlert, Loader2, Download, X, CheckCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { ApiClient, fotoUtilizavel } from '../api/client';
 
@@ -39,9 +39,13 @@ export const LoginView: React.FC = () => {
   // Instalação PWA
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
-  const appInstalado =
+  const [appInstalado, setAppInstalado] = useState(false);
+  const appInstaladoCheck =
     typeof window !== 'undefined' &&
     window.matchMedia('(display-mode: standalone)').matches;
+  useEffect(() => {
+    setAppInstalado(appInstaladoCheck);
+  }, [appInstaladoCheck]);
 
   useEffect(() => {
     const handler = (e: any) => {
@@ -53,6 +57,7 @@ export const LoginView: React.FC = () => {
     window.addEventListener('appinstalled', () => {
       setShowInstallBanner(false);
       setDeferredPrompt(null);
+      setAppInstalado(true);
     });
     return () => {
       window.removeEventListener('beforeinstallprompt', handler);
@@ -104,6 +109,16 @@ export const LoginView: React.FC = () => {
               >
                 <Download size={14} className="shrink-0" />
                 Instalar app
+              </button>
+            </div>
+          )}
+          {appInstalado && showInstallBanner && (
+            <div className="absolute top-0 right-0">
+              <button
+                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-green-600/10 hover:bg-green-600/20 border border-green-500/30 rounded text-xs text-green-400"
+              >
+                <CheckCircle size={14} className="shrink-0" />
+                App instalado
               </button>
             </div>
           )}
