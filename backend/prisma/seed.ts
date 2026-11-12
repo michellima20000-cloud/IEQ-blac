@@ -27,8 +27,8 @@ export async function main() {
   // 1. Igreja Principal
   const igrejaMatriz = await prisma.igreja.create({
     data: {
-      nome: 'Igreja do Evangelho Quadrangular - Sede',
-      slug: 'ieq-sede',
+      nome: 'IEQ Cidade Nova',
+      slug: 'ieq-cidade-nova',
       configuracao: {
         create: {
           prazoRetencaoFotosDias: 60

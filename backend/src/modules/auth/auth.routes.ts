@@ -29,7 +29,7 @@ const router = Router();
  *                 example: senha123456
  *               slugIgreja:
  *                 type: string
- *                 example: ieq-sede
+  *                 example: ieq-cidade-nova
  *     responses:
  *       200:
  *         description: Login bem-sucedido

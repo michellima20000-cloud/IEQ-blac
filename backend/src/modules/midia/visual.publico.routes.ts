@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { VisualService } from './visual.service.ts';
+import { candidatosSlug } from '../../utils/slug.ts';
 
 const router = Router();
 
@@ -9,7 +10,11 @@ const router = Router();
  */
 router.get('/publico/visual/:slug', async (req, res, next) => {
   try {
-    const visual = await VisualService.obterPorSlug(String(req.params.slug || '').trim());
+    let visual = null;
+    for (const candidato of candidatosSlug(String(req.params.slug || ''))) {
+      visual = await VisualService.obterPorSlug(candidato);
+      if (visual) break;
+    }
     if (!visual) {
       return res.status(404).json({ error: 'NaoEncontrado', message: 'Igreja não encontrada.' });
     }

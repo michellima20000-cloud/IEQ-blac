@@ -3,6 +3,7 @@ import { prisma } from '../../config/prisma.ts';
 import { AuthService } from './auth.service.ts';
 import type { LoginInput, RefreshInput } from './auth.schemas.ts';
 import type { AuthenticatedRequest } from '../../middlewares/auth.ts';
+import { candidatosSlug, normalizarSlug } from '../../utils/slug.ts';
 
 export class AuthController {
   /**
@@ -11,10 +12,21 @@ export class AuthController {
   static async login(req: AuthenticatedRequest, res: Response): Promise<void> {
     const { email, senha, slugIgreja } = req.body as LoginInput;
 
-    // Localizar a igreja pelo slug
-    const igreja = await prisma.igreja.findUnique({
-      where: { slug: slugIgreja }
-    });
+    // Localizar a igreja pelo slug (aceita variações de escrita/caixa/espaços)
+    let igreja = null;
+    for (const candidato of candidatosSlug(slugIgreja)) {
+      igreja = await prisma.igreja.findUnique({ where: { slug: candidato } });
+      if (igreja) break;
+    }
+    // Fallback: busca pelo nome da igreja (ex.: "IEQ Cidade Nova")
+    if (!igreja) {
+      const alvo = normalizarSlug(slugIgreja).replace(/-/g, ' ');
+      if (alvo) {
+        igreja = await prisma.igreja.findFirst({
+          where: { nome: { contains: alvo, mode: 'insensitive' } }
+        });
+      }
+    }
 
     if (!igreja || !igreja.ativa) {
       res.status(401).json({

@@ -5,7 +5,7 @@ import { ApiClient, fotoUtilizavel } from '../api/client';
 
 export const LoginView: React.FC = () => {
   const { login } = useAuth();
-  const [slugIgreja, setSlugIgreja] = useState('ieq-sede');
+  const [slugIgreja, setSlugIgreja] = useState('IEQ-CIDADE NOVA');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState<string | null>(null);
@@ -14,7 +14,13 @@ export const LoginView: React.FC = () => {
 
   // Carrega o logo da igreja (identidade visual) conforme o slug digitado
   useEffect(() => {
-    const slug = slugIgreja.trim().toLowerCase();
+    // Aceita "IEQ-CIDADE NOVA", "IEQ Cidade Nova" ou "ieq-cidade-nova"
+    const slug = slugIgreja
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[\s_]+/g, '-');
     if (!slug) {
       setLogoUrl(null);
       return;
@@ -154,7 +160,7 @@ export const LoginView: React.FC = () => {
                 required
                 value={slugIgreja}
                 onChange={(e) => setSlugIgreja(e.target.value)}
-                placeholder="Ex: ieq-sede"
+                placeholder="Ex: ieq-cidade-nova"
                 className="input pl-10"
               />
             </div>

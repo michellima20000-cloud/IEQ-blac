@@ -85,7 +85,7 @@ app.get('/api/v1/setup-db', async (_req: Request, res: Response) => {
       status: 'ok',
       message: 'Banco sincronizado e Seed criado com sucesso! Usuários e igreja prontos para login.',
       pastor: 'pastor@ieq.com',
-      slug: 'ieq-sede'
+      slug: 'ieq-cidade-nova'
     });
   } catch (err: any) {
     res.status(500).json({
@@ -125,6 +125,27 @@ if (process.env.NODE_ENV !== 'test') {
         const { main: runSeed } = await import('../prisma/seed.ts');
         await runSeed();
         console.log('✅ Seed inicial da IEQ concluído com sucesso!');
+      }
+
+      // Migração do identificador (slug) da igreja principal:
+      // "ieq-sede" -> "ieq-cidade-nova" (mantém o mesmo id, logo todos os dados ficam).
+      try {
+        const alvo = await prisma.igreja.findUnique({ where: { slug: 'ieq-cidade-nova' } });
+        if (!alvo) {
+          const antiga = await prisma.igreja.findUnique({ where: { slug: 'ieq-sede' } });
+          if (antiga) {
+            await prisma.igreja.update({
+              where: { id: antiga.id },
+              data: { slug: 'ieq-cidade-nova', nome: 'IEQ Cidade Nova' }
+            });
+            console.log('🔄 Identificador da igreja migrado para "ieq-cidade-nova" (IEQ Cidade Nova).');
+          }
+        } else if (alvo.nome !== 'IEQ Cidade Nova') {
+          await prisma.igreja.update({ where: { id: alvo.id }, data: { nome: 'IEQ Cidade Nova' } });
+          console.log('🔄 Nome da igreja atualizado para "IEQ Cidade Nova".');
+        }
+      } catch (e: any) {
+        console.warn('Aviso na migração do identificador da igreja:', e.message);
       }
     } catch (err: any) {
       console.warn('⚠️  Aviso na verificação de banco/seed:', err.message);
