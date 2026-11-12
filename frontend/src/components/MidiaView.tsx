@@ -5,11 +5,13 @@ import {
   Check, Inbox, MapPin, Pencil, Trash2, RotateCcw, Youtube,
   CircleCheck, TriangleAlert, X, Download, Layout, Monitor,
   Image as ImageIcon, LayoutGrid, GalleryHorizontalEnd, List, CheckCircle,
-  Sparkles, Wand2
+  Sparkles, Wand2, Link2, ExternalLink
 } from 'lucide-react';
 import { api, ApiClient } from '../api/client';
 import { useListaIncremental } from '../hooks/useListaIncremental';
 import { salvarVisualCache, aplicarVisualGeral } from '../utils/visualCache';
+import { useAuth } from '../context/AuthContext';
+import { linkVitrinePublica } from '../utils/rutaPublica';
 
 interface MediaItem {
   id: string;
@@ -130,6 +132,7 @@ function isoParaDatetimeLocal(iso?: string): string {
 }
 
 export default function MidiaView() {
+  const { usuario } = useAuth();
   const [aba, setAba] = useState<Aba>('uploads');
   const [midias, setMidias] = useState<MediaItem[]>([]);
   const [eventos, setEventos] = useState<Evento[]>([]);
@@ -137,6 +140,7 @@ export default function MidiaView() {
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
+  const [linkCopiado, setLinkCopiado] = useState(false);
 
   const [editMidiaId, setEditMidiaId] = useState<string | null>(null);
   const [editTitulo, setEditTitulo] = useState('');
@@ -586,6 +590,19 @@ export default function MidiaView() {
       setErro(msgErro(err, 'Erro ao salvar configurações.'));
     } finally {
       setCarregando(false);
+    }
+  }
+
+  const slugIgreja = usuario?.igreja?.slug || 'ieq-cidade-nova';
+  const linkPublico = linkVitrinePublica(slugIgreja);
+
+  async function copiarLinkPublico() {
+    try {
+      await navigator.clipboard.writeText(linkPublico);
+      setLinkCopiado(true);
+      setTimeout(() => setLinkCopiado(false), 2000);
+    } catch {
+      window.prompt('Copie o link da vitrine pública:', linkPublico);
     }
   }
 
@@ -1214,6 +1231,42 @@ export default function MidiaView() {
                 <p className="text-xs text-slate-400 mt-0.5">Identidade visual da igreja: cores, logo e layout da vitrine</p>
               </div>
             </div>
+          </div>
+
+          {/* Link público da vitrine */}
+          <div className="card card-pad">
+            <div className="flex items-center gap-2.5 mb-3">
+              <span className="w-8 h-8 rounded-xl bg-sky-500/10 flex items-center justify-center shrink-0 text-sky-400">
+                <Link2 size={16} />
+              </span>
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-white">Link Público da Vitrine</h3>
+                <p className="text-[11px] text-slate-500">Compartilhe com quem ainda não tem acesso ao sistema</p>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <code className="flex-1 min-w-0 truncate rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-xs font-mono text-slate-300">
+                {linkPublico}
+              </code>
+              <div className="flex items-center gap-2 shrink-0">
+                <button type="button" onClick={copiarLinkPublico} className="btn btn-sm flex items-center gap-1.5">
+                  {linkCopiado ? <Check size={13} className="text-emerald-400" /> : <Link2 size={13} />}
+                  {linkCopiado ? 'Copiado!' : 'Copiar'}
+                </button>
+                <a
+                  href={`/vitrine/${slugIgreja}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-sm flex items-center gap-1.5"
+                >
+                  <ExternalLink size={13} />
+                  Abrir
+                </a>
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-600 mt-2">
+              Mostra apenas avisos e eventos publicados — nenhum dado de células, membros ou relatórios.
+            </p>
           </div>
 
           {/* Temas prontos */}

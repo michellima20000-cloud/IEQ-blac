@@ -166,13 +166,30 @@ rclone copy remote:ieq-backup-nuvem/fotos /data/ieq-files
 
 ## 🧪 Execução de Testes Automatizados
 
-O backend possui suíte de testes de permissão, RBAC, autenticação, trava de relatórios, módulo de mídia e ciclo de vida de armazenamento sem dependências externas:
+O backend possui suíte de testes de permissão, RBAC, autenticação, trava de relatórios, módulo de mídia, vitrine pública e ciclo de vida de armazenamento sem dependências externas:
 
 ```bash
 cd backend
-node --experimental-strip-types --test tests/permissions.node.mjs tests/auth_usuarios.node.mjs tests/celulas_relatorios.node.mjs tests/midia_aprovacao.node.mjs tests/storage_limpeza.node.mjs
+node --experimental-strip-types --test tests/permissions.node.mjs tests/auth_usuarios.node.mjs tests/celulas_relatorios.node.mjs tests/midia_aprovacao.node.mjs tests/storage_limpeza.node.mjs tests/vitrine_publica.node.mjs
 ```
-**Resultado esperado:** 50 testes passando, 0 falhas.
+**Resultado esperado:** 58 testes passando, 0 falhas.
+
+---
+
+## 🔗 Vitrine Pública (link compartilhável sem login)
+
+Cada igreja pode divulgar seus avisos, banners, vídeos e a agenda de eventos por um link público, **sem exigir conta ou senha**:
+
+```
+https://<dominio>/vitrine/ieq-cidade-nova
+```
+
+- **Onde encontrar o link:** aba **Visual** (Estúdio de Personalização) para a equipe de Mídia e aba **Aprovações** para o Pastor — com botão "Copiar" e "Abrir".
+- **Identificador (slug):** é o mesmo usado no login (ex.: `ieq-cidade-nova`). O sistema aceita variações de escrita (`IEQ Cidade Nova`, `ieq_cidade_nova`).
+- **API pública:** `GET /api/v1/publico/vitrine/:slug` (sem autenticação), com cache de 60 segundos.
+- **Segurança:** só conteúdo com status **PUBLICADO** aparece. Conteúdo pendente, rascunho ou devolvido nunca é exposto, e **nenhum** dado de células, membros, visitantes ou relatórios é exposto — a regra de isolamento do perfil MIDIA continua valendo.
+- **Personalização:** a página pública usa o logo, as cores e o layout (Grade, Carrossel ou Lista) definidos no Estúdio de Personalização.
+- **Deploy:** o `frontend/vercel.json` contém o *rewrite* SPA necessário para `/vitrine/:slug`; o nginx do Docker já faz fallback para `index.html`.
 
 ---
 

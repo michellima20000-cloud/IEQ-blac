@@ -3,6 +3,7 @@ import { House, Store, Loader2 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginView from './components/LoginView';
 import Layout from './components/Layout';
+import { slugDaRotaPublica } from './utils/rutaPublica';
 
 // Code-splitting: cada tela só é baixada quando o perfil a usa
 const CelulaView = lazy(() => import('./components/CelulaView'));
@@ -10,6 +11,7 @@ const RedeView = lazy(() => import('./components/RedeView'));
 const PastorView = lazy(() => import('./components/PastorView'));
 const MidiaView = lazy(() => import('./components/MidiaView'));
 const VitrineView = lazy(() => import('./components/VitrineView'));
+const VitrinePublicaView = lazy(() => import('./components/VitrinePublicaView'));
 
 function CarregandoTela() {
   return (
@@ -120,6 +122,17 @@ function AppContent() {
 }
 
 export default function App() {
+  // Vitrine pública (link /vitrine/<slug>): funciona sem login e sem sessão
+  const [slugPublico] = useState(() => slugDaRotaPublica());
+
+  if (slugPublico) {
+    return (
+      <Suspense fallback={<CarregandoTela />}>
+        <VitrinePublicaView slug={slugPublico} />
+      </Suspense>
+    );
+  }
+
   return (
     <AuthProvider>
       <AppContent />

@@ -42,7 +42,9 @@ async function pipeline(comandos: (string | number)[][]): Promise<any[] | null> 
 }
 
 export const chavesCache = {
-  vitrine: (igreja_id: string) => `ieq:vitrine:${igreja_id}`
+  vitrine: (igreja_id: string) => `ieq:vitrine:${igreja_id}`,
+  // Vitrine pública (link compartilhável sem login)
+  vitrinePublica: (igreja_id: string) => `ieq:vitrine-publica:${igreja_id}`
 };
 
 /**

@@ -53,7 +53,7 @@ export class MidiaController {
 
       const conteudo = await MidiaService.criar(req.user as any, dados);
       // Qualquer criação pode mudar o que aparece na vitrine
-      await cacheDel(chavesCache.vitrine(req.user!.igreja_id));
+      await cacheDel(chavesCache.vitrine(req.user!.igreja_id), chavesCache.vitrinePublica(req.user!.igreja_id));
       res.status(201).json({
         message: conteudo.status === 'PENDENTE'
           ? 'Conteúdo enviado para aprovação do Pastor.'
@@ -109,7 +109,7 @@ export class MidiaController {
     try {
       const { id } = req.params;
       const aprovado = await MidiaService.aprovar(req.user as any, id);
-      await cacheDel(chavesCache.vitrine(req.user!.igreja_id));
+      await cacheDel(chavesCache.vitrine(req.user!.igreja_id), chavesCache.vitrinePublica(req.user!.igreja_id));
       res.json({ message: 'Publicação aprovada pelo Pastor e liberada na vitrine!', conteudo: aprovado });
     } catch (err: any) {
       res.status(err.statusCode || 403).json({ error: err.name || 'Erro', message: err.message });
@@ -120,7 +120,7 @@ export class MidiaController {
     try {
       const { id } = req.params;
       const devolvido = await MidiaService.devolver(req.user as any, id, req.body as DevolverMidiaInput);
-      await cacheDel(chavesCache.vitrine(req.user!.igreja_id));
+      await cacheDel(chavesCache.vitrine(req.user!.igreja_id), chavesCache.vitrinePublica(req.user!.igreja_id));
       res.json({ message: 'Conteúdo devolvido à Mídia com comentário para correção.', conteudo: devolvido });
     } catch (err: any) {
       res.status(err.statusCode || 403).json({ error: err.name || 'Erro', message: err.message });
@@ -131,7 +131,7 @@ export class MidiaController {
     try {
       const { id } = req.params;
       await MidiaService.excluir(req.user as any, id);
-      await cacheDel(chavesCache.vitrine(req.user!.igreja_id));
+      await cacheDel(chavesCache.vitrine(req.user!.igreja_id), chavesCache.vitrinePublica(req.user!.igreja_id));
       res.json({ message: 'Mídia excluída com sucesso.' });
     } catch (err: any) {
       res.status(err.statusCode || 400).json({ error: err.name || 'Erro', message: err.message });
@@ -142,7 +142,7 @@ export class MidiaController {
     try {
       const { id } = req.params;
       const atualizado = await MidiaService.atualizarEReenviar(req.user as any, id, req.body as AtualizarMidiaInput);
-      await cacheDel(chavesCache.vitrine(req.user!.igreja_id));
+      await cacheDel(chavesCache.vitrine(req.user!.igreja_id), chavesCache.vitrinePublica(req.user!.igreja_id));
       res.json({ message: 'Conteúdo corrigido e reenviado com sucesso.', conteudo: atualizado });
     } catch (err: any) {
       res.status(err.statusCode || 400).json({ error: err.name || 'Erro', message: err.message });
@@ -153,6 +153,7 @@ export class MidiaController {
   static async criarEvento(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const evento = await CalendarioService.criar(req.user as any, req.body as CriarEventoInput);
+      await cacheDel(chavesCache.vitrine(req.user!.igreja_id), chavesCache.vitrinePublica(req.user!.igreja_id));
       res.status(201).json({ message: 'Evento criado com sucesso no calendário.', evento });
     } catch (err: any) {
       res.status(err.statusCode || 400).json({ error: err.name || 'Erro', message: err.message });
@@ -172,6 +173,7 @@ export class MidiaController {
     try {
       const { id } = req.params;
       const evento = await CalendarioService.atualizar(req.user as any, id, req.body as AtualizarEventoInput);
+      await cacheDel(chavesCache.vitrine(req.user!.igreja_id), chavesCache.vitrinePublica(req.user!.igreja_id));
       res.json({ message: 'Evento atualizado.', evento });
     } catch (err: any) {
       res.status(err.statusCode || 400).json({ error: err.name || 'Erro', message: err.message });
@@ -182,6 +184,7 @@ export class MidiaController {
     try {
       const { id } = req.params;
       await CalendarioService.excluir(req.user as any, id);
+      await cacheDel(chavesCache.vitrine(req.user!.igreja_id), chavesCache.vitrinePublica(req.user!.igreja_id));
       res.json({ message: 'Evento excluído do calendário com sucesso.' });
     } catch (err: any) {
       res.status(err.statusCode || 400).json({ error: err.name || 'Erro', message: err.message });
@@ -201,6 +204,7 @@ export class MidiaController {
   static async atualizarVisual(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const atualizado = await VisualService.atualizar(req.user as any, req.body as PersonalizacaoVisualInput);
+      await cacheDel(chavesCache.vitrine(req.user!.igreja_id), chavesCache.vitrinePublica(req.user!.igreja_id));
       res.json({ message: 'Identidade visual atualizada com sucesso.', configuracao: atualizado });
     } catch (err: any) {
       res.status(err.statusCode || 400).json({ error: err.name || 'Erro', message: err.message });

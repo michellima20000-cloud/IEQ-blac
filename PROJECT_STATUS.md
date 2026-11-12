@@ -16,8 +16,8 @@ $ npm run build
 ## Status dos Testes
 ```
 $ npm test
-  ✓ 50 testes unitários passando
-  ✓ 24 suites de teste
+  ✓ 58 testes unitários passando
+  ✓ 29 suites de teste
   ✓ 0 falhas
   ✓ 0 cancelamentos
 ```
@@ -30,7 +30,16 @@ $ npm test
 - Cleanup service
 - Storage service
 - Mídia, aprovação, calendário e vitrine
+- Vitrine pública por slug (conteúdo publicado, agenda futura e rota sem autenticação)
 - Isolamento multi-tenant
+
+## 🔗 Vitrine Pública (link compartilhável sem login)
+- Rota pública: `GET /api/v1/publico/vitrine/:slug` (sem autenticação, cache de 60s)
+- Frontend público: `/vitrine/<slug>` (ex.: `/vitrine/ieq-cidade-nova`) com rewrite SPA em `frontend/vercel.json`
+- Regras: só conteúdo PUBLICADO; agenda com eventos futuros; nenhum dado de células/membros/visitantes/relatórios
+- Identificador tolerante: `ieq-cidade-nova`, `IEQ Cidade Nova`, `ieq_cidade_nova`, `ieq-sede`
+- Botões "Copiar"/"Abrir" na aba Visual (Mídia) e no painel de Aprovações (Pastor)
+- Testes: `backend/tests/vitrine_publica.node.mjs` (8 testes)
 
 ## Commit Atual: 2880398
 Conteúdo:
@@ -47,6 +56,7 @@ Conteúdo:
 - RBAC protection: Implementada corretamente
 - Conditional rendering: Sintaxe válida
 - Vitrine: botões removidos sobre foto; metadados agora só aparecem quando não há imagem (ou em overlay ao passar o mouse)
+- Vitrine pública: página independente de login, com logo/cores/layout do Estúdio de Personalização e visualizador ampliado das imagens
 - PastorView: cards de estatísticas (Células Ativas, Membros Ativos, Novos Visitantes, Frequência Média) agora possuem onClick para abrir detalhes
 - Painel lateral de células: width reduzido (w-24), padding reduzido (p-1) e botão fechar menor (h-10), agora ocupa o mínimo espaço lateral da tela
 
@@ -60,7 +70,7 @@ Obs2: aba ADM removida do frontend; modulo backend /admin/* mantido inativo
 ## Resumo Executivo
 Projeto IEQ - Painel Pastoral Igreja
 - Build: OK
-- Testes: 50/50 passando  
+- Testes: 58/58 passando  
 - Deploy: Vercel configurado
 - Commit: 2880398 (última versão com todas melhorias)
 - Autor: michellima20000-cloud
