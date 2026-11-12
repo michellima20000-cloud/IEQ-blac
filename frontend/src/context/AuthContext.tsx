@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useState, useEffect } from 'react';
 import { ApiClient } from '../api/client';
 
 export type Perfil = 'CELULA' | 'REDE' | 'PASTOR' | 'MIDIA';
@@ -45,14 +45,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCarregando(false);
   }, []);
 
-  const login = async (email: string, senha: string, slugIgreja: string) => {
+  const login = useCallback(async (email: string, senha: string, slugIgreja: string) => {
     const res = await ApiClient.post('/auth/login', { email, senha, slugIgreja });
     ApiClient.setTokens(res.accessToken, res.refreshToken);
     localStorage.setItem('ieq_user', JSON.stringify(res.usuario));
     setUsuario(res.usuario);
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     const refreshToken = localStorage.getItem('ieq_refresh_token');
     try {
       if (refreshToken) {
@@ -64,10 +64,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ApiClient.clearTokens();
       setUsuario(null);
     }
-  };
+  }, []);
+
+  // Value memoizado: evita re-render de toda a árvore em renders do provider
+  const value = useMemo(
+    () => ({ usuario, autenticado: !!usuario, carregando, login, logout }),
+    [usuario, carregando, login, logout]
+  );
 
   return (
-    <AuthContext.Provider value={{ usuario, autenticado: !!usuario, carregando, login, logout }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

@@ -23,11 +23,18 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     background-color: #020617;
+    color: #f1f5f9;
+  }
+  /* Gradientes de fundo em camada fixa própria (evita recomposite a cada scroll no mobile) */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
     background-image:
       radial-gradient(900px 500px at 15% -10%, rgba(37, 99, 235, 0.10), transparent 60%),
       radial-gradient(800px 480px at 95% 0%, rgba(99, 102, 241, 0.07), transparent 55%);
-    background-attachment: fixed;
-    color: #f1f5f9;
   }
 
   ::selection {
@@ -81,22 +88,22 @@
 
 @layer components {
   /* ---------- Superfícies ---------- */
+  /* Sem backdrop-blur: blur compositado em dezenas de cards trava scroll em celulares */
   .card {
-    @apply bg-slate-900/70 border border-slate-800/80 rounded-2xl backdrop-blur-md shadow-lg shadow-black/20;
-    transition: border-color .35s cubic-bezier(.4,0,.2,1), background-color .35s cubic-bezier(.4,0,.2,1), transform .35s cubic-bezier(.4,0,.2,1), box-shadow .35s cubic-bezier(.4,0,.2,1);
+    @apply bg-slate-900/85 border border-slate-800/80 rounded-2xl shadow-lg shadow-black/20;
+    transition: border-color .3s cubic-bezier(.4,0,.2,1), background-color .3s cubic-bezier(.4,0,.2,1);
   }
   .card-pad {
     @apply p-4 sm:p-5;
   }
   .card-soft {
     @apply bg-slate-950/60 border border-slate-800/70 rounded-xl;
-    transition: border-color .3s cubic-bezier(.4,0,.2,1), background-color .3s cubic-bezier(.4,0,.2,1), transform .3s cubic-bezier(.4,0,.2,1);
+    transition: border-color .3s cubic-bezier(.4,0,.2,1), background-color .3s cubic-bezier(.4,0,.2,1);
   }
   .card-hover {
     @apply hover:border-slate-700/90 hover:bg-slate-900;
   }
   .card-hover:hover {
-    transform: translateY(-2px);
     box-shadow: 0 12px 32px -12px rgba(37, 99, 235, 0.18);
   }
 
@@ -105,7 +112,7 @@
     @apply inline-flex items-center justify-center gap-2 rounded-xl text-sm font-semibold
       px-4 py-2.5 select-none
       focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 disabled:opacity-50 disabled:pointer-events-none;
-    transition: all .3s cubic-bezier(.4,0,.2,1);
+    transition: background-color .2s cubic-bezier(.4,0,.2,1), transform .15s cubic-bezier(.4,0,.2,1), opacity .2s;
   }
   .btn:active { transform: scale(.97); }
   .btn-primary {
@@ -139,7 +146,7 @@
   .input {
     @apply w-full px-3.5 py-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-sm text-white
       placeholder-slate-500;
-    transition: border-color .3s cubic-bezier(.4,0,.2,1), box-shadow .3s cubic-bezier(.4,0,.2,1), background-color .3s cubic-bezier(.4,0,.2,1);
+    transition: border-color .2s cubic-bezier(.4,0,.2,1), box-shadow .2s cubic-bezier(.4,0,.2,1), background-color .2s cubic-bezier(.4,0,.2,1);
   }
   .input:hover:not(:focus) {
     border-color: rgba(51, 65, 85, 1);
@@ -172,7 +179,6 @@
   .badge {
     @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold
       uppercase tracking-wider border;
-    transition: all .25s cubic-bezier(.4,0,.2,1);
   }
   .badge-blue {
     @apply badge bg-blue-500/15 text-blue-300 border-blue-500/30;
@@ -201,7 +207,7 @@
   .tab {
     @apply px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold
       bg-slate-800/70 text-slate-300 hover:bg-slate-700/90 hover:text-white;
-    transition: all .3s cubic-bezier(.4,0,.2,1);
+    transition: background-color .2s cubic-bezier(.4,0,.2,1), transform .15s cubic-bezier(.4,0,.2,1);
   }
   .tab:hover { transform: translateY(-1px); }
   .tab:active { transform: translateY(0) scale(.96); }

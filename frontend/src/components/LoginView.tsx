@@ -124,7 +124,7 @@ export const LoginView: React.FC = () => {
           )}
           {logoUrl && (
             <div className="flex justify-center mb-4">
-              <img
+              <img loading="lazy" decoding="async"
                 src={logoUrl}
                 alt="Logo da igreja"
                 className="max-h-20 max-w-full object-contain drop-shadow-lg"

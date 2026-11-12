@@ -6,6 +6,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { ApiClient, fotoUtilizavel } from '../api/client';
 import { SkeletonPage } from './Skeleton';
+import { useListaIncremental } from '../hooks/useListaIncremental';
 
 const stats = [
   { chave: 'totalCelulas', label: 'Células', Icon: Users, cor: 'text-blue-400', bg: 'bg-blue-500/10' },
@@ -33,18 +34,22 @@ export const RedeView: React.FC = () => {
 
   const redeId = usuario?.redeId;
 
+  // Paginação incremental: só renderiza 15 relatórios por vez
+  const listaRelatorios = useListaIncremental<any>(dadosRede?.relatorios, 15);
+
   useEffect(() => {
     carregarConsolidado();
   }, []);
 
+  // Busca as fotos apenas dos relatórios visíveis (evita dezenas de requests)
   useEffect(() => {
-    const relatorios: any[] = dadosRede?.relatorios || [];
-    relatorios.forEach((rel) => {
+    listaRelatorios.visiveis.forEach((rel: any) => {
       if (rel.fotoUrlAssinada && fotos[rel.id] === undefined) {
         carregarFoto(rel);
       }
     });
-  }, [dadosRede]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dadosRede, listaRelatorios.visiveis.length]);
 
   const carregarFoto = async (rel: any) => {
     try {
@@ -220,7 +225,7 @@ export const RedeView: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            {relatorios.map((rel) => (
+            {listaRelatorios.visiveis.map((rel) => (
               <div key={rel.id} className="card-soft card-hover p-4 flex flex-col sm:flex-row gap-4 justify-between">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -280,7 +285,7 @@ export const RedeView: React.FC = () => {
                         title="Ampliar foto da reunião"
                         className="relative w-full h-24 sm:h-full min-h-[96px] rounded-xl overflow-hidden border border-slate-700/70 bg-slate-950 group block text-left"
                       >
-                        <img
+                        <img loading="lazy" decoding="async"
                           src={fotos[rel.id]!}
                           alt={`Foto da reunião — ${rel.celula?.nome}`}
                           className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
@@ -301,6 +306,11 @@ export const RedeView: React.FC = () => {
               </div>
             ))}
           </div>
+        )}
+        {listaRelatorios.restam > 0 && (
+          <button onClick={listaRelatorios.carregarMais} className="btn-ghost btn-sm mx-auto block mt-4">
+            Carregar mais ({listaRelatorios.restam} restantes)
+          </button>
         )}
       </section>
 
@@ -404,7 +414,7 @@ export const RedeView: React.FC = () => {
             >
               <X size={16} />
             </button>
-            <img
+            <img loading="lazy" decoding="async"
               src={fotoModal}
               alt="Foto da reunião ampliada"
               className="w-full h-auto max-h-[85vh] object-contain"

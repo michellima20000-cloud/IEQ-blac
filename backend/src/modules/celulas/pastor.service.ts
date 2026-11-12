@@ -131,5 +131,169 @@ export class PastorDashboardService {
       relatorios: relatoriosDetalhados
     };
   }
+
+  /**
+   * Listas reais por trás de cada indicador do painel do Pastor:
+   * - celulas:     células com rede, líder(es) e nº de membros ativos
+   * - membros:     membros ativos com a célula de origem
+   * - visitantes:  visitantes do período com célula e data da 1ª visita
+   * - frequencia:  relatórios do período que compõem a média de frequência
+   */
+  static async obterDetalhesIndicador(
+    usuario: UsuarioAutenticado,
+    tipo: string,
+    filtros: FiltroDashboardPastorInput
+  ) {
+    if (usuario.perfil !== 'PASTOR') {
+      throw new PermissaoError('Acesso restrito ao Pastor.');
+    }
+
+    const { redeId, dataInicio, dataFim } = filtros;
+    const igreja_id = usuario.igreja_id;
+
+    const fim = dataFim ? new Date(dataFim) : new Date();
+    const inicio = dataInicio ? new Date(dataInicio) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const filtroRede = redeId ? { redeId } : {};
+
+    switch (tipo) {
+      case 'celulas': {
+        const celulas = await prisma.celula.findMany({
+          where: { igreja_id, ...filtroRede },
+          select: {
+            id: true,
+            nome: true,
+            diaSemana: true,
+            horario: true,
+            endereco: true,
+            rede: { select: { nome: true } },
+            lideres: { select: { id: true, nome: true, email: true } },
+            _count: { select: { membros: { where: { ativo: true } }, visitantes: true } }
+          },
+          orderBy: { nome: 'asc' }
+        });
+        return {
+          tipo,
+          itens: celulas.map((c: any) => ({
+            id: c.id,
+            nome: c.nome,
+            diaSemana: c.diaSemana,
+            horario: c.horario,
+            endereco: c.endereco,
+            rede: c.rede?.nome || null,
+            lideres: c.lideres.map((l: any) => l.nome),
+            membrosAtivos: c._count.membros,
+            visitantes: c._count.visitantes
+          }))
+        };
+      }
+
+      case 'membros': {
+        const membros = await prisma.membro.findMany({
+          where: { igreja_id, ativo: true, ...(redeId ? { celula: { redeId } } : {}) },
+          select: {
+            id: true,
+            nome: true,
+            telefone: true,
+            dataNascimento: true,
+            celula: {
+              select: { nome: true, rede: { select: { nome: true } } }
+            }
+          },
+          orderBy: { nome: 'asc' },
+          take: 300
+        });
+        return {
+          tipo,
+          itens: membros.map((m: any) => ({
+            id: m.id,
+            nome: m.nome,
+            telefone: m.telefone || null,
+            celula: m.celula?.nome || null,
+            rede: m.celula?.rede?.nome || null
+          }))
+        };
+      }
+
+      case 'visitantes': {
+        const visitantes = await prisma.visitante.findMany({
+          where: {
+            igreja_id,
+            dataPrimeiraVisita: { gte: inicio, lte: fim },
+            ...(redeId ? { celula: { redeId } } : {})
+          },
+          select: {
+            id: true,
+            nome: true,
+            telefone: true,
+            dataPrimeiraVisita: true,
+            celula: {
+              select: { nome: true, rede: { select: { nome: true } } }
+            }
+          },
+          orderBy: { dataPrimeiraVisita: 'desc' },
+          take: 300
+        });
+        return {
+          tipo,
+          periodo: { inicio: inicio.toISOString(), fim: fim.toISOString() },
+          itens: visitantes.map((v: any) => ({
+            id: v.id,
+            nome: v.nome,
+            telefone: v.telefone || null,
+            primeiraVisita: v.dataPrimeiraVisita,
+            celula: v.celula?.nome || null,
+            rede: v.celula?.rede?.nome || null
+          }))
+        };
+      }
+
+      case 'frequencia': {
+        const relatorios = await prisma.relatorioCelula.findMany({
+          where: {
+            igreja_id,
+            data: { gte: inicio, lte: fim },
+            ...(redeId ? { celula: { redeId } } : {})
+          },
+          select: {
+            id: true,
+            data: true,
+            presentes: true,
+            visitantes: true,
+            status: true,
+            celula: { select: { nome: true, rede: { select: { nome: true } } } },
+            lider: { select: { nome: true } }
+          },
+          orderBy: { data: 'desc' },
+          take: 300
+        });
+        const totalPresentes = relatorios.reduce((acc: number, r: any) => acc + r.presentes, 0);
+        return {
+          tipo,
+          periodo: { inicio: inicio.toISOString(), fim: fim.toISOString() },
+          resumo: {
+            totalRelatorios: relatorios.length,
+            totalPresentes,
+            mediaPorReuniao: relatorios.length > 0
+              ? Number((totalPresentes / relatorios.length).toFixed(1))
+              : 0
+          },
+          itens: relatorios.map((r: any) => ({
+            id: r.id,
+            data: r.data,
+            presentes: r.presentes,
+            visitantes: r.visitantes,
+            status: r.status,
+            celula: r.celula?.nome || null,
+            rede: r.celula?.rede?.nome || null,
+            lider: r.lider?.nome || null
+          }))
+        };
+      }
+
+      default:
+        throw new PermissaoError('Tipo de detalhe inválido.');
+    }
+  }
 }
 

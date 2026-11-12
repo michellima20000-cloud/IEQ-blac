@@ -7,6 +7,7 @@ import {
   Image as ImageIcon, LayoutGrid, GalleryHorizontalEnd, List, CheckCircle
 } from 'lucide-react';
 import { api, ApiClient } from '../api/client';
+import { useListaIncremental } from '../hooks/useListaIncremental';
 
 interface MediaItem {
   id: string;
@@ -194,6 +195,10 @@ export default function MidiaView() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [appInstalado, setAppInstalado] = useState(false);
+
+  // Paginação incremental das listas pesadas
+  const listaMidias = useListaIncremental(midias, 20);
+  const listaEventos = useListaIncremental(eventos, 20);
   const appInstaladoCheck =
     typeof window !== 'undefined' &&
     window.matchMedia('(display-mode: standalone)').matches;
@@ -787,7 +792,7 @@ export default function MidiaView() {
               </div>
               {previewUrl && (
                 <div className="mt-2 relative rounded-xl overflow-hidden border border-slate-700 bg-slate-950">
-                  <img src={previewUrl} alt="Pré-visualização da imagem" className="w-full h-48 object-cover" />
+                  <img loading="lazy" decoding="async" src={previewUrl} alt="Pré-visualização da imagem" className="w-full h-48 object-cover" />
                   <button
                     type="button"
                     onClick={() => {
@@ -874,7 +879,7 @@ export default function MidiaView() {
           )}
 
           <div className="space-y-3">
-            {midias.map(m => {
+            {listaMidias.visiveis.map(m => {
               const editando = editMidiaId === m.id;
               return (
                 <div key={m.id} className="card-soft card-hover p-4 space-y-2">
@@ -981,6 +986,11 @@ export default function MidiaView() {
               );
             })}
           </div>
+          {listaMidias.restam > 0 && (
+            <button onClick={listaMidias.carregarMais} className="btn-ghost btn-sm mx-auto block mt-4">
+              Carregar mais ({listaMidias.restam} restantes)
+            </button>
+          )}
         </section>
       )}
 
@@ -1123,7 +1133,7 @@ export default function MidiaView() {
             )}
 
             <div className="space-y-3">
-              {eventos.map(ev => (
+              {listaEventos.visiveis.map(ev => (
                 <div key={ev.id} className="card-soft card-hover p-4 flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-white">{ev.titulo}</p>
@@ -1158,14 +1168,19 @@ export default function MidiaView() {
                     >
                       <Trash2 size={12} />
                       Excluir
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        </div>
-      )}
+                     </button>
+                   </div>
+                 </div>
+               ))}
+             </div>
+            {listaEventos.restam > 0 && (
+              <button onClick={listaEventos.carregarMais} className="btn-ghost btn-sm mx-auto block mt-4">
+                Carregar mais ({listaEventos.restam} restantes)
+              </button>
+            )}
+           </section>
+         </div>
+       )}
 
       {aba === 'visual' && (
         <form onSubmit={salvarVisual} className="space-y-4" aria-label="Configurações visuais">
@@ -1195,7 +1210,7 @@ export default function MidiaView() {
             <div className="space-y-3">
               {visual?.logoUrl && (
                 <div className="flex items-center gap-3">
-                  <img
+                  <img loading="lazy" decoding="async"
                     src={visual.logoUrl}
                     alt="Logo atual da igreja"
                     className="h-16 w-auto max-w-32 object-contain rounded-xl border border-slate-700/70 shadow-lg bg-slate-950/60 p-1"
@@ -1326,7 +1341,7 @@ export default function MidiaView() {
                 style={{ backgroundColor: corPrimaria }}
               >
                 {visual?.logoUrl && (
-                  <img
+                  <img loading="lazy" decoding="async"
                     src={visual.logoUrl}
                     alt="Logo"
                     className="w-7 h-7 rounded-lg object-contain bg-white/10 p-0.5"

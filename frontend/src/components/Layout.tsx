@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { LogOut } from 'lucide-react';
 import { useAuth, Perfil } from '../context/AuthContext';
 import { api } from '../api/client';
@@ -24,10 +24,11 @@ const perfilLabels: Record<Perfil, { label: string; cor: string }> = {
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { usuario, logout } = useAuth();
   const [visual, setVisual] = useState<IdentidadeVisual | null>(null);
+  const jaCarregouRef = useRef(false);
 
   // Carrega a identidade visual da igreja (logo + cores) para exibir globalmente
   useEffect(() => {
-    if (!usuario) { setVisual(null); return; }
+    if (!usuario) { setVisual(null); jaCarregouRef.current = false; return; }
     let cancelado = false;
     const carregarVisual = () => {
       api.get('/configuracoes/visual')
@@ -35,6 +36,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           if (cancelado) return;
           const cfg = (r.data as any)?.visual ?? r.data ?? null;
           setVisual(cfg);
+          jaCarregouRef.current = true;
           if (cfg?.corPrimaria) {
             document.documentElement.style.setProperty('--cor-primaria', cfg.corPrimaria);
           }
@@ -48,8 +50,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     // Revalida quando a identidade visual é alterada em outra tela
     const aoAtualizar = () => carregarVisual();
     window.addEventListener('visual-atualizada', aoAtualizar);
-    // Tenta novamente ao voltar o foco (cobrir falha de token no primeiro load)
-    const aoFocar = () => { if (!visual) carregarVisual(); };
+    // Tenta novamente ao voltar o foco APENAS se nunca conseguiu carregar
+    const aoFocar = () => { if (!jaCarregouRef.current) carregarVisual(); };
     window.addEventListener('focus', aoFocar);
     return () => {
       cancelado = true;
@@ -66,8 +68,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <div className="min-h-screen text-slate-100 flex flex-col pb-32">
-      {/* Top Header */}
-      <header className="sticky top-0 z-30 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-xl">
+      {/* Top Header (fundo quase sólido: blur no sticky custa caro no scroll mobile) */}
+      <header className="sticky top-0 z-30 border-b border-slate-800/80 bg-slate-950/95">
         <div
           className="absolute inset-x-0 top-0 h-px"
           style={{ backgroundImage: 'linear-gradient(90deg, transparent, var(--cor-primaria, #3b82f6), transparent)' }}
@@ -78,6 +80,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               <img
                 src={visual.logoUrl}
                 alt="Logo da igreja"
+                loading="lazy"
+                decoding="async"
                 className="w-10 h-10 rounded-xl object-cover border border-slate-700/70 shadow-lg shadow-blue-600/25 bg-slate-900"
               />
             ) : (

@@ -38,6 +38,9 @@ export class ApiClient {
       localStorage.setItem('ieq_access_token', accessToken);
       localStorage.setItem('ieq_refresh_token', refreshToken);
     }
+    try {
+      sessionStorage.removeItem('ieq_sessao_expirada');
+    } catch { /* ignore */ }
   }
 
   static clearTokens(): void {
@@ -46,6 +49,17 @@ export class ApiClient {
       localStorage.removeItem('ieq_refresh_token');
       localStorage.removeItem('ieq_user');
     }
+  }
+
+  // Encerra a sessão SEM reload em cascata (loop de reload em PWA/401 persistente)
+  private static encerrarSessaoExpirada(): void {
+    this.clearTokens();
+    if (typeof window === 'undefined') return;
+    try {
+      if (sessionStorage.getItem('ieq_sessao_expirada') === '1') return; // já redirecionou: evita loop
+      sessionStorage.setItem('ieq_sessao_expirada', '1');
+    } catch { /* modo privado sem sessionStorage */ }
+    window.location.href = '/';
   }
 
   static async request<T = any>(endpoint: string, options: RequestOptions = {}): Promise<T> {
@@ -112,8 +126,7 @@ export class ApiClient {
               continue; // Tenta a requisição novamente com novo token
             }
           } catch {
-            this.clearTokens();
-            if (typeof window !== 'undefined') window.location.reload();
+            this.encerrarSessaoExpirada();
             throw new Error('Falha ao renovar token');
           }
         }
@@ -134,8 +147,7 @@ export class ApiClient {
       return data as T;
     }
 
-    this.clearTokens();
-    if (typeof window !== 'undefined') window.location.reload();
+    this.encerrarSessaoExpirada();
     throw new Error('Falha após múltiplas tentativas de refresh de token');
   }
 

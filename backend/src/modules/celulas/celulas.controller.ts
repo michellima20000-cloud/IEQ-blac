@@ -208,5 +208,20 @@ export class CelulasController {
       res.status(err.statusCode || 400).json({ error: err.name || 'Erro', message: err.message });
     }
   }
+
+  // --- DETALHES DOS INDICADORES DO PAINEL (listas reais) ---
+  static async dashboardPastorDetalhes(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const filtros = req.query as any;
+      const dados = await PastorDashboardService.obterDetalhesIndicador(
+        req.user as any,
+        String(filtros.tipo || ''),
+        filtros
+      );
+      res.json(dados);
+    } catch (err: any) {
+      res.status(err.statusCode || 400).json({ error: err.name || 'Erro', message: err.message });
+    }
+  }
 }
 

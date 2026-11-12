@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { CalendarDays, Megaphone, MapPin, Clock, Video, Newspaper, X } from 'lucide-react';
 import { ApiClient } from '../api/client';
 import { SkeletonGrid } from './Skeleton';
+import { useListaIncremental } from '../hooks/useListaIncremental';
 
 interface MidiaPublicada {
   id: string;
@@ -35,6 +36,10 @@ export const VitrineView: React.FC = () => {
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [ampliado, setAmpliado] = useState<MidiaPublicada | null>(null);
+
+  // Paginação incremental: menos iframes/imagens montadas de uma vez
+  const listaEventos = useListaIncremental(eventos, 12);
+  const listaPublicacoes = useListaIncremental(publicacoes, 12);
 
   useEffect(() => {
     carregarDados();
@@ -88,7 +93,7 @@ export const VitrineView: React.FC = () => {
             Próximos Eventos e Cultos
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {eventos.map((ev) => {
+            {listaEventos.visiveis.map((ev) => {
               const data = new Date(ev.dataInicio);
               return (
                 <div key={ev.id} className="card-soft card-hover p-3.5 flex gap-3">
@@ -118,6 +123,11 @@ export const VitrineView: React.FC = () => {
               );
             })}
           </div>
+          {listaEventos.restam > 0 && (
+            <button onClick={listaEventos.carregarMais} className="btn-ghost btn-sm mx-auto block mt-4">
+              Carregar mais ({listaEventos.restam} restantes)
+            </button>
+          )}
         </section>
       )}
 
@@ -137,7 +147,7 @@ export const VitrineView: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {publicacoes.map((item) => {
+            {listaPublicacoes.visiveis.map((item) => {
               const badge = badgeTipo[item.tipo] || badgeTipo.AVISO;
               const isVideo = item.tipo === 'VIDEO';
               return (
@@ -165,7 +175,7 @@ export const VitrineView: React.FC = () => {
                       className="relative aspect-video bg-slate-950 overflow-hidden cursor-pointer"
                       onClick={() => setAmpliado(item)}
                     >
-                      <img
+                      <img loading="lazy" decoding="async"
                         src={item.arquivoUrl}
                         alt={item.titulo}
                         className="w-full h-full object-cover transition-opacity duration-300"
@@ -211,10 +221,15 @@ export const VitrineView: React.FC = () => {
                       </div>
                     </div>
                   )}
-                </article>
-              );
-            })}
-          </div>
+                 </article>
+               );
+             })}
+           </div>
+         )}
+        {listaPublicacoes.restam > 0 && (
+          <button onClick={listaPublicacoes.carregarMais} className="btn-ghost btn-sm mx-auto block mt-4">
+            Carregar mais ({listaPublicacoes.restam} restantes)
+          </button>
         )}
       </section>
 
@@ -239,7 +254,7 @@ export const VitrineView: React.FC = () => {
             className="max-w-4xl w-full max-h-full flex flex-col gap-3"
             onClick={(e) => e.stopPropagation()}
           >
-            <img
+            <img loading="lazy" decoding="async"
               src={ampliado.arquivoUrl}
               alt={ampliado.titulo}
               className="w-full max-h-[75vh] object-contain rounded-2xl border border-slate-800 shadow-2xl"

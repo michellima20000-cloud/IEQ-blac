@@ -8,6 +8,7 @@ import {
 import { ApiClient, fotoUtilizavel } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { SkeletonPage } from './Skeleton';
+import { useListaIncremental } from '../hooks/useListaIncremental';
 
 const subAbas = [
   { id: 'dashboard', label: 'Indicadores', Icon: LayoutDashboard },
@@ -57,50 +58,47 @@ export const PastorView: React.FC = () => {
 
   const { usuario: usuarioLogado } = useAuth();
 
-  const handleStatClick = (label: string, campo: string, event: React.MouseEvent) => {
-  // Filtra usuários reais do sistema por perfil
-  const lideresCelula = usuarios.filter((u: any) => u.perfil === 'CELULA' && u.celulaId).map((u: any) => ({ nome: u.nome, celula: u.celula?.nome }));
-  const lideresRede = usuarios.filter((u: any) => u.perfil === 'REDE').map((u: any) => ({ nome: u.nome, rede: u.rede?.nome }));
+  // Paginação incremental das listas pesadas
+  const listaRelatorios = useListaIncremental(dashboard?.relatorios, 20);
+  const listaPendentes = useListaIncremental(pendentes, 20);
 
-  // Mostra informação relacionada ao card clicado
-  let conteudo = '';
-  if (label === 'Células Ativas') {
-    conteudo = lideresCelula.length > 0 
-      ? `Líderes: ${lideresCelula.map(l => l.nome).join(', ')}` 
-      : 'Sem líderes de célula';
-  } else if (label === 'Membros Ativos') {
-    conteudo = lideresRede.length > 0 
-      ? `Líderes: ${lideresRede.map(l => l.nome).join(', ')}` 
-      : 'Sem líderes de rede';
-  } else {
-    conteudo = `${label}: ${dashboard?.indicadores?.[campo] ?? '—'}`;
-  }
+  // Detalhes do indicador: modal com as listas reais do sistema
+  const [detalheTipo, setDetalheTipo] = useState<string | null>(null);
+  const [detalheTitulo, setDetalheTitulo] = useState('');
+  const [detalheDados, setDetalheDados] = useState<any | null>(null);
+  const [detalheCarregando, setDetalheCarregando] = useState(false);
+  const [detalheErro, setDetalheErro] = useState<string | null>(null);
 
-  // Remove qualquer aviso anterior
-  const existente = document.getElementById('stat-click-alerta');
-  if (existente) existente.remove();
-  
-  // Obtém posição do card clicado
-  const cardRect = event.currentTarget.getBoundingClientRect();
-  
-  // Cria aviso posicionado abaixo do card clicado
-  const div = document.createElement('div');
-  div.id = 'stat-click-alerta';
-  div.style = `
-    position: fixed;
-    top: ${cardRect.bottom + window.pageYOffset + 8}px; left: ${cardRect.left + window.pageXOffset}px;
-    background: #1f2937; color: white; padding: 12px 20px;
-    border-radius: 8px; z-index: 9999; font-size: 13px;
-    box-shadow: 0 4px 12px rgba(0,0,0,.15);
-    max-width: 300px;
-    line-height: 1.6;
-    margin-top: 8px;
-  `;
-  div.innerHTML = `<strong>${label}</strong><br/><br/>${conteudo}`;
-  document.body.appendChild(div);
-  setTimeout(() => div.remove(), 5000);
-  console.log('Stat clicked:', label, conteudo);
-};
+  const tipoPorCampo: Record<string, string> = {
+    totalCelulas: 'celulas',
+    totalMembrosAtivos: 'membros',
+    novosVisitantes: 'visitantes',
+    mediaFrequenciaPorReuniao: 'frequencia'
+  };
+
+  const abrirDetalheIndicador = async (campo: string, label: string) => {
+    const tipo = tipoPorCampo[campo];
+    if (!tipo) return;
+    setDetalheTipo(tipo);
+    setDetalheTitulo(label);
+    setDetalheDados(null);
+    setDetalheErro(null);
+    setDetalheCarregando(true);
+    try {
+      const res = await ApiClient.get('/dashboard/pastor/detalhes', { tipo });
+      setDetalheDados(res);
+    } catch (err: any) {
+      setDetalheErro(err.message || 'Falha ao carregar os detalhes.');
+    } finally {
+      setDetalheCarregando(false);
+    }
+  };
+
+  const fecharDetalhe = () => {
+    setDetalheTipo(null);
+    setDetalheDados(null);
+    setDetalheErro(null);
+  };
 
 const usuariosFiltrados = usuarios.filter((u) => {
     const termo = buscaUsuario.trim().toLowerCase();
@@ -109,6 +107,7 @@ const usuariosFiltrados = usuarios.filter((u) => {
       .filter(Boolean)
       .some((campo: any) => String(campo).toLowerCase().includes(termo));
   });
+  const listaUsuarios = useListaIncremental(usuariosFiltrados, 20);
 
   // Configurações
   const [prazoRetencao, setPrazoRetencao] = useState(60);
@@ -401,7 +400,12 @@ const usuariosFiltrados = usuarios.filter((u) => {
         <div className="space-y-5">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {statsDashboard.map(({ campo, label, Icon, cor, bg }) => (
-              <div key={campo} className="stat card-hover" onClick={(e) => handleStatClick(label, campo, e)}>
+              <div
+                key={campo}
+                className="stat card-hover cursor-pointer"
+                onClick={() => abrirDetalheIndicador(campo, label)}
+                title={`Ver detalhes de ${label}`}
+              >
                 <div className="flex items-start justify-between">
                   <span className="stat-label">{label}</span>
                   <span className={`w-7 h-7 rounded-lg ${bg} ${cor} flex items-center justify-center`}>
@@ -496,7 +500,7 @@ const usuariosFiltrados = usuarios.filter((u) => {
 
                     {fotoUtilizavel(rel.fotoUrl) && (
                       <div className="pt-1">
-                        <img
+                        <img loading="lazy" decoding="async"
                           src={rel.fotoUrl}
                           alt="Foto da Reunião"
                           onClick={() => setFotoModal(rel.fotoUrl)}
@@ -539,7 +543,7 @@ const usuariosFiltrados = usuarios.filter((u) => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {dashboard.relatorios.map((rel: any) => (
+              {listaRelatorios.visiveis.map((rel: any) => (
                 <div key={rel.id} className="card card-pad space-y-3 flex flex-col justify-between card-hover">
                   <div className="space-y-2">
                     <div className="flex items-start justify-between gap-2 border-b border-slate-800/80 pb-2">
@@ -616,7 +620,7 @@ const usuariosFiltrados = usuarios.filter((u) => {
                       <span className="text-[10px] uppercase text-slate-400 block mb-1.5 font-medium">
                         Foto da Reunião
                       </span>
-                      <img
+                      <img loading="lazy" decoding="async"
                         src={rel.fotoUrl}
                         alt="Foto da Célula"
                         onClick={() => setFotoModal(rel.fotoUrl)}
@@ -627,6 +631,11 @@ const usuariosFiltrados = usuarios.filter((u) => {
                 </div>
               ))}
             </div>
+          )}
+          {listaRelatorios.restam > 0 && (
+            <button onClick={listaRelatorios.carregarMais} className="btn-ghost btn-sm mx-auto block">
+              Carregar mais ({listaRelatorios.restam} restantes)
+            </button>
           )}
         </div>
       )}
@@ -649,7 +658,7 @@ const usuariosFiltrados = usuarios.filter((u) => {
             </div>
           ) : (
             <div className="space-y-3">
-              {pendentes.map((item) => (
+              {listaPendentes.visiveis.map((item) => (
                 <div key={item.id} className="card card-pad space-y-3">
                   <div className="flex items-center justify-between gap-2">
                     <span className="badge-slate">{item.tipo}</span>
@@ -698,11 +707,16 @@ const usuariosFiltrados = usuarios.filter((u) => {
                         <Undo2 size={14} />
                         Devolver com Comentário
                       </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+                     </div>
+                   )}
+                 </div>
+               ))}
+             </div>
+           )}
+          {listaPendentes.restam > 0 && (
+            <button onClick={listaPendentes.carregarMais} className="btn-ghost btn-sm mx-auto block">
+              Carregar mais ({listaPendentes.restam} restantes)
+            </button>
           )}
         </div>
       )}
@@ -893,7 +907,7 @@ const usuariosFiltrados = usuarios.filter((u) => {
                   Nenhum usuário corresponde à busca "{buscaUsuario}".
                 </div>
               )}
-              {usuariosFiltrados.map((u) => {
+              {listaUsuarios.visiveis.map((u) => {
                 const ehProprioUsuario = usuarioLogado?.id === u.id;
                 return (
                 <div key={u.id} className={`py-3 flex flex-wrap items-center justify-between gap-2 ${!u.ativo ? 'opacity-60' : ''}`}>
@@ -956,11 +970,16 @@ const usuariosFiltrados = usuarios.filter((u) => {
                         </button>
                       )}
                     </div>
-                  </div>
-                </div>
-                );
-              })}
-            </div>
+                   </div>
+                 </div>
+                 );
+               })}
+             </div>
+            {listaUsuarios.restam > 0 && (
+              <button onClick={listaUsuarios.carregarMais} className="btn-ghost btn-sm mx-auto block my-2">
+                Carregar mais ({listaUsuarios.restam} restantes)
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -1120,7 +1139,138 @@ const usuariosFiltrados = usuarios.filter((u) => {
             >
               <X size={16} />
             </button>
-            <img src={fotoModal} alt="Foto da Célula Ampliada" className="w-full h-auto max-h-[85vh] object-contain" />
+            <img loading="lazy" decoding="async" src={fotoModal} alt="Foto da Célula Ampliada" className="w-full h-auto max-h-[85vh] object-contain" />
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Detalhes do Indicador (dados reais do sistema) */}
+      {detalheTipo && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) fecharDetalhe(); }}
+          className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full sm:max-w-lg bg-slate-900 border border-slate-700 rounded-t-2xl sm:rounded-2xl shadow-2xl animate-fade-up max-h-[88vh] flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 shrink-0">
+              <div className="min-w-0">
+                <h4 className="text-sm font-bold text-white truncate">{detalheTitulo}</h4>
+                <p className="text-xs text-slate-400">Dados reais do sistema</p>
+              </div>
+              <button
+                onClick={fecharDetalhe}
+                title="Fechar"
+                className="bg-slate-800 hover:bg-slate-700 text-white rounded-full w-8 h-8 flex items-center justify-center shrink-0"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto px-5 py-4 space-y-2">
+              {detalheCarregando && (
+                <div className="flex flex-col items-center justify-center gap-2 py-10 text-slate-400 text-sm">
+                  <Activity size={20} className="animate-pulse text-blue-500" />
+                  Carregando detalhes...
+                </div>
+              )}
+
+              {!detalheCarregando && detalheErro && (
+                <div className="alert-error justify-start">
+                  <span>{detalheErro}</span>
+                </div>
+              )}
+
+              {!detalheCarregando && !detalheErro && detalheDados?.itens?.length === 0 && (
+                <div className="empty-state border-0 bg-transparent py-8">
+                  Nenhum registro encontrado.
+                </div>
+              )}
+
+              {/* CÉLULAS */}
+              {!detalheCarregando && detalheTipo === 'celulas' && detalheDados?.itens?.map((c: any) => (
+                <div key={c.id} className="card-soft p-3.5 space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-bold text-white truncate">{c.nome}</span>
+                    <span className="badge-emerald shrink-0">{c.membrosAtivos} membros</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 text-xs text-slate-400">
+                    <span className="badge-indigo">{c.rede || 'Sem rede'}</span>
+                    <span className="text-slate-500">{c.diaSemana} · {c.horario}</span>
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    Líder(es): <b className="text-slate-200">{c.lideres?.length > 0 ? c.lideres.join(', ') : 'Sem líder atribuído'}</b>
+                  </div>
+                  {c.endereco && <div className="text-xs text-slate-500 truncate">{c.endereco}</div>}
+                </div>
+              ))}
+
+              {/* MEMBROS */}
+              {!detalheCarregando && detalheTipo === 'membros' && detalheDados?.itens?.map((m: any) => (
+                <div key={m.id} className="card-soft p-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <span className="text-sm font-semibold text-white block truncate">{m.nome}</span>
+                    {m.telefone && <span className="text-xs text-slate-500">{m.telefone}</span>}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="badge-emerald block max-w-[140px] truncate">{m.celula || 'Sem célula'}</span>
+                    {m.rede && <span className="text-[10px] text-slate-500 mt-0.5 block">{m.rede}</span>}
+                  </div>
+                </div>
+              ))}
+
+              {/* VISITANTES */}
+              {!detalheCarregando && detalheTipo === 'visitantes' && detalheDados?.itens?.map((v: any) => (
+                <div key={v.id} className="card-soft p-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <span className="text-sm font-semibold text-white block truncate">{v.nome}</span>
+                    <span className="text-xs text-slate-500">
+                      {v.celula ? `Célula: ${v.celula}` : 'Sem célula'}
+                      {v.telefone ? ` · ${v.telefone}` : ''}
+                    </span>
+                  </div>
+                  <span className="badge-amber shrink-0">
+                    {v.primeiraVisita ? new Date(v.primeiraVisita).toLocaleDateString('pt-BR') : '—'}
+                  </span>
+                </div>
+              ))}
+
+              {/* FREQUÊNCIA */}
+              {!detalheCarregando && detalheTipo === 'frequencia' && (
+                <>
+                  {detalheDados?.resumo && (
+                    <div className="grid grid-cols-3 gap-2 mb-3">
+                      <div className="card-soft py-2.5 text-center">
+                        <span className="text-[10px] uppercase text-slate-400 block">Reuniões</span>
+                        <span className="text-lg font-bold text-white">{detalheDados.resumo.totalRelatorios}</span>
+                      </div>
+                      <div className="card-soft py-2.5 text-center">
+                        <span className="text-[10px] uppercase text-slate-400 block">Presentes</span>
+                        <span className="text-lg font-bold text-white">{detalheDados.resumo.totalPresentes}</span>
+                      </div>
+                      <div className="card-soft py-2.5 text-center">
+                        <span className="text-[10px] uppercase text-slate-400 block">Média</span>
+                        <span className="text-lg font-bold text-sky-400">{detalheDados.resumo.mediaPorReuniao}</span>
+                      </div>
+                    </div>
+                  )}
+                  {detalheDados?.itens?.map((r: any) => (
+                    <div key={r.id} className="card-soft p-3 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <span className="text-sm font-semibold text-white block truncate">{r.celula || 'Célula'}</span>
+                        <span className="text-xs text-slate-500">
+                          {new Date(r.data).toLocaleDateString('pt-BR')} · {r.lider || '—'} · {r.status}
+                        </span>
+                      </div>
+                      <div className="flex gap-3 shrink-0 text-xs">
+                        <span className="text-white"><b>{r.presentes}</b> <span className="text-slate-500">presentes</span></span>
+                        <span className="text-blue-400"><b>{r.visitantes}</b> <span className="text-slate-500">visit.</span></span>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}

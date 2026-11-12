@@ -52,6 +52,7 @@ router.get('/redes/:redeId/consolidado', CelulasController.consolidadoRede);
 
 // --- DASHBOARD (PASTOR) ---
 router.get('/dashboard/pastor', CelulasController.dashboardPastor);
+router.get('/dashboard/pastor/detalhes', CelulasController.dashboardPastorDetalhes);
 
 export default router;
 

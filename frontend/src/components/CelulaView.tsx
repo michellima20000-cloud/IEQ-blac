@@ -115,15 +115,41 @@ export const CelulaView: React.FC = () => {
     }
   };
 
+  // Comprime a foto (max 1280px, JPEG 75%) antes do base64: evita payload de MBs
   const handleFotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
+    if (!file) return;
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const MAX = 1280;
+      let largura = img.width;
+      let altura = img.height;
+      if (largura > MAX) {
+        altura = Math.round((altura * MAX) / largura);
+        largura = MAX;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = largura;
+      canvas.height = altura;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, largura, altura);
+        setFotoBase64(canvas.toDataURL('image/jpeg', 0.75));
+      } else {
+        const reader = new FileReader();
+        reader.onload = () => setFotoBase64(reader.result as string);
+        reader.readAsDataURL(file);
+      }
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
       const reader = new FileReader();
-      reader.onload = () => {
-        setFotoBase64(reader.result as string);
-      };
+      reader.onload = () => setFotoBase64(reader.result as string);
       reader.readAsDataURL(file);
-    }
+    };
+    img.src = url;
   };
 
   const handleCriarRelatorio = async (e: React.FormEvent) => {
@@ -342,7 +368,7 @@ export const CelulaView: React.FC = () => {
 
               {fotoBase64 && (
                 <div className="mt-3 w-32 h-24 rounded-xl overflow-hidden border border-slate-800 bg-slate-950">
-                  <img src={fotoBase64} alt="Foto da Célula" className="w-full h-full object-cover" />
+                  <img loading="lazy" decoding="async" src={fotoBase64} alt="Foto da Célula" className="w-full h-full object-cover" />
                 </div>
               )}
             </div>

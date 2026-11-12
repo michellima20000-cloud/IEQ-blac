@@ -1,13 +1,24 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { House, Store, Loader2 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginView from './components/LoginView';
 import Layout from './components/Layout';
-import CelulaView from './components/CelulaView';
-import RedeView from './components/RedeView';
-import PastorView from './components/PastorView';
-import MidiaView from './components/MidiaView';
-import VitrineView from './components/VitrineView';
+
+// Code-splitting: cada tela só é baixada quando o perfil a usa
+const CelulaView = lazy(() => import('./components/CelulaView'));
+const RedeView = lazy(() => import('./components/RedeView'));
+const PastorView = lazy(() => import('./components/PastorView'));
+const MidiaView = lazy(() => import('./components/MidiaView'));
+const VitrineView = lazy(() => import('./components/VitrineView'));
+
+function CarregandoTela() {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 py-16 text-slate-400 text-sm">
+      <Loader2 size={24} className="animate-spin text-blue-500" />
+      Carregando...
+    </div>
+  );
+}
 
 type AbaExtra = 'minha' | 'vitrine';
 
@@ -59,9 +70,7 @@ function AppContent() {
       case 'MIDIA':  return <MidiaView />;
       default:       return <VitrineView />;
     }
-  }
-
-  const labelMinha: Record<string, string> = {
+  }  const labelMinha: Record<string, string> = {
     CELULA: 'Minha Célula',
     REDE: 'Minha Rede',
     PASTOR: 'Painel',
@@ -99,7 +108,9 @@ function AppContent() {
         </div>
       </nav>
 
-      {renderizarTelaPrincipal()}
+      <Suspense fallback={<CarregandoTela />}>
+        {renderizarTelaPrincipal()}
+      </Suspense>
     </Layout>
   );
 }
