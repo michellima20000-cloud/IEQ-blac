@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
   Home, ClipboardList, Users, UserPlus, FileText, Camera,
-  Check, Save, Loader2, Lock, X, Phone, CircleCheck, TriangleAlert, Inbox
+  Check, Save, Loader2, Lock, X, Phone, CircleCheck, TriangleAlert, Inbox,
+  ImagePlus
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { ApiClient } from '../api/client';
@@ -33,6 +34,7 @@ export const CelulaView: React.FC = () => {
   const [enviando, setEnviando] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const galeriaInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     carregarMinhaCelula();
@@ -335,7 +337,7 @@ export const CelulaView: React.FC = () => {
               />
             </div>
 
-            {/* BOTÃO CÂMERA DO CELULAR */}
+            {/* FOTO DA CÉLULA: CÂMERA OU GALERIA */}
             <div>
               <label className="label">Foto da Célula (Obrigatória na reunião)</label>
               <input
@@ -347,8 +349,16 @@ export const CelulaView: React.FC = () => {
                 className="hidden"
                 disabled={relatorioAtual?.status === 'FECHADO'}
               />
+              <input
+                ref={galeriaInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFotoChange}
+                className="hidden"
+                disabled={relatorioAtual?.status === 'FECHADO'}
+              />
 
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"
                   disabled={relatorioAtual?.status === 'FECHADO'}
@@ -358,17 +368,34 @@ export const CelulaView: React.FC = () => {
                   <Camera size={16} />
                   Tirar Foto pelo Celular
                 </button>
+                <button
+                  type="button"
+                  disabled={relatorioAtual?.status === 'FECHADO'}
+                  onClick={() => galeriaInputRef.current?.click()}
+                  className="btn-ghost"
+                >
+                  <ImagePlus size={16} />
+                  Importar da Galeria
+                </button>
                 {fotoBase64 && (
                   <span className="text-xs text-emerald-400 font-medium flex items-center gap-1.5">
                     <Check size={14} />
-                    Foto capturada pronta para envio
+                    Foto pronta para envio
                   </span>
                 )}
               </div>
 
               {fotoBase64 && (
-                <div className="mt-3 w-32 h-24 rounded-xl overflow-hidden border border-slate-800 bg-slate-950">
+                <div className="mt-3 relative w-32 h-24 rounded-xl overflow-hidden border border-slate-800 bg-slate-950 group">
                   <img loading="lazy" decoding="async" src={fotoBase64} alt="Foto da Célula" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setFotoBase64(null)}
+                    title="Remover foto"
+                    className="absolute top-1.5 right-1.5 bg-black/70 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-90"
+                  >
+                    <X size={12} />
+                  </button>
                 </div>
               )}
             </div>
