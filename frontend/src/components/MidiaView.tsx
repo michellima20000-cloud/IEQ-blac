@@ -4,7 +4,8 @@ import {
   Megaphone, Upload, ClipboardList, Calendar, Palette, ImagePlus,
   Check, Inbox, MapPin, Pencil, Trash2, RotateCcw, Youtube,
   CircleCheck, TriangleAlert, X, Download, Layout, Monitor,
-  Image as ImageIcon, LayoutGrid, GalleryHorizontalEnd, List, CheckCircle
+  Image as ImageIcon, LayoutGrid, GalleryHorizontalEnd, List, CheckCircle,
+  Sparkles, Wand2
 } from 'lucide-react';
 import { api, ApiClient } from '../api/client';
 import { useListaIncremental } from '../hooks/useListaIncremental';
@@ -49,6 +50,16 @@ const STATUS_LABEL: Record<string, string> = {
 
 const CORES_PRIMARIA = ['#2563eb', '#4f46e5', '#7c3aed', '#0ea5e9', '#059669', '#16a34a', '#dc2626', '#db2777'];
 const CORES_SECUNDARIA = ['#f59e0b', '#fbbf24', '#f97316', '#22d3ee', '#84cc16', '#e879f9', '#38bdf8', '#eab308'];
+
+// Temas prontos: aplicam par primário+secundário em um clique
+const TEMA_PRESET: { nome: string; primaria: string; secundaria: string }[] = [
+  { nome: 'Azul IEQ',     primaria: '#2563eb', secundaria: '#f59e0b' },
+  { nome: 'Violeta',      primaria: '#7c3aed', secundaria: '#22d3ee' },
+  { nome: 'Esmeralda',    primaria: '#059669', secundaria: '#fbbf24' },
+  { nome: 'Oceano',       primaria: '#0ea5e9', secundaria: '#e879f9' },
+  { nome: 'Coral',        primaria: '#dc2626', secundaria: '#38bdf8' },
+  { nome: 'Real',         primaria: '#4f46e5', secundaria: '#f97316' }
+];
 const LAYOUT_OPCOES: { value: string; label: string; desc: string; icon: LucideIcon }[] = [
   { value: 'GRID', label: 'Grade', desc: 'Blocos em colunas', icon: LayoutGrid },
   { value: 'CARROSSEL', label: 'Carrossel', desc: 'Deslize horizontal', icon: GalleryHorizontalEnd },
@@ -1184,65 +1195,124 @@ export default function MidiaView() {
 
       {aba === 'visual' && (
         <form onSubmit={salvarVisual} className="space-y-4" aria-label="Configurações visuais">
-          <div className="card card-pad">
-            <div className="flex items-center gap-2">
-              <span className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
-                <Palette size={16} />
+          {/* Cabeçalho hero */}
+          <div className="card card-pad relative overflow-hidden">
+            <div className="absolute -top-20 -right-14 w-48 h-48 rounded-full bg-indigo-600/20 blur-3xl pointer-events-none" />
+            <div className="relative flex items-center gap-3">
+              <span className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30 shrink-0">
+                <Wand2 size={20} />
               </span>
-              <h2 className="section-title">Personalização Visual</h2>
+              <div className="min-w-0">
+                <h2 className="text-lg font-extrabold text-white tracking-tight leading-tight">Estúdio de Personalização</h2>
+                <p className="text-xs text-slate-400 mt-0.5">Identidade visual da igreja: cores, logo e layout da vitrine</p>
+              </div>
             </div>
-            <p className="text-sm text-slate-400 mt-1">
-              Personalize as cores e identidade visual da sua igreja.
-            </p>
+          </div>
+
+          {/* Temas prontos */}
+          <div className="card card-pad">
+            <div className="flex items-center gap-2.5 mb-3">
+              <span className="w-8 h-8 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0 text-amber-400">
+                <Sparkles size={16} />
+              </span>
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-white">Temas Prontos</h3>
+                <p className="text-[11px] text-slate-500">Toque em um tema para aplicar as duas cores de uma vez</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5" role="group" aria-label="Temas de cores prontos">
+              {TEMA_PRESET.map((tema) => {
+                const ativo = corPrimaria.toLowerCase() === tema.primaria && corSecundaria.toLowerCase() === tema.secundaria;
+                return (
+                  <button
+                    key={tema.nome}
+                    type="button"
+                    onClick={() => { setCorPrimaria(tema.primaria); setCorSecundaria(tema.secundaria); }}
+                    aria-pressed={ativo}
+                    className={`relative flex items-center gap-2.5 rounded-xl border p-2.5 text-left transition-all ${
+                      ativo
+                        ? 'border-blue-500 bg-blue-500/10 ring-1 ring-blue-500/50'
+                        : 'border-slate-700 bg-slate-950/60 hover:border-slate-500 hover:bg-slate-900'
+                    }`}
+                  >
+                    <span
+                      className="w-8 h-8 rounded-lg shrink-0 border border-white/10"
+                      style={{ backgroundImage: `linear-gradient(135deg, ${tema.primaria} 55%, ${tema.secundaria} 55%)` }}
+                      aria-hidden="true"
+                    />
+                    <span className={`text-xs font-semibold truncate ${ativo ? 'text-white' : 'text-slate-300'}`}>{tema.nome}</span>
+                    {ativo && <Check size={13} className="text-blue-400 absolute top-2 right-2" />}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
             <div className="space-y-4">
           <div className="card card-pad">
-            <div className="flex items-center gap-3 mb-3">
+            <div className="flex items-center gap-2.5 mb-4">
               <span className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0 text-emerald-400">
                 <ImageIcon size={16} />
               </span>
-              <label className="label" htmlFor="visual-logo">
-                Logo da Igreja
-              </label>
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-white">Logo da Igreja</h3>
+                <p className="text-[11px] text-slate-500">Aparece no cabeçalho, vitrine e tela de login</p>
+              </div>
             </div>
-            <div className="space-y-3">
-              {visual?.logoUrl && (
-                <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
+              <div className="w-24 h-24 rounded-2xl border-2 border-dashed border-slate-700 bg-slate-950/80 flex items-center justify-center overflow-hidden shrink-0">
+                {visual?.logoUrl ? (
                   <img loading="lazy" decoding="async"
                     src={visual.logoUrl}
                     alt="Logo atual da igreja"
-                    className="h-16 w-auto max-w-32 object-contain rounded-xl border border-slate-700/70 shadow-lg bg-slate-950/60 p-1"
+                    className="w-full h-full object-contain p-1.5"
                   />
-                  <span className="text-[10px] leading-tight text-slate-500">
-                    logo atual enviada pela igreja
-                  </span>
-                </div>
-              )}
-              <input
-                id="visual-logo"
-                ref={logoRef}
-                type="file"
-                accept="image/*"
-                onChange={e => setLogoFile(e.target.files?.[0] ?? null)}
-                className="input sr-only peer"
-                aria-label="Enviar logo da igreja"
-              />
-              <label
-                htmlFor="visual-logo"
-                className="flex items-center gap-2 w-full cursor-pointer rounded-xl border border-slate-700 bg-slate-950/80 px-3.5 py-2.5 text-sm text-slate-300 hover:border-blue-500/60 hover:bg-slate-900 transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500/50"
-              >
-                <ImageIcon size={14} className="shrink-0 text-blue-400" />
-                <span className="truncate">{logoFile ? logoFile.name : 'Selecionar nova logo (PNG/JPG/SVG)'}</span>
-                {!logoFile && (
-                  <span className="ml-auto text-xs text-slate-500 shrink-0">Nenhuma imagem escolhida</span>
+                ) : (
+                  <ImageIcon size={26} className="text-slate-600" />
                 )}
-              </label>
+              </div>
+              <div className="min-w-0 flex-1 space-y-2">
+                <p className="text-xs text-slate-400 truncate">
+                  {logoFile ? (
+                    <span className="text-emerald-400 font-medium">{logoFile.name}</span>
+                  ) : visual?.logoUrl ? (
+                    'Logo atual enviada pela igreja'
+                  ) : (
+                    'Nenhum logo enviado ainda'
+                  )}
+                </p>
+                <input
+                  id="visual-logo"
+                  ref={logoRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={e => setLogoFile(e.target.files?.[0] ?? null)}
+                  className="input sr-only peer"
+                  aria-label="Enviar logo da igreja"
+                />
+                <label
+                  htmlFor="visual-logo"
+                  className="flex items-center justify-center gap-2 w-full cursor-pointer rounded-xl border border-slate-700 bg-slate-800/60 px-3.5 py-2.5 text-sm font-semibold text-slate-200 hover:border-blue-500/60 hover:bg-slate-800 transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500/50"
+                >
+                  <ImageIcon size={14} className="shrink-0 text-blue-400" />
+                  {logoFile ? 'Trocar imagem' : visual?.logoUrl ? 'Substituir logo' : 'Enviar logo'}
+                </label>
+                <p className="text-[10px] text-slate-600">PNG, JPG ou SVG · fundo transparente fica melhor</p>
+              </div>
             </div>
           </div>
 
           <div className="card card-pad">
+            <div className="flex items-center gap-2.5 mb-4">
+              <span className="w-8 h-8 rounded-xl bg-fuchsia-500/10 flex items-center justify-center shrink-0 text-fuchsia-400">
+                <Palette size={16} />
+              </span>
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-white">Cores da Igreja</h3>
+                <p className="text-[11px] text-slate-500">Aplicadas em botões, abas e destaques em todo o app</p>
+              </div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {([
                 { id: 'visual-cor-primaria', label: 'Cor Primária', value: corPrimaria, setValue: setCorPrimaria, paleta: CORES_PRIMARIA },
@@ -1297,11 +1367,14 @@ export default function MidiaView() {
             </div>
             <div className="space-y-4">
           <div className="card card-pad">
-            <div className="flex items-center gap-3 mb-3">
+            <div className="flex items-center gap-2.5 mb-3">
               <span className="w-8 h-8 rounded-xl bg-indigo-500/10 flex items-center justify-center shrink-0 text-indigo-400">
                 <Layout size={16} />
               </span>
-              <h3 className="text-sm font-semibold text-slate-300">Layout das telas de divulgação</h3>
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-white">Layout da Vitrine</h3>
+                <p className="text-[11px] text-slate-500">Como as divulgações aparecem para a congregação</p>
+              </div>
             </div>
             <div className="grid grid-cols-3 gap-3" role="radiogroup" aria-label="Layout de divulgação">
               {LAYOUT_OPCOES.map((opt) => {
@@ -1313,12 +1386,17 @@ export default function MidiaView() {
                     type="button"
                     onClick={() => setLayoutOpt(opt.value)}
                     aria-pressed={ativo}
-                    className={`flex flex-col items-center gap-1.5 rounded-xl border p-4 text-center transition-all ${
+                    className={`relative flex flex-col items-center gap-1.5 rounded-xl border p-4 text-center transition-all ${
                       ativo
                         ? 'border-blue-500 bg-blue-500/10 shadow-lg shadow-blue-600/20'
                         : 'border-slate-700 bg-slate-950/60 hover:border-slate-500 hover:bg-slate-900'
                     }`}
                   >
+                    {ativo && (
+                      <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-blue-600 border-2 border-slate-900 flex items-center justify-center">
+                        <Check size={11} className="text-white" />
+                      </span>
+                    )}
                     <Icone size={20} className={ativo ? 'text-blue-400' : 'text-slate-400'} />
                     <span className={`text-xs font-semibold ${ativo ? 'text-white' : 'text-slate-300'}`}>{opt.label}</span>
                     <span className="text-[10px] leading-tight text-slate-500">{opt.desc}</span>
@@ -1329,31 +1407,92 @@ export default function MidiaView() {
           </div>
 
           <div className="card card-pad">
-            <div className="flex items-center gap-3 mb-3">
+            <div className="flex items-center gap-2.5 mb-3">
               <span className="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0 text-blue-400">
                 <Monitor size={16} />
               </span>
-              <h3 className="text-sm font-semibold text-slate-300">Pré-visualização</h3>
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-white">Pré-visualização</h3>
+                <p className="text-[11px] text-slate-500">Simulação de como a vitrine ficará para a congregação</p>
+              </div>
             </div>
-            <div className="rounded-xl overflow-hidden border border-slate-700/70 shadow-xl">
+            <div className="rounded-2xl overflow-hidden border border-slate-700/70 shadow-xl bg-slate-950">
+              {/* Cabeçalho */}
               <div
-                className="p-4 flex items-center justify-center gap-3 text-white text-sm font-semibold"
-                style={{ backgroundColor: corPrimaria }}
+                className="px-4 py-3 flex items-center gap-2.5 text-white"
+                style={{ background: `linear-gradient(135deg, ${corPrimaria}, ${corPrimaria}CC)` }}
               >
-                {visual?.logoUrl && (
+                {visual?.logoUrl ? (
                   <img loading="lazy" decoding="async"
                     src={visual.logoUrl}
                     alt="Logo"
-                    className="w-7 h-7 rounded-lg object-contain bg-white/10 p-0.5"
+                    className="w-8 h-8 rounded-lg object-contain bg-white/15 p-0.5"
                   />
+                ) : (
+                  <span className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+                    <ImageIcon size={14} />
+                  </span>
                 )}
-                Cabeçalho da Igreja
+                <div className="min-w-0">
+                  <span className="text-sm font-bold block truncate leading-tight">Cabeçalho da Igreja</span>
+                  <span className="text-[9px] uppercase tracking-widest opacity-80">IEQ Conecta</span>
+                </div>
+                <span
+                  className="ml-auto text-[9px] font-bold px-2 py-1 rounded-md text-slate-900 shrink-0"
+                  style={{ backgroundColor: corSecundaria }}
+                >
+                  NOVO
+                </span>
               </div>
-              <div
-                className="p-4 text-slate-300 text-sm text-center border-t-2"
-                style={{ backgroundColor: '#0f172a', borderColor: corSecundaria }}
-              >
-                Área de conteúdo • Layout {layoutOpt === 'GRID' ? 'Grade' : layoutOpt === 'CARROSSEL' ? 'Carrossel' : 'Lista'}
+              {/* Mock do layout escolhido */}
+              <div className="p-3 space-y-2.5">
+                <div className="flex gap-1.5">
+                  <span className="h-1.5 flex-1 rounded-full" style={{ backgroundColor: corPrimaria }} />
+                  <span className="h-1.5 flex-1 rounded-full bg-slate-800" />
+                  <span className="h-1.5 flex-1 rounded-full bg-slate-800" />
+                </div>
+                {layoutOpt === 'GRID' && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {[0, 1, 2, 3].map((i) => (
+                      <div key={i} className="rounded-lg bg-slate-900 border border-slate-800 p-2">
+                        <div className="h-10 rounded-md mb-1.5" style={{ backgroundColor: i % 2 ? corSecundaria + '33' : corPrimaria + '33' }} />
+                        <div className="h-1.5 w-3/4 rounded-full bg-slate-700" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {layoutOpt === 'CARROSSEL' && (
+                  <div className="flex gap-2 overflow-hidden">
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} className={`rounded-lg bg-slate-900 border border-slate-800 p-2 shrink-0 ${i === 1 ? 'w-2/5' : 'w-1/3 opacity-60'}`}>
+                        <div className="h-12 rounded-md mb-1.5" style={{ backgroundColor: i === 1 ? corPrimaria + '55' : corSecundaria + '22' }} />
+                        <div className="h-1.5 w-3/4 rounded-full bg-slate-700" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {layoutOpt === 'LISTA' && (
+                  <div className="space-y-1.5">
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} className="flex items-center gap-2 rounded-lg bg-slate-900 border border-slate-800 p-2">
+                        <span className="w-8 h-8 rounded-md shrink-0" style={{ backgroundColor: i % 2 ? corSecundaria + '33' : corPrimaria + '33' }} />
+                        <div className="flex-1 space-y-1">
+                          <div className="h-1.5 w-2/3 rounded-full bg-slate-700" />
+                          <div className="h-1.5 w-1/3 rounded-full bg-slate-800" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Botão de exemplo */}
+                <div className="flex justify-center pt-1">
+                  <span
+                    className="text-[11px] font-bold text-white px-4 py-2 rounded-xl shadow-lg"
+                    style={{ backgroundColor: corPrimaria, boxShadow: `0 6px 16px -6px ${corPrimaria}` }}
+                  >
+                    Botão de Ação
+                  </span>
+                </div>
               </div>
             </div>
             </div>
@@ -1365,10 +1504,11 @@ export default function MidiaView() {
               <button
                 type="submit"
                 disabled={carregando}
-                className="btn-primary w-full py-3.5 text-base font-semibold"
+                className="w-full py-3.5 text-base font-bold text-white rounded-xl transition-all active:scale-[.98] disabled:opacity-60 disabled:pointer-events-none"
+                style={{ background: `linear-gradient(135deg, ${corPrimaria}, ${corPrimaria}CC)`, boxShadow: `0 10px 28px -10px ${corPrimaria}` }}
               >
-                <Check size={16} />
-                {carregando ? 'Salvando...' : 'Salvar Configurações Visuais'}
+                <Check size={16} className="inline-block -mt-0.5 mr-1.5" />
+                {carregando ? 'Salvando...' : 'Salvar Identidade Visual'}
               </button>
             </div>
           </div>
