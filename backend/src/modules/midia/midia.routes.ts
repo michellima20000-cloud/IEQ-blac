@@ -15,7 +15,7 @@ import {
 
 // Upload via multipart com o arquivo BINÁRIO (evita transformar um vídeo de
 // 50 MB em ~66 MB de base64 dentro de um JSON, que travava a requisição)
-const uploadMidia = multer({
+export const uploadMidia = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 50 * 1024 * 1024,
@@ -31,6 +31,14 @@ const uploadMidia = multer({
   }
 });
 
+// O app envia o arquivo no campo "arquivo" (singular). A API e integrações
+// antigas usam "arquivos" (plural). Aceitar os dois evita o erro
+// "Unexpected file field" que quebrava todo o envio para a vitrine.
+export const camposArquivo = [
+  { name: 'arquivo', maxCount: 10 },
+  { name: 'arquivos', maxCount: 10 }
+];
+
 const router = Router();
 
 router.use(authMiddleware);
@@ -38,11 +46,13 @@ router.use(tenantMiddleware);
 
 // Traduz os erros do multer (arquivo muito grande, formato inválido) para 400
 function comTratamentoDeUpload(req: any, res: any, next: any) {
-  uploadMidia.array('arquivos')(req, res, (err: any) => {
+  uploadMidia.fields(camposArquivo)(req, res, (err: any) => {
     if (!err) return next();
     const mensagem = err.code === 'LIMIT_FILE_SIZE'
       ? 'O arquivo excede o limite de 50 MB.'
-      : err.message || 'Falha no upload do arquivo.';
+      : err.code === 'LIMIT_UNEXPECTED_FILE'
+        ? `Campo de arquivo inválido. Use "${camposArquivo.map((c) => c.name).join('" ou "')}".`
+        : err.message || 'Falha no upload do arquivo.';
     res.status(400).json({ error: 'UploadInvalido', message: mensagem });
   });
 }

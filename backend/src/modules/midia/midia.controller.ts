@@ -1,9 +1,10 @@
-import { Response } from 'express';
+import type { Response } from 'express';
 import { MidiaService } from './midia.service.ts';
 import { CalendarioService } from './calendario.service.ts';
 import { VisualService } from './visual.service.ts';
 import { criarMidiaSchema } from './midia.schemas.ts';
 import { ImageProcessor } from '../../services/imageProcessor.ts';
+import { normalizarArquivos } from '../../utils/upload.ts';
 import { cacheDel, cacheGet, cacheSet, chavesCache } from '../../config/upstash.ts';
 import type { AuthenticatedRequest } from '../../middlewares/auth.ts';
 import type {
@@ -20,7 +21,9 @@ export class MidiaController {
   static async criar(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       // O multer.array('arquivos') pode retornar undefined (nenhum arquivo) ou um array de file objects
-      const arquivos = (req as any).files;
+      // O multer pode entregar os arquivos como array (campo único) ou objeto
+      // (vários campos aceitos). A normalização garante os dois formatos.
+      const arquivos = normalizarArquivos((req as any).files);
       let arquivoUrl: string | null = null;
       let nomeOriginal = '';
       let tamanhoArquivoBytes = 0;
