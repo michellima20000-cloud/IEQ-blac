@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { api, ApiClient } from '../api/client';
 import { useListaIncremental } from '../hooks/useListaIncremental';
+import { salvarVisualCache, aplicarVisualGeral } from '../utils/visualCache';
 
 interface MediaItem {
   id: string;
@@ -299,6 +300,7 @@ export default function MidiaView() {
       setCorPrimaria(cfg.corPrimaria);
       setCorSecundaria(cfg.corSecundaria);
       setLayoutOpt(cfg.layoutDivulgacao || 'GRID');
+      salvarVisualCache(cfg);
     } catch {
       setErro('Não foi possível carregar as configurações visuais.');
     } finally {
@@ -570,6 +572,11 @@ export default function MidiaView() {
       };
       if (logoFile) payload.logoUrl = await lerArquivoDataUrl(logoFile);
       await api.patch('/configuracoes/visual', payload);
+      // Aplica e memoriza na hora, em todo o app, mesmo antes das outras telas recarregarem
+      const cacheSalvo: any = { ...visual, ...payload };
+      if (logoFile) cacheSalvo.logoUrl = payload.logoUrl;
+      salvarVisualCache(cacheSalvo);
+      aplicarVisualGeral(cacheSalvo);
       setSucesso('Configurações visuais salvas!');
       setLogoFile(null); if (logoRef.current) logoRef.current.value = '';
       await carregarVisual();

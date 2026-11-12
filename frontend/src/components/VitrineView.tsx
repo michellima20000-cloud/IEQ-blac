@@ -3,6 +3,7 @@ import { CalendarDays, Megaphone, MapPin, Clock, Video, Newspaper, X } from 'luc
 import { ApiClient } from '../api/client';
 import { SkeletonGrid } from './Skeleton';
 import { useListaIncremental } from '../hooks/useListaIncremental';
+import { lerVisualCache, salvarVisualCache } from '../utils/visualCache';
 
 interface MidiaPublicada {
   id: string;
@@ -45,6 +46,15 @@ export const VitrineView: React.FC = () => {
   const listaPublicacoes = useListaIncremental(publicacoes, 12);
 
   useEffect(() => {
+    // Aplica imediatamente o cache local (a mudança "gruda" sem esperar a API)
+    const cache = lerVisualCache();
+    if (cache) {
+      if (cache.layoutDivulgacao === 'GRID' || cache.layoutDivulgacao === 'CARROSSEL' || cache.layoutDivulgacao === 'LISTA') {
+        setLayout(cache.layoutDivulgacao);
+      }
+      if (cache.corPrimaria) setCorPrimaria(cache.corPrimaria);
+      if (cache.corSecundaria) setCorSecundaria(cache.corSecundaria);
+    }
     carregarDados();
     const aoAtualizar = () => {
       carregarDados();
@@ -64,13 +74,16 @@ export const VitrineView: React.FC = () => {
       setPublicacoes(resMidia.publicacoes || []);
       setEventos(resEventos.eventos || []);
       // Identidade visual: layout e cores escolhidos pela equipe de mídia
-      const visual = resVisual?.visual ?? resVisual ?? null;
+      let visual = resVisual?.visual ?? resVisual ?? null;
+      // Se a API falhar/demorar, usa o cache local para a escolha não se perder
+      if (!visual) visual = lerVisualCache();
       if (visual) {
         if (visual.layoutDivulgacao === 'GRID' || visual.layoutDivulgacao === 'CARROSSEL' || visual.layoutDivulgacao === 'LISTA') {
           setLayout(visual.layoutDivulgacao);
         }
         if (visual.corPrimaria) setCorPrimaria(visual.corPrimaria);
         if (visual.corSecundaria) setCorSecundaria(visual.corSecundaria);
+        salvarVisualCache(visual);
       }
     } catch {
       // Falha graciosa

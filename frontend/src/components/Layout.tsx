@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { LogOut } from 'lucide-react';
 import { useAuth, Perfil } from '../context/AuthContext';
 import { api } from '../api/client';
+import { lerVisualCache, salvarVisualCache, aplicarVisualGeral } from '../utils/visualCache';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -30,6 +31,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   useEffect(() => {
     if (!usuario) { setVisual(null); jaCarregouRef.current = false; return; }
     let cancelado = false;
+    // Aplica imediatamente o cache local (a mudança "gruda" sem esperar a API)
+    const cache = lerVisualCache();
+    if (cache) {
+      setVisual(cache);
+      aplicarVisualGeral(cache);
+    }
     const carregarVisual = () => {
       api.get('/configuracoes/visual')
         .then((r) => {
@@ -37,12 +44,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           const cfg = (r.data as any)?.visual ?? r.data ?? null;
           setVisual(cfg);
           jaCarregouRef.current = true;
-          if (cfg?.corPrimaria) {
-            document.documentElement.style.setProperty('--cor-primaria', cfg.corPrimaria);
-          }
-          if (cfg?.corSecundaria) {
-            document.documentElement.style.setProperty('--cor-secundaria', cfg.corSecundaria);
-          }
+          if (cfg) salvarVisualCache(cfg);
+          aplicarVisualGeral(cfg);
         })
         .catch(() => { /* falha graciosa: usa avatar com iniciais */ });
     };
