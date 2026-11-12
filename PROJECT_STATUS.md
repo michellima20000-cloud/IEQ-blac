@@ -41,13 +41,15 @@ $ npm test
 - Botões "Copiar"/"Abrir" na aba Visual (Mídia) e no painel de Aprovações (Pastor)
 - Testes: `backend/tests/vitrine_publica.node.mjs` (8 testes)
 
-## Commit Atual: 2880398
+## Commit Atual: a13f319
 Conteúdo:
+- Vitrine pública por slug (link compartilhável sem login)
+- API pública /publico/vitrine/:slug + cache de 60s
+- Página pública /vitrine/<slug> com a identidade visual da igreja
 - RBAC permissions
 - cleanup/service/backup/API
-- PastorView/RedeView buttons
 - Frontend build passing
-- 50/50 unit tests passing
+- 58/58 unit tests passing
 
 ## Qualidade do Code
 - Frontend: TypeScript/Vite build - SEM ERROS
@@ -62,15 +64,16 @@ Conteúdo:
 
 ## Deploy Vercel
 URL: https://ieq-blac.vercel.app
-Status: Em producao (11/11/2026)
-Comando: npx vercel --prod (a partir da raiz do repositorio)
-Obs: deploy a partir da pasta frontend falha (Root Directory do projeto = frontend)
+Vitrine pública: https://ieq-blac.vercel.app/vitrine/ieq-cidade-nova
+Status: Em producao (12/11/2026) - deploy automatico via GitHub (commit a13f319)
+Obs: o deploy e feito pelo GitHub (push em main); a CLI do Vercel exige login local
 Obs2: aba ADM removida do frontend; modulo backend /admin/* mantido inativo
+Obs3: API publica no Render: https://ieq-black.onrender.com/api/v1/publico/vitrine/:slug
 
 ## Resumo Executivo
 Projeto IEQ - Painel Pastoral Igreja
 - Build: OK
 - Testes: 58/58 passando  
-- Deploy: Vercel configurado
-- Commit: 2880398 (última versão com todas melhorias)
+- Deploy: Vercel configurado (auto-deploy via GitHub) + Render para a API
+- Commit: a13f319 (vitrine pública + todas melhorias anteriores)
 - Autor: michellima20000-cloud
