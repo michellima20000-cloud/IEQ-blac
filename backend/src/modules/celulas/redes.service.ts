@@ -95,5 +95,106 @@ export class RedesService {
       relatorios: relatoriosComUrlAssinada
     };
   }
+
+  /**
+   * Listas reais por trás de cada indicador da rede:
+   * - celulas:    células da rede com líder(es), horário e nº de membros ativos
+   * - relatorios: relatórios fechados da semana (base de presentes/visitantes)
+   */
+  static async obterDetalhesRede(usuario: UsuarioAutenticado, redeId: string, tipo: string) {
+    if (usuario.perfil === 'REDE' && usuario.redeId !== redeId) {
+      throw new PermissaoError('Acesso negado: Líder de rede só pode acessar sua própria rede.');
+    }
+
+    if (usuario.perfil === 'CELULA' || usuario.perfil === 'MIDIA') {
+      throw new PermissaoError('Acesso negado para este recurso.');
+    }
+
+    const rede = await prisma.rede.findUnique({
+      where: { id: redeId, igreja_id: usuario.igreja_id }
+    });
+
+    if (!rede) {
+      throw new Error('Rede não encontrada nesta igreja.');
+    }
+
+    if (tipo === 'celulas') {
+      const celulas = await prisma.celula.findMany({
+        where: { igreja_id: usuario.igreja_id, redeId },
+        select: {
+          id: true,
+          nome: true,
+          diaSemana: true,
+          horario: true,
+          endereco: true,
+          lideres: { select: { id: true, nome: true, email: true } },
+          _count: { select: { membros: { where: { ativo: true } }, visitantes: true } }
+        },
+        orderBy: { nome: 'asc' }
+      });
+      return {
+        tipo,
+        itens: celulas.map((c: any) => ({
+          id: c.id,
+          nome: c.nome,
+          diaSemana: c.diaSemana,
+          horario: c.horario,
+          endereco: c.endereco,
+          lideres: c.lideres.map((l: any) => l.nome),
+          membrosAtivos: c._count.membros,
+          visitantes: c._count.visitantes
+        }))
+      };
+    }
+
+    if (tipo === 'relatorios') {
+      const fim = new Date();
+      const inicio = new Date(fim);
+      inicio.setDate(inicio.getDate() - 7);
+
+      const relatoriosFechados = await prisma.relatorioCelula.findMany({
+        where: {
+          celula: { redeId },
+          igreja_id: usuario.igreja_id,
+          status: 'FECHADO',
+          data: { gte: inicio, lte: fim }
+        },
+        select: {
+          id: true,
+          data: true,
+          presentes: true,
+          visitantes: true,
+          status: true,
+          celula: { select: { nome: true } },
+          lider: { select: { nome: true } }
+        },
+        orderBy: { data: 'desc' }
+      });
+
+      const totalPresentes = relatoriosFechados.reduce((acc: number, r: any) => acc + r.presentes, 0);
+      const totalVisitantes = relatoriosFechados.reduce((acc: number, r: any) => acc + r.visitantes, 0);
+
+      return {
+        tipo,
+        periodo: { inicio: inicio.toISOString(), fim: fim.toISOString() },
+        resumo: {
+          totalRelatorios: relatoriosFechados.length,
+          totalPresentes,
+          totalVisitantes
+        },
+        itens: relatoriosFechados.map((r: any) => ({
+          id: r.id,
+          data: r.data,
+          presentes: r.presentes,
+          visitantes: r.visitantes,
+          status: r.status,
+          celula: r.celula?.nome || null,
+          lider: r.lider?.nome || null
+        }))
+      };
+    }
+
+    throw new PermissaoError('Tipo de detalhe inválido.');
+  }
 }
 

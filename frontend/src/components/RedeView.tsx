@@ -37,6 +37,51 @@ export const RedeView: React.FC = () => {
   // Paginação incremental: só renderiza 15 relatórios por vez
   const listaRelatorios = useListaIncremental<any>(dadosRede?.relatorios, 15);
 
+  // Detalhes do indicador: modal com as listas reais do sistema
+  const [detalhe, setDetalhe] = useState<{ tipo: string; titulo: string } | null>(null);
+  const [celulasDetalhe, setCelulasDetalhe] = useState<any | null>(null);
+  const [detalheCarregando, setDetalheCarregando] = useState(false);
+  const [detalheErro, setDetalheErro] = useState<string | null>(null);
+
+  const tipoPorCampo: Record<string, string> = {
+    totalCelulas: 'celulas',
+    totalRelatoriosFechados: 'relatorios',
+    totalPresentes: 'relatorios',
+    totalVisitantes: 'relatorios'
+  };
+
+  const abrirDetalheRede = async (campo: string, label: string) => {
+    const tipo = tipoPorCampo[campo];
+    if (!tipo) return;
+    setDetalheErro(null);
+    setDetalhe({ tipo, titulo: label });
+    if (tipo === 'relatorios') return; // usa a lista já carregada (dadosRede)
+    setDetalheCarregando(true);
+    setCelulasDetalhe(null);
+    try {
+      const res = await ApiClient.get(`/redes/${redeId}/consolidado/detalhes`, { tipo });
+      setCelulasDetalhe(res);
+    } catch (err: any) {
+      setDetalheErro(err.message || 'Falha ao carregar os detalhes.');
+    } finally {
+      setDetalheCarregando(false);
+    }
+  };
+
+  const fecharDetalhe = () => {
+    setDetalhe(null);
+    setCelulasDetalhe(null);
+    setDetalheErro(null);
+  };
+
+  // Totais derivados dos relatórios já carregados (modal de relatórios/presentes/visitantes)
+  const relatoriosModal: any[] = dadosRede?.relatorios || [];
+  const resumoModal = {
+    totalRelatorios: relatoriosModal.length,
+    totalPresentes: relatoriosModal.reduce((acc: number, r: any) => acc + (r.presentes || 0), 0),
+    totalVisitantes: relatoriosModal.reduce((acc: number, r: any) => acc + (r.visitantes || 0), 0)
+  };
+
   useEffect(() => {
     carregarConsolidado();
   }, []);
@@ -171,7 +216,12 @@ export const RedeView: React.FC = () => {
       {/* Cards de Consolidado Semanal */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {stats.map(({ chave, label, Icon, cor, bg }) => (
-          <div key={chave} className="stat card-hover">
+          <div
+            key={chave}
+            className="stat card-hover cursor-pointer"
+            onClick={() => abrirDetalheRede(chave, label)}
+            title={`Ver detalhes de ${label}`}
+          >
             <div className="flex items-start justify-between">
               <span className="stat-label">{label}</span>
               <span className={`w-7 h-7 rounded-lg ${bg} ${cor} flex items-center justify-center`}>
@@ -419,6 +469,107 @@ export const RedeView: React.FC = () => {
               alt="Foto da reunião ampliada"
               className="w-full h-auto max-h-[85vh] object-contain"
             />
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Detalhes do Indicador (dados reais do sistema) */}
+      {detalhe && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) fecharDetalhe(); }}
+          className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full sm:max-w-lg bg-slate-900 border border-slate-700 rounded-t-2xl sm:rounded-2xl shadow-2xl animate-fade-up max-h-[88vh] flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 shrink-0">
+              <div className="min-w-0">
+                <h4 className="text-sm font-bold text-white truncate">{detalhe.titulo}</h4>
+                <p className="text-xs text-slate-400">Dados reais do sistema</p>
+              </div>
+              <button
+                onClick={fecharDetalhe}
+                title="Fechar"
+                className="bg-slate-800 hover:bg-slate-700 text-white rounded-full w-8 h-8 flex items-center justify-center shrink-0"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto px-5 py-4 space-y-2">
+              {detalheCarregando && (
+                <div className="flex flex-col items-center justify-center gap-2 py-10 text-slate-400 text-sm">
+                  Carregando detalhes...
+                </div>
+              )}
+
+              {!detalheCarregando && detalheErro && (
+                <div className="alert-error justify-start">
+                  <span>{detalheErro}</span>
+                </div>
+              )}
+
+              {/* CÉLULAS DA REDE */}
+              {detalhe.tipo === 'celulas' && !detalheCarregando && (
+                <>
+                  {celulasDetalhe?.itens?.length === 0 && (
+                    <div className="empty-state border-0 bg-transparent py-8">Nenhuma célula nesta rede.</div>
+                  )}
+                  {celulasDetalhe?.itens?.map((c: any) => (
+                    <div key={c.id} className="card-soft p-3.5 space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-bold text-white truncate">{c.nome}</span>
+                        <span className="badge-emerald shrink-0">{c.membrosAtivos} membros</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 text-xs text-slate-400">
+                        <span className="text-slate-500">{c.diaSemana} · {c.horario}</span>
+                      </div>
+                      <div className="text-xs text-slate-400">
+                        Líder(es): <b className="text-slate-200">{c.lideres?.length > 0 ? c.lideres.join(', ') : 'Sem líder atribuído'}</b>
+                      </div>
+                      {c.endereco && <div className="text-xs text-slate-500 truncate">{c.endereco}</div>}
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {/* RELATÓRIOS / PRESENTES / VISITANTES */}
+              {detalhe.tipo === 'relatorios' && (
+                <>
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    <div className="card-soft py-2.5 text-center">
+                      <span className="text-[10px] uppercase text-slate-400 block">Relatórios</span>
+                      <span className="text-lg font-bold text-white">{resumoModal.totalRelatorios}</span>
+                    </div>
+                    <div className="card-soft py-2.5 text-center">
+                      <span className="text-[10px] uppercase text-slate-400 block">Presentes</span>
+                      <span className="text-lg font-bold text-sky-400">{resumoModal.totalPresentes}</span>
+                    </div>
+                    <div className="card-soft py-2.5 text-center">
+                      <span className="text-[10px] uppercase text-slate-400 block">Visitantes</span>
+                      <span className="text-lg font-bold text-amber-400">{resumoModal.totalVisitantes}</span>
+                    </div>
+                  </div>
+                  {relatoriosModal.length === 0 && (
+                    <div className="empty-state border-0 bg-transparent py-8">Nenhum relatório fechado nesta semana.</div>
+                  )}
+                  {relatoriosModal.map((r) => (
+                    <div key={r.id} className="card-soft p-3 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <span className="text-sm font-semibold text-white block truncate">{r.celula?.nome || 'Célula'}</span>
+                        <span className="text-xs text-slate-500">
+                          {new Date(r.data).toLocaleDateString('pt-BR')} · {r.lider?.nome || '—'}
+                        </span>
+                      </div>
+                      <div className="flex gap-3 shrink-0 text-xs">
+                        <span className="text-white"><b>{r.presentes}</b> <span className="text-slate-500">presentes</span></span>
+                        <span className="text-amber-400"><b>{r.visitantes}</b> <span className="text-slate-500">visit.</span></span>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}

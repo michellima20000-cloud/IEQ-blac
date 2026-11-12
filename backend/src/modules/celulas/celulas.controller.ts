@@ -198,6 +198,21 @@ export class CelulasController {
     }
   }
 
+  // --- DETALHES DOS INDICADORES DA REDE (listas reais) ---
+  static async detalhesRede(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { redeId } = req.params;
+      const dados = await RedesService.obterDetalhesRede(
+        req.user as any,
+        redeId,
+        String((req.query as any).tipo || '')
+      );
+      res.json(dados);
+    } catch (err: any) {
+      res.status(err.statusCode || 400).json({ error: err.name || 'Erro', message: err.message });
+    }
+  }
+
   // --- DASHBOARD PASTOR ---
   static async dashboardPastor(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {

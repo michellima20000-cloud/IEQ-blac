@@ -49,6 +49,7 @@ router.get('/relatorios/:id/foto', CelulasController.visualizarFoto);
 // --- CONSOLIDADO DA REDE (LÍDER DE REDE) ---
 router.get('/redes/minha', CelulasController.obterMinhaRede);
 router.get('/redes/:redeId/consolidado', CelulasController.consolidadoRede);
+router.get('/redes/:redeId/consolidado/detalhes', CelulasController.detalhesRede);
 
 // --- DASHBOARD (PASTOR) ---
 router.get('/dashboard/pastor', CelulasController.dashboardPastor);
