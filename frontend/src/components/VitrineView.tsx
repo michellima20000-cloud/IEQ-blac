@@ -36,6 +36,9 @@ export const VitrineView: React.FC = () => {
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [ampliado, setAmpliado] = useState<MidiaPublicada | null>(null);
+  const [layout, setLayout] = useState<'GRID' | 'CARROSSEL' | 'LISTA'>('GRID');
+  const [corPrimaria, setCorPrimaria] = useState('#2563eb');
+  const [corSecundaria, setCorSecundaria] = useState('#f59e0b');
 
   // Paginação incremental: menos iframes/imagens montadas de uma vez
   const listaEventos = useListaIncremental(eventos, 12);
@@ -53,12 +56,22 @@ export const VitrineView: React.FC = () => {
   const carregarDados = async () => {
     setCarregando(true);
     try {
-      const [resMidia, resEventos] = await Promise.all([
+      const [resMidia, resEventos, resVisual] = await Promise.all([
         ApiClient.get('/midia/vitrine'),
-        ApiClient.get('/calendario')
+        ApiClient.get('/calendario'),
+        ApiClient.get('/configuracoes/visual').catch(() => null)
       ]);
       setPublicacoes(resMidia.publicacoes || []);
       setEventos(resEventos.eventos || []);
+      // Identidade visual: layout e cores escolhidos pela equipe de mídia
+      const visual = resVisual?.visual ?? resVisual ?? null;
+      if (visual) {
+        if (visual.layoutDivulgacao === 'GRID' || visual.layoutDivulgacao === 'CARROSSEL' || visual.layoutDivulgacao === 'LISTA') {
+          setLayout(visual.layoutDivulgacao);
+        }
+        if (visual.corPrimaria) setCorPrimaria(visual.corPrimaria);
+        if (visual.corSecundaria) setCorSecundaria(visual.corSecundaria);
+      }
     } catch {
       // Falha graciosa
     } finally {
@@ -75,12 +88,17 @@ export const VitrineView: React.FC = () => {
       {/* Identidade visual da igreja */}
       {/* Título da Vitrine */}
       <div>
-        <span className="eyebrow flex items-center gap-1.5">
+        <span className="eyebrow flex items-center gap-1.5" style={{ color: corPrimaria }}>
           <Megaphone size={12} />
           Comunicação
         </span>
         <h2 className="page-title mt-1.5">Vitrine & Comunicação</h2>
-        <p className="section-sub mt-1">Avisos, destaques, vídeos e agenda oficial da congregação</p>
+        <div
+          className="mt-2 h-1 w-24 rounded-full"
+          style={{ background: `linear-gradient(90deg, ${corPrimaria}, ${corSecundaria})` }}
+          aria-hidden="true"
+        />
+        <p className="section-sub mt-2">Avisos, destaques, vídeos e agenda oficial da congregação</p>
       </div>
 
       {/* Calendário de Eventos */}
@@ -146,14 +164,28 @@ export const VitrineView: React.FC = () => {
             Nenhum aviso ou banner publicado no momento.
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className={
+            layout === 'CARROSSEL'
+              ? 'flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 -mx-4 px-4'
+              : layout === 'LISTA'
+                ? 'flex flex-col gap-3'
+                : 'grid grid-cols-1 sm:grid-cols-2 gap-4'
+          }>
             {listaPublicacoes.visiveis.map((item) => {
               const badge = badgeTipo[item.tipo] || badgeTipo.AVISO;
               const isVideo = item.tipo === 'VIDEO';
+              const ehHorizontal = layout === 'LISTA';
               return (
-                <article key={item.id} className="card overflow-hidden flex flex-col card-hover">
+                <article
+                  key={item.id}
+                  className={`card overflow-hidden flex flex-col card-hover ${
+                    layout === 'CARROSSEL' ? 'snap-start shrink-0 w-[85%] sm:w-[400px]' : ''
+                  } ${ehHorizontal ? 'sm:flex-row gap-0' : ''}`}
+                  style={ehHorizontal ? { flexDirection: 'row' } : undefined}
+                >
+                  {/* Mídia */}
                   {isVideo && item.videoUrl && item.videoUrl.includes('youtube') && (
-                    <div className="aspect-video w-full bg-black">
+                    <div className={ehHorizontal ? 'w-full sm:w-2/5 shrink-0 h-36' : 'aspect-video w-full bg-black'}>
                       <iframe
                         src={item.videoUrl.replace('watch?v=', 'embed/')}
                         className="w-full h-full border-0"
@@ -165,48 +197,48 @@ export const VitrineView: React.FC = () => {
                   )}
 
                   {isVideo && item.arquivoUrl && !item.videoUrl && (
-                    <div className="aspect-video w-full bg-black">
+                    <div className={ehHorizontal ? 'w-full sm:w-2/5 shrink-0 h-36' : 'aspect-video w-full bg-black'}>
                       <video src={item.arquivoUrl} controls className="w-full h-full" title={item.titulo} />
                     </div>
                   )}
 
                   {item.arquivoUrl && !isVideo && (
                     <div
-                      className="relative aspect-video bg-slate-950 overflow-hidden cursor-pointer"
+                      className={`relative bg-slate-950 overflow-hidden cursor-pointer shrink-0 ${
+                        ehHorizontal ? 'w-full sm:w-2/5 h-36 sm:h-auto' : 'aspect-video w-full'
+                      }`}
                       onClick={() => setAmpliado(item)}
                     >
                       <img loading="lazy" decoding="async"
                         src={item.arquivoUrl}
                         alt={item.titulo}
-                        className="w-full h-full object-cover transition-opacity duration-300"
+                        className="w-full h-full object-cover"
                         title={item.titulo}
                       />
-                      {/* Overlay inferior com info aparece ao passar o mouse */}
-                      <div
-                        className="absolute bottom-0 left-0 right-0 bg-slate-950/80 backdrop-blur-sm p-4 transition-all duration-300 group-hover:opacity-100"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className={badge.cor}>{badge.label}</span>
-                          <span className="text-[11px] text-slate-500">
-                            {new Date(item.createdAt).toLocaleDateString('pt-BR')}
-                          </span>
+                      {/* Overlay inferior (não mostra em LISTA: o texto fica ao lado) */}
+                      {layout !== 'LISTA' && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-slate-950/80 p-4">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={badge.cor}>{badge.label}</span>
+                            <span className="text-[11px] text-slate-500">
+                              {new Date(item.createdAt).toLocaleDateString('pt-BR')}
+                            </span>
+                          </div>
+                          <h4 className="text-base font-bold text-white truncate">{item.titulo}</h4>
                         </div>
-                        <h4 className="text-base font-bold text-white truncate">{item.titulo}</h4>
-                        {item.descricao && (
-                          <p className="text-sm text-slate-400 mt-1 line-clamp-2">{item.descricao}</p>
-                        )}
-                      </div>
+                      )}
                     </div>
                   )}
 
                   {!item.arquivoUrl && !item.videoUrl && (
-                    <div className="aspect-video w-full bg-gradient-to-br from-slate-900 to-slate-950 flex items-center justify-center text-slate-700">
+                    <div className={`${ehHorizontal ? 'w-full sm:w-2/5 shrink-0 h-36 sm:h-auto' : 'aspect-video w-full'} bg-gradient-to-br from-slate-900 to-slate-950 flex items-center justify-center text-slate-700`}>
                       <Video size={34} />
                     </div>
                   )}
 
-                  {!item.arquivoUrl && !item.videoUrl && (
-                    <div className="p-4 flex-1 flex flex-col justify-between gap-2">
+                  {/* Texto: em LISTA sempre; nos demais layouts só quando não há mídia (evita duplicar o overlay) */}
+                  {((!item.arquivoUrl && !item.videoUrl) || layout === 'LISTA') && (
+                    <div className={`p-4 flex-1 flex flex-col justify-between gap-2 ${ehHorizontal ? 'min-w-0' : ''}`}>
                       <div>
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <span className={badge.cor}>{badge.label}</span>
@@ -221,11 +253,11 @@ export const VitrineView: React.FC = () => {
                       </div>
                     </div>
                   )}
-                 </article>
-               );
-             })}
-           </div>
-         )}
+                </article>
+              );
+            })}
+          </div>
+        )}
         {listaPublicacoes.restam > 0 && (
           <button onClick={listaPublicacoes.carregarMais} className="btn-ghost btn-sm mx-auto block mt-4">
             Carregar mais ({listaPublicacoes.restam} restantes)
