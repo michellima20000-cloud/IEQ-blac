@@ -166,13 +166,19 @@ rclone copy remote:ieq-backup-nuvem/fotos /data/ieq-files
 
 ## 🧪 Execução de Testes Automatizados
 
-O backend possui suíte de testes de permissão, RBAC, autenticação, trava de relatórios, módulo de mídia, vitrine pública e ciclo de vida de armazenamento sem dependências externas:
+O backend possui suíte de testes de permissão, RBAC, autenticação, trava de relatórios, módulo de mídia, upload de arquivos, vitrine pública e ciclo de vida de armazenamento sem dependências externas:
 
 ```bash
 cd backend
-node --experimental-strip-types --test tests/permissions.node.mjs tests/auth_usuarios.node.mjs tests/celulas_relatorios.node.mjs tests/midia_aprovacao.node.mjs tests/storage_limpeza.node.mjs tests/vitrine_publica.node.mjs
+npm test
+# ou a lista completa:
+node --experimental-strip-types --test tests/permissions.node.mjs tests/auth_usuarios.node.mjs tests/celulas_relatorios.node.mjs tests/midia_aprovacao.node.mjs tests/midia_upload.node.mjs tests/storage_limpeza.node.mjs tests/vitrine_publica.node.mjs
 ```
-**Resultado esperado:** 58 testes passando, 0 falhas.
+**Resultado esperado:** 66 testes passando, 0 falhas.
+
+### Upload de mídia para a vitrine
+- O app envia o arquivo no campo **`arquivo`** e a API usa **`arquivos`**: o back aceita **os dois** nomes (`backend/src/utils/upload.ts`), evitando o erro *"Unexpected file field"*.
+- Sem a biblioteca `sharp` (Docker), o arquivo original é salvo com o **MIME real** (JPEG/PNG/WebP/MP4) — nunca rotulado como `image/webp` — para o navegador exibir a imagem na vitrine.
 
 ---
 

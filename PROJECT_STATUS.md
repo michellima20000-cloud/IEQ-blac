@@ -16,8 +16,8 @@ $ npm run build
 ## Status dos Testes
 ```
 $ npm test
-  ✓ 58 testes unitários passando
-  ✓ 29 suites de teste
+  ✓ 66 testes unitários passando
+  ✓ 33 suites de teste
   ✓ 0 falhas
   ✓ 0 cancelamentos
 ```
@@ -31,6 +31,7 @@ $ npm test
 - Storage service
 - Mídia, aprovação, calendário e vitrine
 - Vitrine pública por slug (conteúdo publicado, agenda futura e rota sem autenticação)
+- Upload de mídia (campo "arquivo"/"arquivos", normalização e MIME real)
 - Isolamento multi-tenant
 
 ## 🔗 Vitrine Pública (link compartilhável sem login)
@@ -41,15 +42,17 @@ $ npm test
 - Botões "Copiar"/"Abrir" na aba Visual (Mídia) e no painel de Aprovações (Pastor)
 - Testes: `backend/tests/vitrine_publica.node.mjs` (8 testes)
 
-## Commit Atual: a13f319
+## Commit Atual: 0e49465
 Conteúdo:
+- Correção do upload para a vitrine (campo "arquivo" do app aceito no back)
+- MIME real do arquivo no fallback sem sharp
 - Vitrine pública por slug (link compartilhável sem login)
 - API pública /publico/vitrine/:slug + cache de 60s
 - Página pública /vitrine/<slug> com a identidade visual da igreja
 - RBAC permissions
 - cleanup/service/backup/API
 - Frontend build passing
-- 58/58 unit tests passing
+- 66/66 unit tests passing
 
 ## Qualidade do Code
 - Frontend: TypeScript/Vite build - SEM ERROS
@@ -73,7 +76,7 @@ Obs3: API publica no Render: https://ieq-black.onrender.com/api/v1/publico/vitri
 ## Resumo Executivo
 Projeto IEQ - Painel Pastoral Igreja
 - Build: OK
-- Testes: 58/58 passando  
+- Testes: 66/66 passando  
 - Deploy: Vercel configurado (auto-deploy via GitHub) + Render para a API
 - Commit: a13f319 (vitrine pública + todas melhorias anteriores)
 - Autor: michellima20000-cloud
