@@ -67,23 +67,37 @@ export function verifyJwt(token: string, secret: string): any {
   return payload;
 }
 
+function scryptAsync(password: string, salt: string, keylen: number): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    crypto.scrypt(password, salt, keylen, (err, derivedKey) => {
+      if (err) reject(err);
+      else resolve(derivedKey as Buffer);
+    });
+  });
+}
+
 export async function hashPassword(password: string): Promise<string> {
   const salt = crypto.randomBytes(16).toString('hex');
-  const derivedKey = crypto.scryptSync(password, salt, 64);
+  const derivedKey = await scryptAsync(password, salt, 64);
   return `$scrypt$${salt}$${derivedKey.toString('hex')}`;
 }
 
 export async function comparePassword(password: string, hash: string): Promise<boolean> {
-  if (hash.startsWith('$scrypt$')) {
-    const parts = hash.split('$');
-    const salt = parts[2];
-    const key = parts[3];
-    const derivedKey = crypto.scryptSync(password, salt, 64);
-    return key === derivedKey.toString('hex');
-  }
+  try {
+    if (hash.startsWith('$scrypt$')) {
+      const parts = hash.split('$');
+      const salt = parts[2];
+      const key = parts[3];
+      if (!salt || !key) return false;
+      const derivedKey = await scryptAsync(password, salt, 64);
+      return crypto.timingSafeEqual(Buffer.from(key, 'hex'), derivedKey);
+    }
 
-  // Hash bcrypt legado — não suportado sem módulo nativo
-  // Nunca deve chegar aqui em produção (seed usa scrypt)
-  return false;
+    // Hash bcrypt legado — não suportado sem módulo nativo
+    // Nunca deve chegar aqui em produção (seed usa scrypt)
+    return false;
+  } catch {
+    return false;
+  }
 }
 
