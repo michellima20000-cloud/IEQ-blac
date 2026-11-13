@@ -1,22 +1,24 @@
+import { createReadStream } from 'node:fs';
 import { prisma } from '../../config/prisma.ts';
 import { PermissaoError } from '../../permissions/rules.ts';
 import type { UsuarioAutenticado } from '../../permissions/types.ts';
 import type { CriarMidiaInput, AtualizarMidiaInput, DevolverMidiaInput } from './midia.schemas.ts';
+import { TAMANHO_PARTE_ARQUIVO } from '../../utils/upload.ts';
 
 /**
  * Arquivo binário enviado pelo usuário (vídeo).
- * Vai para o banco em bytes crus: base64 estourava a memória da API
- * (upload de 20 MB derrubava o servidor) e devolvia MBs no JSON.
+ * Vai para o banco em pedaços de 4 MB: base64 ou bytea gigante estouravam
+ * a memória da API (upload de 20 MB derrubava o servidor no Render free).
  */
 export interface ArquivoEnviado {
-  bytes: Buffer;
+  caminho: string;
   mimeType: string;
   nomeOriginal: string;
   tamanho: number;
 }
 
 /**
- * Campos devolvidos pela API. `arquivoBytes` fica de fora de propósito:
+ * Campos devolvidos pela API. Os bytes do arquivo NÃO entram aqui:
  * serializar um Buffer no JSON gera megabytes de array numérico.
  */
 const selectMidia = {
@@ -41,7 +43,7 @@ export class MidiaService {
   /**
    * Criação de conteúdo pela equipe de Mídia ou pelo Pastor
    */
-  static async criar(usuario: UsuarioAutenticado, dados: CriarMidiaInput, arquivo?: ArquivoEnviado | null) {
+  static async criar(usuario: UsuarioAutenticado, dados: CriarMidiaInput) {
     if (usuario.perfil !== 'MIDIA' && usuario.perfil !== 'PASTOR') {
       throw new PermissaoError('Apenas os perfis Mídia e Pastor podem criar conteúdos de divulgação.');
     }
@@ -53,7 +55,7 @@ export class MidiaService {
     }
 
     const autorId = usuario.id || (usuario as any).sub;
-    const criado = await prisma.conteudoMidia.create({
+    return prisma.conteudoMidia.create({
       data: {
         igreja_id: usuario.igreja_id,
         autorId,
@@ -62,28 +64,77 @@ export class MidiaService {
         descricao: dados.descricao || null,
         arquivoUrl: dados.arquivoUrl || null,
         videoUrl: dados.videoUrl || null,
-        status: status as any,
-        ...(arquivo ? {
-          arquivoBytes: arquivo.bytes,
-          arquivoMimeType: arquivo.mimeType,
-          nomeOriginal: arquivo.nomeOriginal,
-          tamanhoArquivoBytes: arquivo.tamanho
-        } : {})
+        status: status as any
       },
       select: selectMidia
     });
+  }
 
-    // O arquivo binário é servido por /midia/:id/arquivo (com Range).
-    // Guardamos o caminho relativo para o front montar a URL absoluta.
-    if (arquivo) {
-      return prisma.conteudoMidia.update({
-        where: { id: criado.id },
-        data: { arquivoUrl: `/midia/${criado.id}/arquivo` },
-        select: selectMidia
-      });
+  /**
+   * Grava o arquivo enviado (vídeo) no banco, em pedaços de 4 MB.
+   * O arquivo é lido do disco em fluxo: a memória da API não precisa
+   * segurar o vídeo inteiro.
+   */
+  static async salvarArquivo(conteudoId: string, arquivo: ArquivoEnviado) {
+    const stream = createReadStream(arquivo.caminho, { highWaterMark: TAMANHO_PARTE_ARQUIVO });
+    let ordem = 0;
+
+    try {
+      for await (const pedaco of stream) {
+        const bytes = pedaco as Buffer;
+        if (bytes.length === 0) continue;
+        await prisma.midiaArquivoParte.create({
+          data: {
+            conteudoId,
+            ordem: ordem++,
+            bytes,
+            tamanho: bytes.length
+          }
+        });
+      }
+    } catch (erro) {
+      // Não deixa metade do arquivo no banco
+      await prisma.midiaArquivoParte.deleteMany({ where: { conteudoId } });
+      throw erro;
     }
 
-    return criado;
+    // O arquivo é servido por /midia/:id/arquivo (com Range).
+    // Guardamos o caminho relativo para o front montar a URL absoluta.
+    return prisma.conteudoMidia.update({
+      where: { id: conteudoId },
+      data: {
+        arquivoUrl: `/midia/${conteudoId}/arquivo`,
+        arquivoMimeType: arquivo.mimeType,
+        nomeOriginal: arquivo.nomeOriginal,
+        tamanhoArquivoBytes: arquivo.tamanho
+      },
+      select: selectMidia
+    });
+  }
+
+  /**
+   * Metadados dos pedaços (sem os bytes) + tamanho total do arquivo.
+   * Usado para responder com Range sem carregar o vídeo inteiro na memória.
+   */
+  static async listarPartes(conteudoId: string) {
+    const partes = await prisma.midiaArquivoParte.findMany({
+      where: { conteudoId },
+      orderBy: { ordem: 'asc' },
+      select: { id: true, ordem: true, tamanho: true }
+    });
+    const total = partes.reduce((soma, parte) => soma + parte.tamanho, 0);
+    return { partes, total };
+  }
+
+  /** Bytes de um pedaço específico do arquivo. */
+  static async obterParte(parteId: string): Promise<Buffer | null> {
+    const parte = await prisma.midiaArquivoParte.findUnique({
+      where: { id: parteId },
+      select: { bytes: true }
+    });
+    if (!parte) return null;
+    const bytes = parte.bytes as any;
+    return Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
   }
 
   /**

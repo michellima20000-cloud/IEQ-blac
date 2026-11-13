@@ -33,3 +33,26 @@ export function normalizarArquivos(files: any): any[] {
 
   return [];
 }
+
+/**
+ * Tamanho de cada pedaço do arquivo gravado no banco (4 MB).
+ * Um vídeo de 50 MB vira 13 pedaços: o banco nunca recebe um bytea gigante
+ * (que estourava a memória da API) e o arquivo pode ser servido em partes.
+ */
+export const TAMANHO_PARTE_ARQUIVO = 4 * 1024 * 1024;
+
+/**
+ * Divide um buffer em pedaços de tamanho fixo.
+ * O último pedaço pode ser menor.
+ */
+export function dividirEmPartes(
+  buffer: Buffer,
+  tamanhoParte: number = TAMANHO_PARTE_ARQUIVO
+): Buffer[] {
+  if (!buffer || buffer.length === 0) return [];
+  const partes: Buffer[] = [];
+  for (let inicio = 0; inicio < buffer.length; inicio += tamanhoParte) {
+    partes.push(buffer.subarray(inicio, Math.min(inicio + tamanhoParte, buffer.length)));
+  }
+  return partes;
+}

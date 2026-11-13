@@ -1,6 +1,7 @@
 ﻿import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert';
 import express from 'express';
+import { unlink } from 'node:fs/promises';
 import { normalizarArquivos } from '../src/utils/upload.ts';
 import { detectarMimeType } from '../src/services/imageProcessor.ts';
 import { uploadMidia, camposArquivo } from '../src/modules/midia/midia.routes.ts';
@@ -18,9 +19,12 @@ describe('Etapa 7 - Upload de midia para a vitrine (campo do arquivo)', () => {
     const app = express();
     app.post('/upload', uploadMidia.fields(camposArquivo), (req, res) => {
       const arquivos = normalizarArquivos(req.files);
+      // O multer grava em disco: o arquivo temporário é apagado depois
+      Promise.all(arquivos.map((a) => (a?.path ? unlink(a.path).catch(() => {}) : null)));
       res.json({
         quantidade: arquivos.length,
-        nome: arquivos[0]?.originalname || null
+        nome: arquivos[0]?.originalname || null,
+        emDisco: !!arquivos[0]?.path
       });
     });
     server = app.listen(0);
@@ -69,6 +73,7 @@ describe('Etapa 7 - Upload de midia para a vitrine (campo do arquivo)', () => {
       const json = JSON.parse(corpo);
       assert.strictEqual(json.quantidade, 1);
       assert.strictEqual(json.nome, 'teste.png');
+      assert.ok(json.emDisco, 'O upload deve gravar o arquivo em disco (memória baixa na API)');
     });
 
     it('continua aceitando o campo plural "arquivos" (API e integracoes)', async () => {

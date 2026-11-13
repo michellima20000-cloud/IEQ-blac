@@ -1,4 +1,7 @@
 import type { Response } from 'express';
+import { readFile, unlink, writeFile, open } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { prisma } from '../../config/prisma.ts';
 import { ENV } from '../../config/env.ts';
 import { verifyJwt } from '../../config/cryptoUtils.ts';
@@ -22,13 +25,15 @@ import type {
 export class MidiaController {
   // --- MÍDIA & VITRINE ---
   static async criar(req: AuthenticatedRequest, res: Response): Promise<void> {
+    // O multer.array('arquivos') pode retornar undefined (nenhum arquivo) ou um array de file objects
+    // O multer pode entregar os arquivos como array (campo único) ou objeto
+    // (vários campos aceitos). A normalização garante os dois formatos.
+    const arquivos = normalizarArquivos((req as any).files);
+    const temporarios: string[] = [];
+
     try {
-      // O multer.array('arquivos') pode retornar undefined (nenhum arquivo) ou um array de file objects
-      // O multer pode entregar os arquivos como array (campo único) ou objeto
-      // (vários campos aceitos). A normalização garante os dois formatos.
-      const arquivos = normalizarArquivos((req as any).files);
       let arquivoUrl: string | null = null;
-      let arquivoEnviado: ArquivoEnviado | null = null;
+      let arquivoVideo: ArquivoEnviado | null = null;
       let tamanhoArquivoBytes = 0;
       let arquivoEhVideo = false;
 
@@ -36,24 +41,26 @@ export class MidiaController {
         // Processa apenas o primeiro arquivo selecionado (para manter compatibilidade com o schema único de arquivoUrl)
         const arquivo = arquivos[0];
         const mimeEnviado = String(arquivo.mimetype || '').toLowerCase();
+        const caminho = await MidiaController.caminhoDoArquivo(arquivo, temporarios);
 
         if (mimeEnviado.startsWith('video/')) {
-          // VÍDEO: os bytes crus vão para o banco (nada de base64 no JSON).
-          // Base64 de vídeo estourava a memória da API e derrubava o servidor
-          // (upload acima de ~15 MB voltava com 502).
-          const mimeReal = detectarMimeType(arquivo.buffer);
+          // VÍDEO: o arquivo vai para o banco em pedaços de 4 MB.
+          // Base64 (ou até um bytea gigante) estourava a memória da API e
+          // derrubava o servidor: upload acima de ~15 MB voltava com 502.
+          const mimeReal = detectarMimeType(await MidiaController.lerInicio(caminho, 32));
           const mimeType = mimeDeVideoValido(mimeReal) ? mimeReal : mimeEnviado;
-          arquivoEnviado = {
-            bytes: arquivo.buffer,
+          arquivoVideo = {
+            caminho,
             mimeType,
             nomeOriginal: arquivo.originalname,
-            tamanho: arquivo.buffer.length
+            tamanho: Number(arquivo.size) || 0
           };
-          tamanhoArquivoBytes = arquivo.buffer.length;
+          tamanhoArquivoBytes = arquivoVideo.tamanho;
           arquivoEhVideo = true;
         } else {
           // IMAGEM: converte para WebP e guarda como data URL (comportamento antigo).
-          const processed = await ImageProcessor.processToWebP(arquivo.buffer, {
+          const buffer = await readFile(caminho);
+          const processed = await ImageProcessor.processToWebP(buffer, {
             maxWidth: 1280,
             quality: 80
           });
@@ -83,7 +90,19 @@ export class MidiaController {
             precisaAprovacao
           });
 
-      const conteudo = await MidiaService.criar(req.user as any, dados, arquivoEnviado);
+      const criado = await MidiaService.criar(req.user as any, dados);
+
+      let conteudo = criado;
+      if (arquivoVideo) {
+        try {
+          conteudo = await MidiaService.salvarArquivo(criado.id, arquivoVideo);
+        } catch (erro) {
+          // Não deixa conteúdo sem arquivo publicado
+          await prisma.conteudoMidia.delete({ where: { id: criado.id } }).catch(() => undefined);
+          throw erro;
+        }
+      }
+
       // Qualquer criação pode mudar o que aparece na vitrine
       await cacheDel(chavesCache.vitrine(req.user!.igreja_id), chavesCache.vitrinePublica(req.user!.igreja_id));
       res.status(201).json({
@@ -94,16 +113,52 @@ export class MidiaController {
       });
     } catch (err: any) {
       res.status(err.statusCode || 400).json({ error: err.name || 'Erro', message: err.message });
+    } finally {
+      // Os arquivos temporários do upload são apagados sempre
+      await Promise.all(
+        temporarios.map((caminho) => unlink(caminho).catch(() => undefined))
+      );
     }
   }
 
-  // --- ARQUIVO DO CONTEÚDO (VÍDEO/IMAGEM GRAVADOS NO BANCO) ---
+  /**
+   * Caminho do arquivo enviado (o multer grava em disco).
+   * Se vier em memória (integrações antigas), grava em arquivo temporário.
+   */
+  private static async caminhoDoArquivo(arquivo: any, temporarios: string[]): Promise<string> {
+    if (arquivo?.path) return String(arquivo.path);
+
+    const buffer: Buffer | undefined = arquivo?.buffer;
+    if (!buffer) {
+      throw new Error('Arquivo não encontrado no upload.');
+    }
+    const caminho = join(tmpdir(), `ieq-midia-${Date.now()}-${Math.round(Math.random() * 1e9)}.bin`);
+    await writeFile(caminho, buffer);
+    temporarios.push(caminho);
+    return caminho;
+  }
+
+  /** Lê os primeiros bytes do arquivo (para identificar o formato real). */
+  private static async lerInicio(caminho: string, quantidade: number): Promise<Buffer> {
+    const arquivo = await open(caminho, 'r');
+    try {
+      const buffer = Buffer.alloc(quantidade);
+      const { bytesRead } = await arquivo.read(buffer, 0, quantidade, 0);
+      return buffer.subarray(0, bytesRead);
+    } finally {
+      await arquivo.close();
+    }
+  }
+
+  // --- ARQUIVO DO CONTEÚDO (VÍDEO GRAVADO NO BANCO EM PEDAÇOS) ---
   /**
    * Serve o arquivo do conteúdo (vídeo enviado pela equipe de Mídia).
    *
    * - Conteúdo PUBLICADO é público (é o que aparece na vitrine compartilhável).
    * - Os demais exigem um usuário autenticado da mesma igreja.
    * - Suporta Range para o navegador conseguir navegar/assistir o vídeo.
+   * - Os pedaços (4 MB cada) são lidos um de cada vez: a memória não carrega
+   *   o vídeo inteiro.
    */
   static async servirArquivo(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
@@ -115,13 +170,18 @@ export class MidiaController {
           igreja_id: true,
           status: true,
           titulo: true,
-          arquivoBytes: true,
           arquivoMimeType: true,
           nomeOriginal: true
         }
       });
 
-      if (!conteudo || !conteudo.arquivoBytes) {
+      if (!conteudo) {
+        res.status(404).json({ error: 'NaoEncontrado', message: 'Arquivo não encontrado.' });
+        return;
+      }
+
+      const { partes, total } = await MidiaService.listarPartes(id);
+      if (!partes.length || total === 0) {
         res.status(404).json({ error: 'NaoEncontrado', message: 'Arquivo não encontrado.' });
         return;
       }
@@ -130,26 +190,17 @@ export class MidiaController {
         res.status(404).json({ error: 'NaoEncontrado', message: 'Arquivo não encontrado.' });
         return;
       }
-      const bytes = Buffer.isBuffer(conteudo.arquivoBytes)
-        ? conteudo.arquivoBytes
-        : Buffer.from(conteudo.arquivoBytes as any);
-      const total = bytes.length;
 
-      res.setHeader('Content-Type', conteudo.arquivoMimeType || 'application/octet-stream');
-      res.setHeader('Accept-Ranges', 'bytes');
-      res.setHeader(
-        'Cache-Control',
-        conteudo.status === 'PUBLICADO' ? 'public, max-age=86400' : 'private, max-age=3600'
-      );
-      if (conteudo.nomeOriginal) {
-        res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(conteudo.nomeOriginal)}"`);
-      }
+      let inicio = 0;
+      let fim = total - 1;
+      let parcial = false;
 
       const range = req.headers.range;
       const match = range ? /bytes=(\d*)-(\d*)/.exec(String(range)) : null;
       if (match) {
-        let inicio = match[1] ? parseInt(match[1], 10) : 0;
-        let fim = match[2] ? parseInt(match[2], 10) : total - 1;
+        parcial = true;
+        inicio = match[1] ? parseInt(match[1], 10) : 0;
+        fim = match[2] ? parseInt(match[2], 10) : total - 1;
         if (Number.isNaN(inicio) || inicio < 0) inicio = 0;
         if (Number.isNaN(fim) || fim >= total) fim = total - 1;
 
@@ -158,16 +209,43 @@ export class MidiaController {
           res.end();
           return;
         }
-
-        res.status(206);
-        res.setHeader('Content-Range', `bytes ${inicio}-${fim}/${total}`);
-        res.setHeader('Content-Length', String(fim - inicio + 1));
-        res.end(bytes.subarray(inicio, fim + 1));
-        return;
       }
 
-      res.setHeader('Content-Length', String(total));
-      res.end(bytes);
+      res.setHeader('Content-Type', conteudo.arquivoMimeType || 'application/octet-stream');
+      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader(
+        'Cache-Control',
+        conteudo.status === 'PUBLICADO' ? 'public, max-age=86400' : 'private, max-age=3600'
+      );
+      res.setHeader('Content-Length', String(fim - inicio + 1));
+      if (conteudo.nomeOriginal) {
+        res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(conteudo.nomeOriginal)}"`);
+      }
+      if (parcial) {
+        res.status(206);
+        res.setHeader('Content-Range', `bytes ${inicio}-${fim}/${total}`);
+      }
+
+      // Envia apenas os pedaços que intersectam o intervalo pedido
+      let posicao = 0;
+      for (const parte of partes) {
+        const parteInicio = posicao;
+        const parteFim = posicao + parte.tamanho - 1;
+        posicao = parteFim + 1;
+
+        if (parteFim < inicio || parteInicio > fim) continue;
+
+        const bytes = await MidiaService.obterParte(parte.id);
+        if (!bytes || bytes.length === 0) continue;
+
+        const corteInicio = Math.max(0, inicio - parteInicio);
+        const corteFim = Math.min(bytes.length - 1, fim - parteInicio);
+        if (corteFim < corteInicio) continue;
+
+        res.write(bytes.subarray(corteInicio, corteFim + 1));
+      }
+
+      res.end();
     } catch (err: any) {
       res.status(err.statusCode || 400).json({ error: err.name || 'Erro', message: err.message });
     }

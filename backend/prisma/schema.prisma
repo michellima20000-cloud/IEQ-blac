@@ -182,6 +182,20 @@ model RelatorioCelula {
   @@map("relatorios_celulas")
 }
 
+model MidiaArquivoParte {
+  id         String   @id @default(uuid())
+  conteudoId String
+  ordem      Int
+  bytes      Bytes
+  tamanho    Int
+  createdAt  DateTime @default(now())
+
+  conteudo ConteudoMidia @relation(fields: [conteudoId], references: [id], onDelete: Cascade)
+
+  @@index([conteudoId, ordem])
+  @@map("midia_arquivo_partes")
+}
+
 model ConteudoMidia {
   id               String      @id @default(uuid())
   igreja_id        String
@@ -191,9 +205,9 @@ model ConteudoMidia {
   descricao        String?
   arquivoUrl       String?
   videoUrl         String?
-  // Arquivo binário guardado no próprio banco (vídeo): evita base64 gigante
-  // no JSON e na base, que travava o envio de vídeos para a vitrine.
-  arquivoBytes     Bytes?
+  // Metadados do arquivo gravado (vídeo). Os bytes ficam na tabela
+  // midia_arquivo_partes, em pedaços de 4 MB: um vídeo inteiro em um único
+  // bytea estourava a memória da API (upload de 20 MB+ derrubava o servidor).
   arquivoMimeType  String?
   nomeOriginal     String?
   tamanhoArquivoBytes Int?
@@ -204,6 +218,7 @@ model ConteudoMidia {
 
   igreja           Igreja      @relation(fields: [igreja_id], references: [id], onDelete: Cascade)
   autor            Usuario     @relation(fields: [autorId], references: [id], onDelete: Restrict)
+  partes           MidiaArquivoParte[]
 
   @@index([igreja_id])
   @@index([status])

@@ -1,9 +1,10 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
+import { readFile } from 'node:fs/promises';
 import { detectarMimeType, mimeDeVideoValido } from '../src/services/imageProcessor.ts';
 import { criarMidiaSchema } from '../src/modules/midia/midia.schemas.ts';
-import { authMiddleware } from '../src/middlewares/auth.ts';
-import midiaRoutes from '../src/modules/midia/midia.routes.ts';
+import { dividirEmPartes, TAMANHO_PARTE_ARQUIVO } from '../src/utils/upload.ts';
+import arquivoPublicoRoutes from '../src/modules/midia/arquivo.publico.routes.ts';
 
 function mp4(marca = 'isom') {
   const buf = Buffer.alloc(32);
@@ -65,18 +66,65 @@ describe('Etapa 8 - Video para a vitrine (upload sem base64)', () => {
     });
   });
 
-  describe('3. Rota publica do arquivo (vitrine compartilhavel sem login)', () => {
-    it('deve servir /midia/:id/arquivo ANTES do authMiddleware', () => {
-      const camadas = midiaRoutes.stack;
-      const indiceArquivo = camadas.findIndex((l) => l.route && l.route.path === '/midia/:id/arquivo');
-      const indiceAuth = camadas.findIndex((l) => !l.route && l.handle === authMiddleware);
+  describe('3. Arquivo gravado em pedaços (memoria baixa na API)', () => {
+    it('deve dividir o video em pedaços de 4 MB', () => {
+      assert.strictEqual(TAMANHO_PARTE_ARQUIVO, 4 * 1024 * 1024);
+      const video = Buffer.alloc(TAMANHO_PARTE_ARQUIVO * 2 + 1024, 7);
+      const partes = dividirEmPartes(video);
 
-      assert.ok(indiceArquivo >= 0, 'A rota do arquivo precisa existir');
-      assert.ok(indiceAuth >= 0, 'O midia.routes precisa manter o authMiddleware');
+      assert.strictEqual(partes.length, 3);
+      assert.strictEqual(partes[0].length, TAMANHO_PARTE_ARQUIVO);
+      assert.strictEqual(partes[1].length, TAMANHO_PARTE_ARQUIVO);
+      assert.strictEqual(partes[2].length, 1024);
+      assert.strictEqual(partes.reduce((s, p) => s + p.length, 0), video.length);
+    });
+
+    it('nao pode gerar pedaco maior que o limite (bytea gigante estourava a API)', () => {
+      const video = Buffer.alloc(TAMANHO_PARTE_ARQUIVO * 3, 3);
+      for (const parte of dividirEmPartes(video)) {
+        assert.ok(parte.length <= TAMANHO_PARTE_ARQUIVO);
+      }
+    });
+
+    it('deve devolver lista vazia para arquivo sem conteudo', () => {
+      assert.deepStrictEqual(dividirEmPartes(Buffer.alloc(0)), []);
+    });
+  });
+
+  describe('4. Rota publica do arquivo (vitrine compartilhavel sem login)', () => {
+    it('deve expor somente a rota do arquivo, sem autenticacao obrigatoria', () => {
+      const rotas = arquivoPublicoRoutes.stack.filter((l) => l.route);
+      assert.strictEqual(rotas.length, 1);
+      assert.strictEqual(rotas[0].route.path, '/midia/:id/arquivo');
+      assert.strictEqual(rotas[0].route.stack.length, 1, 'Nenhum middleware de autenticacao na rota publica');
+    });
+
+    it('deve montar a rota publica ANTES do router de celulas (que exige token)', async () => {
+      // Lê o arquivo de rotas: o router de células aplica authMiddleware em
+      // TODOS os caminhos, então a rota pública precisa ser montada antes dele.
+      const fonte = await readFile(new URL('../src/routes.ts', import.meta.url), 'utf8');
+      const indiceArquivo = fonte.indexOf("v1Router.use('/', arquivoPublicoRoutes)");
+      const indiceCelulas = fonte.indexOf("v1Router.use('/', celulasRoutes)");
+
+      assert.ok(indiceArquivo >= 0, 'O router publico do arquivo precisa ser montado');
+      assert.ok(indiceCelulas >= 0, 'O router de celulas precisa ser montado');
       assert.ok(
-        indiceArquivo < indiceAuth,
-        'A rota do arquivo deve ser registrada antes do authMiddleware (vitrine publica sem login)'
+        indiceArquivo < indiceCelulas,
+        'A rota do arquivo deve vir antes do router de celulas (que exige autenticacao em todos os caminhos)'
       );
+    });
+
+    it('NUNCA pode expor dados de celulas, membros, visitantes ou relatórios', () => {
+      const caminhos = arquivoPublicoRoutes.stack.filter((l) => l.route).map((l) => l.route.path);
+      const proibidos = ['celula', 'membro', 'visitante', 'relatorio'];
+      for (const caminho of caminhos) {
+        for (const termo of proibidos) {
+          assert.ok(
+            !caminho.toLowerCase().includes(termo),
+            `Rota pública não pode expor dados sensíveis: ${caminho}`
+          );
+        }
+      }
     });
   });
 });
