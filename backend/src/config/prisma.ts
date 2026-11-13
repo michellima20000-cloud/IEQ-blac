@@ -1,22 +1,25 @@
-let prismaInstance: any;
+import type { PrismaClient as PrismaClientType } from '@prisma/client';
 
-try {
-  const { PrismaClient } = await import('@prisma/client');
-  prismaInstance = new PrismaClient();
-} catch {
-  // Mock gracioso para testes unitários locais antes do primeiro npm install / docker compose
-  prismaInstance = new Proxy({}, {
-    get: (_target, prop) => {
-      if (prop === '$disconnect' || prop === '$connect') {
-        return async () => {};
+const globalForPrisma = globalThis as unknown as { __prisma?: PrismaClientType };
+
+async function criarPrisma() {
+  try {
+    const { PrismaClient } = await import('@prisma/client');
+    return new PrismaClient({
+      log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+    }) as any;
+  } catch {
+    // Mock gracioso para ambientes sem client gerado/instalado
+    return new Proxy({}, {
+      get: (_target, prop) => {
+        if (prop === '$disconnect' || prop === '$connect') return async () => {};
+        return new Proxy({}, {
+          get: () => async () => null
+        });
       }
-      return new Proxy({}, {
-        get: (_subTarget, _method) => {
-          return async () => null;
-        }
-      });
-    }
-  });
+    }) as any;
+  }
 }
 
-export const prisma = prismaInstance;
+export const prisma: PrismaClientType = globalForPrisma.__prisma ?? (await criarPrisma());
+if (!globalForPrisma.__prisma) globalForPrisma.__prisma = prisma as any;

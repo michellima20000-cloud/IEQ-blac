@@ -29,7 +29,8 @@ export function authMiddleware(req: AuthenticatedRequest, res: any, next: (err?:
     return;
   }
 
-  const parts = authHeader.split(' ');
+  const headerValue = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+  const parts = headerValue.split(' ');
   if (parts.length !== 2 || parts[0] !== 'Bearer') {
     res.status(401).json({
       error: 'Token inválido',

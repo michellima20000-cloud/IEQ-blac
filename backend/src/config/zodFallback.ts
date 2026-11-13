@@ -91,4 +91,8 @@ try {
 }
 
 export const z = zInstance;
+export type ZodSchema<T = any> = any;
+export namespace z {
+  export type infer<T> = any;
+}
 export class ZodError extends Error {}

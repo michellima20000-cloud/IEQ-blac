@@ -44,11 +44,12 @@ app.use(cors({
 }));
 
 // 2. Middlewares essenciais
+app.disable('x-powered-by');
 app.use(globalRateLimiter);
-// Gzip: listas de mídia/relatórios carregam imagens em base64 (MBs);
-// sem compressão o payload fica pesado e lento em conexões móveis.
-app.use(compression());
-app.use(express.json({ limit: '75mb' }));
+// Gzip: respostas JSON/listas ficam menores em conexões móveis.
+app.use(compression({ threshold: 1024 }));
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ extended: false, limit: '2mb' }));
 
 // 3. Documentação Swagger/OpenAPI
 app.use('/api/v1/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));

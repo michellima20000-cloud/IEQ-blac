@@ -86,7 +86,7 @@ function escritaRedisAtiva(): boolean {
   return true;
 }
 
-function marcarFalhaEscrita(): void {
+function marcarFalhaEscrita(_chave?: string): void {
   redisEscritaOk = false;
   redisEscritaBloqueadaAte = Date.now() + 5 * 60 * 1000;
 }
