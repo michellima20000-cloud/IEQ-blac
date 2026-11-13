@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { AdminController } from './admin.controller.ts';
 import { authMiddleware } from '../../middlewares/auth.ts';
 import { requirePerfil } from '../../middlewares/rbac.ts';
-import { PermissaoError } from '../../permissions/rules.ts';
 import { ENV } from '../../config/env.ts';
 import { exigirSegredoManutencao } from '../../middlewares/setupSecret.ts';
 import { validate } from '../../middlewares/validate.ts';
