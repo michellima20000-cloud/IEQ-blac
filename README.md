@@ -174,14 +174,15 @@ npm test
 # ou a lista completa:
 node --experimental-strip-types --test tests/permissions.node.mjs tests/auth_usuarios.node.mjs tests/celulas_relatorios.node.mjs tests/midia_aprovacao.node.mjs tests/midia_upload.node.mjs tests/midia_video.node.mjs tests/storage_limpeza.node.mjs tests/vitrine_publica.node.mjs
 ```
-**Resultado esperado:** 72 testes passando, 0 falhas.
+**Resultado esperado:** 77 testes passando, 0 falhas.
 
 ### Upload de mídia para a vitrine
 - O app envia o arquivo no campo **`arquivo`** e a API usa **`arquivos`**: o back aceita **os dois** nomes (`backend/src/utils/upload.ts`), evitando o erro *"Unexpected file field"*.
 - Sem a biblioteca `sharp` (Docker), o arquivo original é salvo com o **MIME real** (JPEG/PNG/WebP/MP4) — nunca rotulado como `image/webp` — para o navegador exibir a imagem na vitrine.
 
 ### Vídeo para a vitrine (arquivo enviado, não link)
-- O **vídeo é gravado em bytes no próprio banco** (`conteudos_midia.arquivoBytes`), **sem base64 no JSON**: o base64 estourava a memória da API e o envio de vídeos acima de ~15 MB voltava com erro 502.
+- O **vídeo é gravado em pedaços de 4 MB** no banco (tabela `midia_arquivo_partes`), **sem base64 no JSON**: o base64 estourava a memória da API e o envio de vídeos acima de ~15 MB voltava com erro 502.
+- O upload vai para o **disco** e é lido em fluxo: a API nunca segura o vídeo inteiro na memória.
 - O arquivo é servido por **`GET /api/v1/midia/:id/arquivo`**, com suporte a **Range** (o navegador consegue navegar pelo vídeo) e MIME real (MP4, MOV, WebM, AVI, OGG).
 - **Quem pode acessar:** conteúdo **PUBLICADO** é público (é o que aparece na vitrine compartilhável); pendente/devolvido só para usuário da mesma igreja (header `Bearer` ou `?token=`).
 - Limite de **50 MB** por arquivo. Imagens continuam sendo convertidas para WebP e guardadas como `data:` URL.

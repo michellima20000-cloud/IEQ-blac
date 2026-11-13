@@ -16,8 +16,8 @@ $ npm run build
 ## Status dos Testes
 ```
 $ npm test
-  ✓ 72 testes unitários passando
-  ✓ 37 suites de teste
+  ✓ 77 testes unitários passando
+  ✓ 38 suites de teste
   ✓ 0 falhas
   ✓ 0 cancelamentos
 ```
@@ -32,20 +32,26 @@ $ npm test
 - Mídia, aprovação, calendário e vitrine
 - Vitrine pública por slug (conteúdo publicado, agenda futura e rota sem autenticação)
 - Upload de mídia (campo "arquivo"/"arquivos", normalização e MIME real)
-- Vídeo para a vitrine (bytes no banco, MIME de vídeo e rota pública do arquivo)
+- Vídeo para a vitrine (MIME de vídeo, divisão em pedaços e rota pública do arquivo)
 - Isolamento multi-tenant
 
 ## 🎬 Vídeo para a vitrine (upload de arquivo)
-- Diagnóstico: o backend convertia o vídeo inteiro em base64 dentro do JSON;
+- **Diagnóstico:** o backend convertia o vídeo inteiro em base64 dentro do JSON;
   a memória da API (Render free, 512 MB) estourava e o upload voltava com 502
   a partir de ~20 MB (15 MB funcionavam, 20 MB caíam).
-- Correção: o vídeo é gravado em **bytes crus** no banco (`conteudos_midia.arquivoBytes`),
-  sem base64 no JSON e na resposta da API.
-- Novo endpoint público `GET /api/v1/midia/:id/arquivo` (com Range) serve o arquivo:
-  conteúdo PUBLICADO é público (vitrine compartilhável); pendente/devolvido exige
-  usuário da mesma igreja (`Bearer` ou `?token=`).
-- MIME real detectado pelos bytes: MP4, MOV (QuickTime), WebM, AVI e OGG.
-- Limite mantido em 50 MB; imagens seguem o fluxo antigo (WebP + data URL).
+- **Correção:**
+  1. o upload vai para o **disco** (`multer.diskStorage`) — a API não segura o vídeo na memória;
+  2. o vídeo é lido em **pedaços de 4 MB** e gravado na tabela `midia_arquivo_partes`;
+  3. o arquivo é servido em fluxo por `GET /api/v1/midia/:id/arquivo`, com **Range**;
+  4. nada de base64 no JSON nem na resposta da API.
+- **Rota pública:** conteúdo PUBLICADO é público (vitrine compartilhável);
+  pendente/devolvido exige usuário da mesma igreja (`Bearer` ou `?token=`).
+  O router fica em `midia/arquivo.publico.routes.ts`, montado **antes** do router de
+  células (que exige token em todos os caminhos).
+- **MIME real** detectado pelos bytes: MP4, MOV (QuickTime), WebM, AVI e OGG.
+- Limite de **50 MB**; imagens seguem o fluxo antigo (WebP + data URL).
+- **Validado em produção (13/11/2026):** 1 MB, 10 MB, 25 MB e 45 MB → 201 OK;
+  download público 200 com os bytes idênticos e Range respondendo 206.
 
 ## 🔗 Vitrine Pública (link compartilhável sem login)
 - Rota pública: `GET /api/v1/publico/vitrine/:slug` (sem autenticação, cache de 60s)
@@ -55,8 +61,10 @@ $ npm test
 - Botões "Copiar"/"Abrir" na aba Visual (Mídia) e no painel de Aprovações (Pastor)
 - Testes: `backend/tests/vitrine_publica.node.mjs` (8 testes)
 
-## Commit Atual: 0e49465
+## Commit Atual: 3926dc2
 Conteúdo:
+- Vídeo para a vitrine sem base64 (bytes em pedaços de 4 MB + rota pública do arquivo)
+- Upload de mídia em disco (memória da API baixa)
 - Correção do upload para a vitrine (campo "arquivo" do app aceito no back)
 - MIME real do arquivo no fallback sem sharp
 - Vitrine pública por slug (link compartilhável sem login)
@@ -65,7 +73,7 @@ Conteúdo:
 - RBAC permissions
 - cleanup/service/backup/API
 - Frontend build passing
-- 72/72 unit tests passing
+- 77/77 unit tests passing
 
 ## Qualidade do Code
 - Frontend: TypeScript/Vite build - SEM ERROS
