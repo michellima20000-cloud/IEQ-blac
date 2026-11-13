@@ -30,17 +30,12 @@ export class AdminService {
   }
 
   /**
-   * Bootstrap do ADM dono: só funciona enquanto NÃO existe nenhum ADM no sistema.
+   * Bootstrap do ADM dono: cria ou promove o e-mail do dono como ADM.
    * Apenas o e-mail configurado em ADMIN_OWNER_EMAILS pode ser promovido/criado.
    */
   static async bootstrapAdm(dados: { email: string; senha: string; nome?: string; slugIgreja?: string }) {
     if (!emailDonoPermitido(dados.email)) {
       throw new PermissaoError('Bootstrap permitido apenas para o e-mail do dono do sistema (ADMIN_OWNER_EMAILS).', 403);
-    }
-
-    const jaExisteAdm = await prisma.usuario.findFirst({ where: { perfil: 'ADM' } });
-    if (jaExisteAdm) {
-      throw new PermissaoError('O sistema já possui um Administrador. Bootstrap indisponível.', 403);
     }
 
     const igreja = dados.slugIgreja
