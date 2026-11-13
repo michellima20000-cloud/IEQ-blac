@@ -7,7 +7,7 @@ import { ApiClient } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { SkeletonPage } from './Skeleton';
 
-type Aba = 'sistema' | 'usuarios' | 'auditoria';
+type Aba = 'sistema' | 'igrejas' | 'usuarios' | 'auditoria';
 
 const perfis = ['CELULA', 'REDE', 'PASTOR', 'MIDIA', 'ADM'] as const;
 
@@ -17,6 +17,7 @@ export const AdminView: React.FC = () => {
   const [resumo, setResumo] = useState<any>(null);
   const [usuarios, setUsuarios] = useState<any[]>([]);
   const [auditoria, setAuditoria] = useState<any[]>([]);
+  const [listaIgrejas, setListaIgrejas] = useState<any[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -38,6 +39,11 @@ export const AdminView: React.FC = () => {
     ativo: true,
   });
 
+  const [modalIgreja, setModalIgreja] = useState(false);
+  const [igrejaEditando, setIgrejaEditando] = useState<any | null>(null);
+  const [salvandoIgreja, setSalvandoIgreja] = useState(false);
+  const [formIgreja, setFormIgreja] = useState({ nome: '', slug: '', ativa: true });
+
   const igrejas = resumo?.igrejas ?? [];
 
   async function carregarSistema() {
@@ -58,6 +64,11 @@ export const AdminView: React.FC = () => {
     setAuditoria(Array.isArray(dados) ? dados : []);
   }
 
+  async function carregarIgrejas() {
+    const dados = await ApiClient.get('/admin/igrejas');
+    setListaIgrejas(Array.isArray(dados) ? dados : []);
+  }
+
   async function carregarTudo() {
     setCarregando(true);
     setErro(null);
@@ -65,6 +76,7 @@ export const AdminView: React.FC = () => {
       await carregarSistema();
       if (aba === 'usuarios') await carregarUsuarios();
       if (aba === 'auditoria') await carregarAuditoria();
+      if (aba === 'igrejas') await carregarIgrejas();
     } catch (e: any) {
       setErro(e.message || 'Falha ao carregar dados do painel ADM.');
     } finally {
@@ -78,6 +90,7 @@ export const AdminView: React.FC = () => {
     if (!resumo) return;
     if (aba === 'usuarios') carregarUsuarios().catch((e) => setErro(e.message));
     if (aba === 'auditoria') carregarAuditoria().catch((e) => setErro(e.message));
+    if (aba === 'igrejas') carregarIgrejas().catch((e) => setErro(e.message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aba]);
 
@@ -169,6 +182,41 @@ export const AdminView: React.FC = () => {
     }
   }
 
+  function abrirNovaIgreja() {
+    setIgrejaEditando(null);
+    setFormIgreja({ nome: '', slug: '', ativa: true });
+    setModalIgreja(true);
+  }
+
+  function abrirEdicaoIgreja(ig: any) {
+    setIgrejaEditando(ig);
+    setFormIgreja({ nome: ig.nome || '', slug: ig.slug || '', ativa: ig.ativa !== false });
+    setModalIgreja(true);
+  }
+
+  async function salvarIgreja(e: React.FormEvent) {
+    e.preventDefault();
+    setSalvandoIgreja(true);
+    setErro(null);
+    try {
+      const payload = { nome: formIgreja.nome, slug: formIgreja.slug, ativa: formIgreja.ativa };
+      if (igrejaEditando) {
+        await ApiClient.patch(`/admin/igrejas/${igrejaEditando.id}`, payload);
+        setAviso('Igreja atualizada.');
+      } else {
+        await ApiClient.post('/admin/igrejas', payload);
+        setAviso('Igreja criada com sucesso.');
+      }
+      setModalIgreja(false);
+      await carregarIgrejas();
+      await carregarSistema();
+    } catch (e: any) {
+      setErro(e?.response?.data?.message || e.message || 'Falha ao salvar igreja.');
+    } finally {
+      setSalvandoIgreja(false);
+    }
+  }
+
   if (carregando && !resumo) return <SkeletonPage />;
 
   return (
@@ -189,9 +237,10 @@ export const AdminView: React.FC = () => {
         </div>
       )}
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         {([
           { id: 'sistema', label: 'Sistema', Icon: Server },
+          { id: 'igrejas', label: 'Igrejas', Icon: Building2 },
           { id: 'usuarios', label: 'Usuários', Icon: Users },
           { id: 'auditoria', label: 'Auditoria', Icon: FileText },
         ] as const).map(({ id, label, Icon }) => (
@@ -242,6 +291,32 @@ export const AdminView: React.FC = () => {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {aba === 'igrejas' && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-semibold text-white">Igrejas ({(listaIgrejas.length || igrejas.length)})</div>
+            <button onClick={abrirNovaIgreja} className="btn-primary btn-sm"><Plus size={14} /> Nova igreja</button>
+          </div>
+          <div className="space-y-2">
+            {(listaIgrejas.length ? listaIgrejas : igrejas).map((ig: any) => (
+              <div key={ig.id} className="card-soft p-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-white truncate">{ig.nome} {ig.ativa === false && <span className="text-amber-400 text-xs">(inativa)</span>}</div>
+                  <div className="text-xs text-slate-400">slug: {ig.slug} • id: <span className="font-mono">{ig.id}</span></div>
+                  {ig._count && (
+                    <div className="text-[11px] text-slate-500 mt-0.5">Usuários {ig._count.usuarios ?? 0} • Células {ig._count.celulas ?? 0} • Redes {ig._count.redes ?? 0} • Membros {ig._count.membros ?? 0}</div>
+                  )}
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <button onClick={() => abrirEdicaoIgreja(ig)} className="btn-ghost btn-sm" title="Editar"><Pencil size={14} /></button>
+                </div>
+              </div>
+            ))}
+            {(listaIgrejas.length === 0 && igrejas.length === 0) && <div className="text-sm text-slate-400 text-center py-6">Nenhuma igreja cadastrada.</div>}
           </div>
         </div>
       )}
@@ -363,6 +438,38 @@ export const AdminView: React.FC = () => {
               <div className="flex gap-2 justify-end pt-1">
                 <button type="button" onClick={() => setModalAberto(false)} className="btn-ghost btn-sm">Cancelar</button>
                 <button type="submit" disabled={salvando} className="btn-primary btn-sm">{salvando ? 'Salvando...' : 'Salvar'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {modalIgreja && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-950 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-white">{igrejaEditando ? 'Editar igreja' : 'Nova igreja'}</h3>
+              <button onClick={() => setModalIgreja(false)} className="text-slate-400"><X size={16} /></button>
+            </div>
+            <form onSubmit={salvarIgreja} className="space-y-3">
+              <div>
+                <label className="label">Nome</label>
+                <input className="input" value={formIgreja.nome} onChange={(e) => setFormIgreja({ ...formIgreja, nome: e.target.value })} required />
+              </div>
+              <div>
+                <label className="label">Slug (login/URL pública)</label>
+                <input className="input" value={formIgreja.slug} onChange={(e) => setFormIgreja({ ...formIgreja, slug: e.target.value.toLowerCase() })} placeholder="ex: ieq-cidade-nova" required />
+              </div>
+              <div>
+                <label className="label">Status</label>
+                <select className="input" value={formIgreja.ativa ? '1' : '0'} onChange={(e) => setFormIgreja({ ...formIgreja, ativa: e.target.value === '1' })}>
+                  <option value="1">Ativa</option>
+                  <option value="0">Inativa</option>
+                </select>
+              </div>
+              <div className="flex gap-2 justify-end pt-1">
+                <button type="button" onClick={() => setModalIgreja(false)} className="btn-ghost btn-sm">Cancelar</button>
+                <button type="submit" disabled={salvandoIgreja} className="btn-primary btn-sm">{salvandoIgreja ? 'Salvando...' : 'Salvar'}</button>
               </div>
             </form>
           </div>

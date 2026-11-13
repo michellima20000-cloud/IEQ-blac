@@ -47,4 +47,16 @@ export class AdminController {
     const limite = (req.query as any).limite;
     this.responder(res, () => AdminService.listarAuditoria(req.user as any, limite));
   }
+
+  static async listarIgrejas(req: AuthenticatedRequest, res: Response): Promise<void> {
+    this.responder(res, () => AdminService.listarIgrejas(req.user as any));
+  }
+
+  static async criarIgreja(req: AuthenticatedRequest, res: Response): Promise<void> {
+    this.responder(res, () => AdminService.criarIgreja(req.user as any, req.body as any));
+  }
+
+  static async atualizarIgreja(req: AuthenticatedRequest, res: Response): Promise<void> {
+    this.responder(res, () => AdminService.atualizarIgreja(req.user as any, req.params.id, req.body as any));
+  }
 }

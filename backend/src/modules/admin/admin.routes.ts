@@ -6,7 +6,7 @@ import { PermissaoError } from '../../permissions/rules.ts';
 import { ENV } from '../../config/env.ts';
 import { exigirSegredoManutencao } from '../../middlewares/setupSecret.ts';
 import { validate } from '../../middlewares/validate.ts';
-import { criarAdminUsuarioSchema, atualizarAdminUsuarioSchema } from './admin.schemas.ts';
+import { criarAdminUsuarioSchema, atualizarAdminUsuarioSchema, criarIgrejaSchema, atualizarIgrejaSchema } from './admin.schemas.ts';
 
 const router = Router();
 
@@ -159,5 +159,9 @@ router.delete('/usuarios/:id', AdminController.excluirUsuario);
  *         description: Logs de auditoria
  */
 router.get('/auditoria', AdminController.listarAuditoria);
+
+router.get('/igrejas', AdminController.listarIgrejas);
+router.post('/igrejas', validate(criarIgrejaSchema), AdminController.criarIgreja);
+router.patch('/igrejas/:id', validate(atualizarIgrejaSchema), AdminController.atualizarIgreja);
 
 export default router;

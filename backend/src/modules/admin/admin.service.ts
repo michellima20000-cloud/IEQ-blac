@@ -237,4 +237,44 @@ export class AdminService {
       take
     });
   }
+
+  static async listarIgrejas(usuario: UsuarioAutenticado) {
+    this.exigirADM(usuario);
+    return prisma.igreja.findMany({
+      select: {
+        id: true, nome: true, slug: true, ativa: true, createdAt: true, updatedAt: true,
+        _count: { select: { usuarios: true, celulas: true, redes: true, relatorios: true, conteudosMidia: true, membros: true, visitantes: true } }
+      },
+      orderBy: { nome: 'asc' }
+    });
+  }
+
+  static async criarIgreja(usuario: UsuarioAutenticado, dados: { nome: string; slug: string; ativa?: boolean }) {
+    this.exigirADM(usuario);
+    const slug = dados.slug.trim().toLowerCase();
+    const existente = await prisma.igreja.findUnique({ where: { slug } });
+    if (existente) throw new Error('Já existe uma igreja com este slug.');
+    return prisma.igreja.create({
+      data: { nome: dados.nome.trim(), slug, ativa: dados.ativa !== false },
+      select: { id: true, nome: true, slug: true, ativa: true, createdAt: true, updatedAt: true }
+    });
+  }
+
+  static async atualizarIgreja(usuario: UsuarioAutenticado, id: string, dados: { nome?: string; slug?: string; ativa?: boolean }) {
+    this.exigirADM(usuario);
+    const igreja = await prisma.igreja.findUnique({ where: { id } });
+    if (!igreja) throw new Error('Igreja não encontrada.');
+    if (dados.slug) {
+      const slug = dados.slug.trim().toLowerCase();
+      const conflito = await prisma.igreja.findFirst({ where: { slug, NOT: { id } } });
+      if (conflito) throw new Error('Já existe outra igreja com este slug.');
+      (dados as any).slug = slug;
+    }
+    if (dados.nome) (dados as any).nome = dados.nome.trim();
+    return prisma.igreja.update({
+      where: { id },
+      data: dados as any,
+      select: { id: true, nome: true, slug: true, ativa: true, createdAt: true, updatedAt: true }
+    });
+  }
 }
