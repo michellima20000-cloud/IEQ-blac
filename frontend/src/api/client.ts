@@ -130,7 +130,7 @@ export class ApiClient {
     }
 
     const MAX_TENTATIVAS = 2;
-    const TIMEOUT_MS = 30000; // evita requisição travada em rede ruim (economia/erros)
+    const TIMEOUT_MS = 60000; // tolerante a cold start do backend (plano gratuito hiberna)
 
     for (let tentativa = 1; tentativa <= MAX_TENTATIVAS + 1; tentativa++) {
       // Timeout por requisição (sem cancelar se o chamador já passou um signal)
@@ -150,6 +150,15 @@ export class ApiClient {
         clearTimeout(timeoutId);
         if (err?.name === 'AbortError') {
           throw new Error('A requisição demorou demais. Verifique sua conexão e tente novamente.');
+        }
+        // Rede indisponível ("Failed to fetch", DNS, cold start): retenta com backoff
+        const erroDeRede =
+          err instanceof TypeError ||
+          err?.name === 'TypeError' ||
+          /fetch|network|failed|ECONNREFUSED|getaddrinfo/i.test(String(err?.message || ''));
+        if (erroDeRede && tentativa < MAX_TENTATIVAS + 1) {
+          await new Promise((resolve) => setTimeout(resolve, 1500 * tentativa));
+          continue;
         }
         throw err;
       }
