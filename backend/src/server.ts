@@ -102,11 +102,25 @@ app.get('/api/v1/setup-db', exigirSegredoManutencao, async (_req: Request, res: 
 // 5. Rotas versionadas em /api/v1
 app.use('/api/v1', v1Router);
 
+// Rota raiz (healthcheck alternativo caso o Render esteja apontando para "/")
+app.get('/', (_req: Request, res: Response) => {
+  res.json({ status: 'ok', api: 'ieq-black', timestamp: new Date().toISOString() });
+});
+
 // 6. Tratamento padronizado de erros e logs estruturados
 app.use(errorHandler);
 
+// Diagnóstico de boot: evita saída silenciosa e registra falhas não tratadas
+process.on('unhandledRejection', (reason: any) => {
+  console.error('[fatal] unhandledRejection:', reason?.stack || reason?.message || reason);
+});
+process.on('uncaughtException', (err: any) => {
+  console.error('[fatal] uncaughtException:', err?.stack || err?.message || err);
+});
+console.log('[boot] módulos carregados, preparando listen...');
+
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(ENV.PORT, () => {
+  const server = app.listen(ENV.PORT, () => {
     console.log(`🚀 API IEQ rodando em http://localhost:${ENV.PORT}`);
     console.log(`📖 Documentação Swagger em http://localhost:${ENV.PORT}/api/v1/docs`);
 
@@ -192,6 +206,10 @@ if (process.env.NODE_ENV !== 'test') {
         console.error('[Manutenção] Falha no backup inicial:', err?.message || err);
       }
     })();
+  });
+
+  server.on('error', (err: any) => {
+    console.error('[boot] Erro no listener HTTP:', err?.message || err);
   });
 }
 
