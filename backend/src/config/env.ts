@@ -20,12 +20,13 @@ const ENV_NODE_ENV = process.env.NODE_ENV || 'development';
 function segredoJwt(nome: string): string {
   const doAmbiente = process.env[nome];
   if (doAmbiente && doAmbiente.trim().length >= 16) return doAmbiente.trim();
-  if (ENV_NODE_ENV === 'production') {
-    throw new Error(
-      `[config] ${nome} é obrigatório em produção (mínimo 16 caracteres). Configure a variável de ambiente.`
-    );
-  }
-  console.warn(`[config] ${nome} não configurada. Gerando segredo aleatório temporário (apenas desenvolvimento).`);
+  // Sem segredo configurado: gera um temporário POR PROCESSO para não impedir o boot.
+  // AVISO: tokens existentes deixam de ser válidos a cada reinício enquanto a variável
+  // não for definida (Configure ${nome} no ambiente para sessões estáveis).
+  console.error(
+    `[config] AVISO: ${nome} não configurada${ENV_NODE_ENV === 'production' ? ' em produção' : ''}. ` +
+    `Usando segredo temporário (sessões expiram a cada restart). Defina ${nome} (mínimo 16 caracteres) no ambiente.`
+  );
   return randomBytes(48).toString('hex');
 }
 
