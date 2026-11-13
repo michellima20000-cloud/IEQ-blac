@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { CalendarDays, Megaphone, MapPin, Clock, Video, Newspaper, X } from 'lucide-react';
-import { ApiClient } from '../api/client';
+import { ApiClient, urlMidia } from '../api/client';
 import { SkeletonGrid } from './Skeleton';
 import { useListaIncremental } from '../hooks/useListaIncremental';
 import { lerVisualCache, salvarVisualCache } from '../utils/visualCache';
@@ -188,6 +188,8 @@ export const VitrineView: React.FC = () => {
               const badge = badgeTipo[item.tipo] || badgeTipo.AVISO;
               const isVideo = item.tipo === 'VIDEO';
               const ehHorizontal = layout === 'LISTA';
+              // Vídeo gravado no banco vem como caminho relativo: vira URL da API
+              const arquivoUrl = urlMidia(item.arquivoUrl);
               return (
                 <article
                   key={item.id}
@@ -209,13 +211,13 @@ export const VitrineView: React.FC = () => {
                     </div>
                   )}
 
-                  {isVideo && item.arquivoUrl && !item.videoUrl && (
+                  {isVideo && arquivoUrl && !item.videoUrl && (
                     <div className={ehHorizontal ? 'w-full sm:w-2/5 shrink-0 h-36' : 'aspect-video w-full bg-black'}>
-                      <video src={item.arquivoUrl} controls className="w-full h-full" title={item.titulo} />
+                      <video src={arquivoUrl} controls className="w-full h-full" title={item.titulo} playsInline />
                     </div>
                   )}
 
-                  {item.arquivoUrl && !isVideo && (
+                  {arquivoUrl && !isVideo && (
                     <div
                       className={`relative bg-slate-950 overflow-hidden cursor-pointer shrink-0 ${
                         ehHorizontal ? 'w-full sm:w-2/5 h-36 sm:h-auto' : 'aspect-video w-full'
@@ -223,7 +225,7 @@ export const VitrineView: React.FC = () => {
                       onClick={() => setAmpliado(item)}
                     >
                       <img loading="lazy" decoding="async"
-                        src={item.arquivoUrl}
+                        src={arquivoUrl}
                         alt={item.titulo}
                         className="w-full h-full object-cover"
                         title={item.titulo}
@@ -300,7 +302,7 @@ export const VitrineView: React.FC = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <img loading="lazy" decoding="async"
-              src={ampliado.arquivoUrl}
+              src={urlMidia(ampliado.arquivoUrl) || ''}
               alt={ampliado.titulo}
               className="w-full max-h-[75vh] object-contain rounded-2xl border border-slate-800 shadow-2xl"
             />

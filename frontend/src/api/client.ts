@@ -14,6 +14,25 @@ export function fotoUtilizavel(url?: string | null): url is string {
   );
 }
 
+/**
+ * URL do arquivo de mídia.
+ * Vídeos enviados para a vitrine ficam gravados no banco e são servidos por
+ * "/midia/<id>/arquivo" (caminho relativo à API) — aqui vira URL absoluta.
+ */
+export function urlMidia(url?: string | null): string | null {
+  if (!url) return null;
+  if (
+    url.startsWith('data:') ||
+    url.startsWith('blob:') ||
+    url.startsWith('http://') ||
+    url.startsWith('https://')
+  ) {
+    return url;
+  }
+  const base = ApiClient.getBaseUrl().replace(/\/+$/, '');
+  return `${base}${url.startsWith('/') ? url : `/${url}`}`;
+}
+
 
 export interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;

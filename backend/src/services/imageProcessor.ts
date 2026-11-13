@@ -34,12 +34,36 @@ export function detectarMimeType(buffer: Buffer): string {
     return 'image/gif';
   }
   if (buffer.length >= 12 && buffer.subarray(4, 8).toString('latin1') === 'ftyp') {
+    // MP4/MOV: o "brand" logo depois do ftyp diz qual é o formato
+    const brand = buffer.subarray(8, 12).toString('latin1');
+    if (brand.startsWith('qt')) return 'video/quicktime';
     return 'video/mp4';
   }
   if (buffer.length >= 12 && buffer.subarray(4, 8).toString('latin1') === 'moov') {
     return 'video/mp4';
   }
+  if (buffer.length >= 4 && buffer[0] === 0x1a && buffer[1] === 0x45 && buffer[2] === 0xdf && buffer[3] === 0xa3) {
+    // EBML: WebM/Matroska
+    return 'video/webm';
+  }
+  if (buffer.length >= 12 && buffer.subarray(0, 4).toString('latin1') === 'RIFF') {
+    if (buffer.subarray(8, 12).toString('latin1') === 'AVI ') return 'video/x-msvideo';
+  }
+  if (buffer.length >= 4 && buffer.subarray(0, 4).toString('latin1') === 'OggS') {
+    return 'video/ogg';
+  }
   return 'application/octet-stream';
+}
+
+/**
+ * MIME de vídeo aceito pela vitrine (MP4, MOV, WebM, AVI e OGG).
+ */
+export function mimeDeVideoValido(mime: string): boolean {
+  return mime === 'video/mp4'
+    || mime === 'video/quicktime'
+    || mime === 'video/webm'
+    || mime === 'video/x-msvideo'
+    || mime === 'video/ogg';
 }
 
 export class ImageProcessor {

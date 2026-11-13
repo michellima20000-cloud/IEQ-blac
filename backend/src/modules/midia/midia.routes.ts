@@ -41,6 +41,12 @@ export const camposArquivo = [
 
 const router = Router();
 
+// ARQUIVO DO CONTEÚDO (vídeo enviado para a vitrine).
+// Fica ANTES do authMiddleware: conteúdo PUBLICADO é público (vitrine
+// compartilhável sem login) e precisa responder direto ao <video> do navegador.
+// Conteúdo pendente/devolvido só é servido para usuário da mesma igreja.
+router.get('/midia/:id/arquivo', MidiaController.servirArquivo);
+
 router.use(authMiddleware);
 router.use(tenantMiddleware);
 

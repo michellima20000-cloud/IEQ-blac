@@ -3,11 +3,45 @@ import { PermissaoError } from '../../permissions/rules.ts';
 import type { UsuarioAutenticado } from '../../permissions/types.ts';
 import type { CriarMidiaInput, AtualizarMidiaInput, DevolverMidiaInput } from './midia.schemas.ts';
 
+/**
+ * Arquivo binário enviado pelo usuário (vídeo).
+ * Vai para o banco em bytes crus: base64 estourava a memória da API
+ * (upload de 20 MB derrubava o servidor) e devolvia MBs no JSON.
+ */
+export interface ArquivoEnviado {
+  bytes: Buffer;
+  mimeType: string;
+  nomeOriginal: string;
+  tamanho: number;
+}
+
+/**
+ * Campos devolvidos pela API. `arquivoBytes` fica de fora de propósito:
+ * serializar um Buffer no JSON gera megabytes de array numérico.
+ */
+const selectMidia = {
+  id: true,
+  igreja_id: true,
+  autorId: true,
+  tipo: true,
+  titulo: true,
+  descricao: true,
+  arquivoUrl: true,
+  videoUrl: true,
+  arquivoMimeType: true,
+  nomeOriginal: true,
+  tamanhoArquivoBytes: true,
+  status: true,
+  comentarioPastor: true,
+  createdAt: true,
+  updatedAt: true
+} as const;
+
 export class MidiaService {
   /**
    * Criação de conteúdo pela equipe de Mídia ou pelo Pastor
    */
-  static async criar(usuario: UsuarioAutenticado, dados: CriarMidiaInput) {
+  static async criar(usuario: UsuarioAutenticado, dados: CriarMidiaInput, arquivo?: ArquivoEnviado | null) {
     if (usuario.perfil !== 'MIDIA' && usuario.perfil !== 'PASTOR') {
       throw new PermissaoError('Apenas os perfis Mídia e Pastor podem criar conteúdos de divulgação.');
     }
@@ -19,7 +53,7 @@ export class MidiaService {
     }
 
     const autorId = usuario.id || (usuario as any).sub;
-    return prisma.conteudoMidia.create({
+    const criado = await prisma.conteudoMidia.create({
       data: {
         igreja_id: usuario.igreja_id,
         autorId,
@@ -28,9 +62,28 @@ export class MidiaService {
         descricao: dados.descricao || null,
         arquivoUrl: dados.arquivoUrl || null,
         videoUrl: dados.videoUrl || null,
-        status: status as any
-      }
+        status: status as any,
+        ...(arquivo ? {
+          arquivoBytes: arquivo.bytes,
+          arquivoMimeType: arquivo.mimeType,
+          nomeOriginal: arquivo.nomeOriginal,
+          tamanhoArquivoBytes: arquivo.tamanho
+        } : {})
+      },
+      select: selectMidia
     });
+
+    // O arquivo binário é servido por /midia/:id/arquivo (com Range).
+    // Guardamos o caminho relativo para o front montar a URL absoluta.
+    if (arquivo) {
+      return prisma.conteudoMidia.update({
+        where: { id: criado.id },
+        data: { arquivoUrl: `/midia/${criado.id}/arquivo` },
+        select: selectMidia
+      });
+    }
+
+    return criado;
   }
 
   /**
@@ -47,7 +100,8 @@ export class MidiaService {
     }
     return prisma.conteudoMidia.findMany({
       where,
-      include: {
+      select: {
+        ...selectMidia,
         autor: {
           select: { id: true, nome: true, perfil: true }
         }
@@ -70,6 +124,7 @@ export class MidiaService {
         igreja_id: usuario.igreja_id,
         ...(usuario.perfil === 'MIDIA' ? { autorId } : {})
       },
+      select: selectMidia,
       orderBy: { createdAt: 'desc' }
     });
   }
@@ -87,7 +142,8 @@ export class MidiaService {
         igreja_id: usuario.igreja_id,
         status: 'PENDENTE'
       },
-      include: {
+      select: {
+        ...selectMidia,
         autor: {
           select: { id: true, nome: true, email: true }
         }
@@ -117,7 +173,8 @@ export class MidiaService {
       data: {
         status: 'PUBLICADO',
         comentarioPastor: null
-      }
+      },
+      select: selectMidia
     });
   }
 
@@ -142,7 +199,8 @@ export class MidiaService {
       data: {
         status: 'DEVOLVIDO',
         comentarioPastor: dados.comentarioPastor
-      }
+      },
+      select: selectMidia
     });
   }
 
@@ -155,7 +213,8 @@ export class MidiaService {
     }
 
     const conteudo = await prisma.conteudoMidia.findFirst({
-      where: { id, igreja_id: usuario.igreja_id }
+      where: { id, igreja_id: usuario.igreja_id },
+      select: { id: true, tamanhoArquivoBytes: true }
     });
 
     if (!conteudo) {
@@ -167,10 +226,15 @@ export class MidiaService {
       data: {
         ...(dados.titulo ? { titulo: dados.titulo } : {}),
         ...(dados.descricao !== undefined ? { descricao: dados.descricao } : {}),
-        ...(dados.arquivoUrl !== undefined ? { arquivoUrl: dados.arquivoUrl } : {}),
+        // O caminho do arquivo binário é gerado pelo servidor:
+        // só pode ser trocado quando não existe arquivo gravado no banco.
+        ...(dados.arquivoUrl !== undefined && !conteudo.tamanhoArquivoBytes
+          ? { arquivoUrl: dados.arquivoUrl }
+          : {}),
         ...(dados.videoUrl !== undefined ? { videoUrl: dados.videoUrl } : {}),
         ...(dados.reenviarAprovacao ? { status: 'PENDENTE' } : {})
-      }
+      },
+      select: selectMidia
     });
   }
 

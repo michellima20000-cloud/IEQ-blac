@@ -191,6 +191,12 @@ model ConteudoMidia {
   descricao        String?
   arquivoUrl       String?
   videoUrl         String?
+  // Arquivo binário guardado no próprio banco (vídeo): evita base64 gigante
+  // no JSON e na base, que travava o envio de vídeos para a vitrine.
+  arquivoBytes     Bytes?
+  arquivoMimeType  String?
+  nomeOriginal     String?
+  tamanhoArquivoBytes Int?
   status           StatusMidia @default(RASCUNHO)
   comentarioPastor String?
   createdAt        DateTime    @default(now())

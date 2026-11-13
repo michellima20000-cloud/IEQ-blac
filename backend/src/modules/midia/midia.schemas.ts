@@ -10,11 +10,13 @@ export const criarMidiaSchema = z.object({
   descricao: z.string().optional().nullable(),
   arquivoUrl: z.string().optional().nullable(),
   videoUrl: z.string().optional().nullable(),
+  // Sinaliza que veio um arquivo no upload (vídeo gravado em bytes no banco).
+  temArquivo: z.boolean().optional(),
   tamanhoArquivoBytes: z.number().max(50 * 1024 * 1024, 'O limite para upload de vídeo é de 50 MB').optional(),
   precisaAprovacao: z.boolean().default(false)
 }).refine((data) => {
   if (data.tipo === 'VIDEO') {
-    if (!data.arquivoUrl && !data.videoUrl) {
+    if (!data.arquivoUrl && !data.videoUrl && !data.temArquivo) {
       return false;
     }
     if (data.videoUrl && !youtubeRegex.test(data.videoUrl)) {

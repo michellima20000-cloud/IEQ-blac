@@ -16,8 +16,8 @@ $ npm run build
 ## Status dos Testes
 ```
 $ npm test
-  ✓ 66 testes unitários passando
-  ✓ 33 suites de teste
+  ✓ 72 testes unitários passando
+  ✓ 37 suites de teste
   ✓ 0 falhas
   ✓ 0 cancelamentos
 ```
@@ -32,7 +32,20 @@ $ npm test
 - Mídia, aprovação, calendário e vitrine
 - Vitrine pública por slug (conteúdo publicado, agenda futura e rota sem autenticação)
 - Upload de mídia (campo "arquivo"/"arquivos", normalização e MIME real)
+- Vídeo para a vitrine (bytes no banco, MIME de vídeo e rota pública do arquivo)
 - Isolamento multi-tenant
+
+## 🎬 Vídeo para a vitrine (upload de arquivo)
+- Diagnóstico: o backend convertia o vídeo inteiro em base64 dentro do JSON;
+  a memória da API (Render free, 512 MB) estourava e o upload voltava com 502
+  a partir de ~20 MB (15 MB funcionavam, 20 MB caíam).
+- Correção: o vídeo é gravado em **bytes crus** no banco (`conteudos_midia.arquivoBytes`),
+  sem base64 no JSON e na resposta da API.
+- Novo endpoint público `GET /api/v1/midia/:id/arquivo` (com Range) serve o arquivo:
+  conteúdo PUBLICADO é público (vitrine compartilhável); pendente/devolvido exige
+  usuário da mesma igreja (`Bearer` ou `?token=`).
+- MIME real detectado pelos bytes: MP4, MOV (QuickTime), WebM, AVI e OGG.
+- Limite mantido em 50 MB; imagens seguem o fluxo antigo (WebP + data URL).
 
 ## 🔗 Vitrine Pública (link compartilhável sem login)
 - Rota pública: `GET /api/v1/publico/vitrine/:slug` (sem autenticação, cache de 60s)
@@ -52,7 +65,7 @@ Conteúdo:
 - RBAC permissions
 - cleanup/service/backup/API
 - Frontend build passing
-- 66/66 unit tests passing
+- 72/72 unit tests passing
 
 ## Qualidade do Code
 - Frontend: TypeScript/Vite build - SEM ERROS
@@ -76,7 +89,7 @@ Obs3: API publica no Render: https://ieq-black.onrender.com/api/v1/publico/vitri
 ## Resumo Executivo
 Projeto IEQ - Painel Pastoral Igreja
 - Build: OK
-- Testes: 66/66 passando  
+- Testes: 72/72 passando  
 - Deploy: Vercel configurado (auto-deploy via GitHub) + Render para a API
 - Commit: a13f319 (vitrine pública + todas melhorias anteriores)
 - Autor: michellima20000-cloud

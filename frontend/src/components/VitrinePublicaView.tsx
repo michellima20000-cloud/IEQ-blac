@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { CalendarDays, Clock, MapPin, Megaphone, Newspaper, X, LogIn, Loader2, Church } from 'lucide-react';
-import { ApiClient, fotoUtilizavel } from '../api/client';
+import { ApiClient, fotoUtilizavel, urlMidia } from '../api/client';
 import { SkeletonGrid } from './Skeleton';
 import { useListaIncremental } from '../hooks/useListaIncremental';
 
@@ -234,6 +234,8 @@ export const VitrinePublicaView: React.FC<VitrinePublicaProps> = ({ slug }) => {
                   const badge = badgeTipo[item.tipo] || badgeTipo.AVISO;
                   const isVideo = item.tipo === 'VIDEO';
                   const ehHorizontal = layout === 'LISTA';
+                  // Vídeo gravado no banco vem como caminho relativo: vira URL da API
+                  const arquivoUrl = urlMidia(item.arquivoUrl);
                   return (
                     <article
                       key={item.id}
@@ -254,13 +256,13 @@ export const VitrinePublicaView: React.FC<VitrinePublicaProps> = ({ slug }) => {
                         </div>
                       )}
 
-                      {isVideo && item.arquivoUrl && !item.videoUrl && (
+                      {isVideo && arquivoUrl && !item.videoUrl && (
                         <div className={ehHorizontal ? 'w-full sm:w-2/5 shrink-0 h-36' : 'aspect-video w-full bg-black'}>
-                          <video src={item.arquivoUrl} controls className="w-full h-full" title={item.titulo} />
+                          <video src={arquivoUrl} controls className="w-full h-full" title={item.titulo} playsInline />
                         </div>
                       )}
 
-                      {item.arquivoUrl && !isVideo && (
+                      {arquivoUrl && !isVideo && (
                         <div
                           className={`relative bg-slate-950 overflow-hidden cursor-pointer shrink-0 ${
                             ehHorizontal ? 'w-full sm:w-2/5 h-36 sm:h-auto' : 'aspect-video w-full'
@@ -270,7 +272,7 @@ export const VitrinePublicaView: React.FC<VitrinePublicaProps> = ({ slug }) => {
                           <img
                             loading="lazy"
                             decoding="async"
-                            src={item.arquivoUrl}
+                            src={arquivoUrl}
                             alt={item.titulo}
                             className="w-full h-full object-cover"
                             title={item.titulo}
@@ -354,7 +356,7 @@ export const VitrinePublicaView: React.FC<VitrinePublicaProps> = ({ slug }) => {
             <img
               loading="lazy"
               decoding="async"
-              src={ampliado.arquivoUrl || ''}
+              src={urlMidia(ampliado.arquivoUrl) || ''}
               alt={ampliado.titulo}
               className="w-full max-h-[75vh] object-contain rounded-2xl border border-slate-800 shadow-2xl"
             />

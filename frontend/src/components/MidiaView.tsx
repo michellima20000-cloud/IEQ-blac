@@ -7,7 +7,7 @@ import {
   Image as ImageIcon, LayoutGrid, GalleryHorizontalEnd, List, CheckCircle,
   Sparkles, Wand2, Link2, ExternalLink
 } from 'lucide-react';
-import { api, ApiClient } from '../api/client';
+import { api, ApiClient, urlMidia } from '../api/client';
 import { useListaIncremental } from '../hooks/useListaIncremental';
 import { salvarVisualCache, aplicarVisualGeral } from '../utils/visualCache';
 import { useAuth } from '../context/AuthContext';
@@ -268,7 +268,7 @@ export default function MidiaView() {
         ...m,
         criadoEm: m.createdAt || m.criadoEm,
         youtubeUrl: m.videoUrl || m.youtubeUrl,
-        url: m.arquivoUrl || m.url,
+        url: urlMidia(m.arquivoUrl || m.url),
       })));
       setErro('');
     } catch {
