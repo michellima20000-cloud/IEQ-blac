@@ -12,6 +12,13 @@ export const LoginView: React.FC = () => {
   const [carregando, setCarregando] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
+  // Acorda o backend (Render plano gratuito hiberna após inatividade)
+  useEffect(() => {
+    const ctrl = new AbortController();
+    fetch(`${ApiClient.getBaseUrl()}/health`, { signal: ctrl.signal, mode: 'cors' }).catch(() => {});
+    return () => ctrl.abort();
+  }, []);
+
   // Carrega o logo da igreja (identidade visual) conforme o slug digitado
   useEffect(() => {
     // Aceita "IEQ-CIDADE NOVA", "IEQ Cidade Nova" ou "ieq-cidade-nova"
@@ -96,7 +103,12 @@ export const LoginView: React.FC = () => {
     try {
       await login(email, senha, slugIgreja);
     } catch (err: any) {
-      setErro(err.message || 'Falha ao autenticar. Verifique seus dados.');
+      const msg = String(err?.message || '');
+      if (/Failed to fetch|NetworkError|conectar ao servidor/i.test(msg)) {
+        setErro('Não foi possível conectar ao servidor. O sistema pode estar iniciando (aguarde alguns segundos) — tente novamente.');
+      } else {
+        setErro(msg || 'Falha ao autenticar. Verifique seus dados.');
+      }
     } finally {
       setCarregando(false);
     }

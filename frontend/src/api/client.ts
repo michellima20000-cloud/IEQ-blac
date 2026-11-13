@@ -157,8 +157,11 @@ export class ApiClient {
           err?.name === 'TypeError' ||
           /fetch|network|failed|ECONNREFUSED|getaddrinfo/i.test(String(err?.message || ''));
         if (erroDeRede && tentativa < MAX_TENTATIVAS + 1) {
-          await new Promise((resolve) => setTimeout(resolve, 1500 * tentativa));
+          await new Promise((resolve) => setTimeout(resolve, 2000 * tentativa));
           continue;
+        }
+        if (erroDeRede) {
+          throw new Error('Não foi possível conectar ao servidor. Se o sistema estava ocioso, aguarde alguns segundos e tente novamente.');
         }
         throw err;
       }
