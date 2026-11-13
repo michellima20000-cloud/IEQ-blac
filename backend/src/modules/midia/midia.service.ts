@@ -3,15 +3,17 @@ import { prisma } from '../../config/prisma.ts';
 import { PermissaoError } from '../../permissions/rules.ts';
 import type { UsuarioAutenticado } from '../../permissions/types.ts';
 import type { CriarMidiaInput, AtualizarMidiaInput, DevolverMidiaInput } from './midia.schemas.ts';
-import { TAMANHO_PARTE_ARQUIVO } from '../../utils/upload.ts';
+import { TAMANHO_PARTE_ARQUIVO, caminhoArquivoMidia, dividirEmPartes, extrairDataUrl } from '../../utils/upload.ts';
 
 /**
- * Arquivo binário enviado pelo usuário (vídeo).
- * Vai para o banco em pedaços de 4 MB: base64 ou bytea gigante estouravam
- * a memória da API (upload de 20 MB derrubava o servidor no Render free).
+ * Arquivo enviado pelo usuário (foto ou vídeo).
+ * `caminho`: arquivo no disco (vídeo grande, lido em fluxo).
+ * `buffer`: conteúdo já processado em memória (imagem convertida para WebP).
+ * Nos dois casos os bytes vão para o banco em pedaços de 4 MB.
  */
 export interface ArquivoEnviado {
-  caminho: string;
+  caminho?: string;
+  buffer?: Buffer;
   mimeType: string;
   nomeOriginal: string;
   tamanho: number;
@@ -71,26 +73,36 @@ export class MidiaService {
   }
 
   /**
-   * Grava o arquivo enviado (vídeo) no banco, em pedaços de 4 MB.
-   * O arquivo é lido do disco em fluxo: a memória da API não precisa
-   * segurar o vídeo inteiro.
+   * Grava o arquivo enviado (foto ou vídeo) no banco, em pedaços de 4 MB.
+   * O arquivo é lido do disco em fluxo (vídeo) ou dividido em memória (imagem):
+   * a memória da API nunca precisa segurar o arquivo inteiro.
    */
   static async salvarArquivo(conteudoId: string, arquivo: ArquivoEnviado) {
-    const stream = createReadStream(arquivo.caminho, { highWaterMark: TAMANHO_PARTE_ARQUIVO });
-    let ordem = 0;
+    const inserirParte = async (bytes: Buffer, ordem: number) => {
+      await prisma.midiaArquivoParte.create({
+        data: {
+          conteudoId,
+          ordem,
+          bytes,
+          tamanho: bytes.length
+        }
+      });
+    };
 
     try {
-      for await (const pedaco of stream) {
-        const bytes = pedaco as Buffer;
-        if (bytes.length === 0) continue;
-        await prisma.midiaArquivoParte.create({
-          data: {
-            conteudoId,
-            ordem: ordem++,
-            bytes,
-            tamanho: bytes.length
-          }
-        });
+      if (arquivo.buffer) {
+        const partes = dividirEmPartes(arquivo.buffer);
+        for (let ordem = 0; ordem < partes.length; ordem++) {
+          await inserirParte(partes[ordem], ordem);
+        }
+      } else if (arquivo.caminho) {
+        const stream = createReadStream(arquivo.caminho, { highWaterMark: TAMANHO_PARTE_ARQUIVO });
+        let ordem = 0;
+        for await (const pedaco of stream) {
+          const bytes = pedaco as Buffer;
+          if (bytes.length === 0) continue;
+          await inserirParte(bytes, ordem++);
+        }
       }
     } catch (erro) {
       // Não deixa metade do arquivo no banco
@@ -103,13 +115,54 @@ export class MidiaService {
     return prisma.conteudoMidia.update({
       where: { id: conteudoId },
       data: {
-        arquivoUrl: `/midia/${conteudoId}/arquivo`,
+        arquivoUrl: caminhoArquivoMidia(conteudoId),
         arquivoMimeType: arquivo.mimeType,
         nomeOriginal: arquivo.nomeOriginal,
         tamanhoArquivoBytes: arquivo.tamanho
       },
       select: selectMidia
     });
+  }
+
+  /**
+   * Migração das mídias antigas: fotos que estavam guardadas como texto
+   * base64 dentro de `arquivoUrl` passam a ficar gravadas no banco como
+   * bytes (mesma tabela usada pelos vídeos). A vitrine fica leve: a resposta
+   * deixa de carregar megabytes de base64.
+   */
+  static async migrarArquivosLegados(): Promise<number> {
+    const legados = await prisma.conteudoMidia.findMany({
+      where: { arquivoUrl: { startsWith: 'data:' } },
+      select: { id: true, arquivoUrl: true }
+    });
+
+    let migrados = 0;
+    for (const item of legados) {
+      const extraido = extrairDataUrl(item.arquivoUrl || '');
+      if (!extraido) continue;
+
+      const partesExistentes = await prisma.midiaArquivoParte.count({ where: { conteudoId: item.id } });
+      if (partesExistentes === 0) {
+        const partes = dividirEmPartes(extraido.bytes);
+        for (let ordem = 0; ordem < partes.length; ordem++) {
+          await prisma.midiaArquivoParte.create({
+            data: { conteudoId: item.id, ordem, bytes: partes[ordem], tamanho: partes[ordem].length }
+          });
+        }
+      }
+
+      await prisma.conteudoMidia.update({
+        where: { id: item.id },
+        data: {
+          arquivoUrl: caminhoArquivoMidia(item.id),
+          arquivoMimeType: extraido.mimeType,
+          tamanhoArquivoBytes: extraido.bytes.length
+        }
+      });
+      migrados++;
+    }
+
+    return migrados;
   }
 
   /**

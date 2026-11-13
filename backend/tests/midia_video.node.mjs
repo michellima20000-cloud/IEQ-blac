@@ -3,7 +3,12 @@ import assert from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { detectarMimeType, mimeDeVideoValido } from '../src/services/imageProcessor.ts';
 import { criarMidiaSchema } from '../src/modules/midia/midia.schemas.ts';
-import { dividirEmPartes, TAMANHO_PARTE_ARQUIVO } from '../src/utils/upload.ts';
+import {
+  caminhoArquivoMidia,
+  dividirEmPartes,
+  extrairDataUrl,
+  TAMANHO_PARTE_ARQUIVO
+} from '../src/utils/upload.ts';
 import arquivoPublicoRoutes from '../src/modules/midia/arquivo.publico.routes.ts';
 
 function mp4(marca = 'isom') {
@@ -91,7 +96,48 @@ describe('Etapa 8 - Video para a vitrine (upload sem base64)', () => {
     });
   });
 
-  describe('4. Rota publica do arquivo (vitrine compartilhavel sem login)', () => {
+  describe('4. Midia da vitrine gravada NO BANCO (foto e video)', () => {
+    it('deve gravar foto e video pelo mesmo caminho de arquivo', () => {
+      assert.strictEqual(caminhoArquivoMidia('abc-123'), '/midia/abc-123/arquivo');
+    });
+
+    it('nao pode embutir a midia como base64 dentro do texto (virada de 3 MB no JSON)', () => {
+      const conteudo = {
+        id: 'abc-123',
+        // o que a API devolve depois da gravação no banco:
+        arquivoUrl: caminhoArquivoMidia('abc-123'),
+        arquivoMimeType: 'image/webp'
+      };
+      assert.ok(!String(conteudo.arquivoUrl).startsWith('data:'));
+      assert.ok(conteudo.arquivoUrl.length < 100, 'O campo deve guardar só o caminho do arquivo');
+    });
+
+    it('deve extrair MIME e bytes de uma midia antiga em base64 (migracao)', () => {
+      const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x01]);
+      const dataUrl = `data:image/png;base64,${png.toString('base64')}`;
+
+      const extraido = extrairDataUrl(dataUrl);
+      assert.ok(extraido);
+      assert.strictEqual(extraido.mimeType, 'image/png');
+      assert.strictEqual(extraido.bytes.length, png.length);
+      assert.ok(extraido.bytes.equals(png));
+    });
+
+    it('nao pode aceitar texto que nao seja data URL', () => {
+      assert.strictEqual(extrairDataUrl('/midia/abc/arquivo'), null);
+      assert.strictEqual(extrairDataUrl(''), null);
+      assert.strictEqual(extrairDataUrl('data:image/png;base64,'), null);
+    });
+
+    it('deve dividir a midia em pedaços de 4 MB (foto grande tambem)', () => {
+      const foto = Buffer.alloc(TAMANHO_PARTE_ARQUIVO + 512, 9);
+      const partes = dividirEmPartes(foto);
+      assert.strictEqual(partes.length, 2);
+      assert.strictEqual(partes.reduce((s, p) => s + p.length, 0), foto.length);
+    });
+  });
+
+  describe('5. Rota publica do arquivo (vitrine compartilhavel sem login)', () => {
     it('deve expor somente a rota do arquivo, sem autenticacao obrigatoria', () => {
       const rotas = arquivoPublicoRoutes.stack.filter((l) => l.route);
       assert.strictEqual(rotas.length, 1);

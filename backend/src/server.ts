@@ -147,6 +147,19 @@ if (process.env.NODE_ENV !== 'test') {
       } catch (e: any) {
         console.warn('Aviso na migração do identificador da igreja:', e.message);
       }
+
+      // Migração das mídias da vitrine: fotos que ainda estavam guardadas
+      // como texto base64 passam a ficar gravadas no banco como bytes
+      // (tabela midia_arquivo_partes), igual aos vídeos.
+      try {
+        const { MidiaService } = await import('./modules/midia/midia.service.ts');
+        const migrados = await MidiaService.migrarArquivosLegados();
+        if (migrados > 0) {
+          console.log(`🔄 ${migrados} mídia(s) da vitrine migradas para bytes no banco.`);
+        }
+      } catch (e: any) {
+        console.warn('Aviso na migração das mídias da vitrine:', e.message);
+      }
     } catch (err: any) {
       console.warn('⚠️  Aviso na verificação de banco/seed:', err.message);
     }

@@ -32,8 +32,7 @@ export class MidiaController {
     const temporarios: string[] = [];
 
     try {
-      let arquivoUrl: string | null = null;
-      let arquivoVideo: ArquivoEnviado | null = null;
+      let arquivoParaGravar: ArquivoEnviado | null = null;
       let tamanhoArquivoBytes = 0;
       let arquivoEhVideo = false;
 
@@ -49,22 +48,28 @@ export class MidiaController {
           // derrubava o servidor: upload acima de ~15 MB voltava com 502.
           const mimeReal = detectarMimeType(await MidiaController.lerInicio(caminho, 32));
           const mimeType = mimeDeVideoValido(mimeReal) ? mimeReal : mimeEnviado;
-          arquivoVideo = {
+          arquivoParaGravar = {
             caminho,
             mimeType,
             nomeOriginal: arquivo.originalname,
             tamanho: Number(arquivo.size) || 0
           };
-          tamanhoArquivoBytes = arquivoVideo.tamanho;
+          tamanhoArquivoBytes = arquivoParaGravar.tamanho;
           arquivoEhVideo = true;
         } else {
-          // IMAGEM: converte para WebP e guarda como data URL (comportamento antigo).
+          // IMAGEM: converte para WebP e grava os bytes no banco
+          // (a vitrine deixa de carregar megabytes de base64 no JSON).
           const buffer = await readFile(caminho);
           const processed = await ImageProcessor.processToWebP(buffer, {
             maxWidth: 1280,
             quality: 80
           });
-          arquivoUrl = `data:${processed.mimeType};base64,${processed.buffer.toString('base64')}`;
+          arquivoParaGravar = {
+            buffer: processed.buffer,
+            mimeType: processed.mimeType,
+            nomeOriginal: arquivo.originalname,
+            tamanho: processed.buffer.length
+          };
           tamanhoArquivoBytes = processed.buffer.length;
         }
       }
@@ -82,8 +87,7 @@ export class MidiaController {
             videoUrl: req.body.videoUrl || null,
             precisaAprovacao,
             temArquivo: true,
-            tamanhoArquivoBytes,
-            ...(arquivoUrl ? { arquivoUrl } : {})
+            tamanhoArquivoBytes
           })
         : await criarMidiaSchema.parseAsync({
             ...req.body,
@@ -93,9 +97,9 @@ export class MidiaController {
       const criado = await MidiaService.criar(req.user as any, dados);
 
       let conteudo = criado;
-      if (arquivoVideo) {
+      if (arquivoParaGravar) {
         try {
-          conteudo = await MidiaService.salvarArquivo(criado.id, arquivoVideo);
+          conteudo = await MidiaService.salvarArquivo(criado.id, arquivoParaGravar);
         } catch (erro) {
           // Não deixa conteúdo sem arquivo publicado
           await prisma.conteudoMidia.delete({ where: { id: criado.id } }).catch(() => undefined);

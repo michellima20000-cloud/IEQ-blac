@@ -56,3 +56,26 @@ export function dividirEmPartes(
   }
   return partes;
 }
+
+/**
+ * Caminho (relativo à API) onde o arquivo do conteúdo é servido.
+ * O front transforma em URL absoluta (urlMidia no frontend).
+ */
+export function caminhoArquivoMidia(id: string): string {
+  return `/midia/${id}/arquivo`;
+}
+
+/**
+ * Separa uma data URL (texto base64) em MIME + bytes.
+ * Usado na migração das mídias antigas: fotos que estavam guardadas
+ * como texto dentro da coluna arquivoUrl passam a ficar gravadas
+ * no banco como bytes, igual aos vídeos.
+ */
+export function extrairDataUrl(dataUrl: string): { mimeType: string; bytes: Buffer } | null {
+  const match = /^data:([^;]+);base64,(.*)$/.exec((dataUrl || '').trim());
+  if (!match) return null;
+  const mimeType = match[1] || 'application/octet-stream';
+  const bytes = Buffer.from(match[2], 'base64');
+  if (!bytes.length) return null;
+  return { mimeType, bytes };
+}
