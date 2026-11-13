@@ -1,37 +1,39 @@
 services:
   # Backend principal - API REST com Express + Prisma + JWT
+  # ATENÇÃO: as credenciais (banco, Redis, segredos JWT) NÃO ficam neste
+  # arquivo. Configure-as no painel do Render (Environment) do serviço.
   - type: web
-    name: ieq-backend
+    name: ieq-black
     runtime: node
     rootDir: backend
-    buildCommand: npm install && npx prisma generate && npx prisma db push --accept-data-loss
+    buildCommand: npm install && npx prisma generate && (npx prisma db push --accept-data-loss || echo "Aviso: prisma db push falhou no build (será tentado no start/setup)")
     startCommand: node_modules/.bin/tsx src/server.ts
     plan: free
     autoDeploy: true
+    healthCheckPath: /api/v1/health
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: "3001"
+      # Banco de dados: use a connection string EXTERNA do Postgres no Render
+      # (a string interna só funciona de dentro da rede do Render).
       - key: DATABASE_URL
-        value: postgresql://ieq_banco_user:Q7exGvg46eVFiMSCQSabrWGpgMMDjlfJ@dpg-dbn6eq3bc2fs738m3t4g-a/ieq_banco
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_REFRESH_SECRET
         generateValue: true
+      # Segredo das rotas de manutenção (/api/v1/setup-db e /admin/bootstrap)
+      - key: SETUP_SECRET
+        generateValue: true
       - key: REDIS_URL
-        value: rediss://default:gQAAAAAAAvVLAAIgcDJhMGYwYjVmZDkwZGI0OWY3YmFjZWQwNDNkMjdjNzI0NA@engaged-mudfish-193867.upstash.io:6379
+        sync: false
       - key: UPSTASH_REDIS_REST_URL
-        value: https://engaged-mudfish-193867.upstash.io
+        sync: false
       - key: UPSTASH_REDIS_REST_TOKEN
-        value: ggAAAAAAAvVLAAIgcDIz7U15_xe2B7oYELNjbm27caanV8276qgLAibyH0i1ZA
+        sync: false
       - key: FRONTEND_URL
-        value: https://ieq-front.vercel.app
+        value: https://ieq-blac.vercel.app
       - key: BACKUP_ENCRYPTION_KEY
-        value: IEQ2026BackupKey32CharsExactlyXXX
-
-databases:
-  - name: ieq-postgres
-    plan: free
-    databaseName: ieq_db
-    user: ieq_user
+        sync: false
