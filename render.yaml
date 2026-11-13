@@ -6,7 +6,7 @@ services:
     name: ieq-black
     runtime: node
     rootDir: backend
-    buildCommand: npm install && npx prisma generate && (npx prisma db push --accept-data-loss || echo "Aviso: prisma db push falhou no build (será tentado no start/setup)")
+    buildCommand: npm install && (npx prisma generate || echo "Aviso: prisma generate falhou no build") && (npx prisma db push --accept-data-loss || echo "Aviso: prisma db push falhou no build")
     startCommand: node_modules/.bin/tsx src/server.ts
     plan: free
     autoDeploy: true

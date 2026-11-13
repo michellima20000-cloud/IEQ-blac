@@ -2,6 +2,9 @@
   "name": "ieq-backend",
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
   "description": "Backend API para o Sistema da Igreja (IEQ)",
   "main": "dist/server.js",
   "scripts": {
