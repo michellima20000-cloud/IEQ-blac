@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Lock, KeyRound, ArrowRight, CircleAlert, Loader2, Download, X, CheckCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { ApiClient, fotoUtilizavel } from '../api/client';
+import { ApiClient, fotoUtilizavel, urlMidia } from '../api/client';
 
 export const LoginView: React.FC = () => {
   const { login } = useAuth();
@@ -30,8 +30,8 @@ export const LoginView: React.FC = () => {
       try {
         const res: any = await ApiClient.get(`/publico/visual/${encodeURIComponent(slug)}`);
         const visual = res?.visual ?? res;
-        const url = visual?.logoUrl ?? null;
-        if (!cancelado) setLogoUrl(fotoUtilizavel(url) ? url : null);
+        const url = urlMidia(visual?.logoUrl ?? null);
+        if (!cancelado) setLogoUrl(url && fotoUtilizavel(url) ? url : null);
       } catch {
         if (!cancelado) setLogoUrl(null);
       }

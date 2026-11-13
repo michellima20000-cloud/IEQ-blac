@@ -575,10 +575,12 @@ export default function MidiaView() {
         layoutDivulgacao: layoutOpt,
       };
       if (logoFile) payload.logoUrl = await lerArquivoDataUrl(logoFile);
-      await api.patch('/configuracoes/visual', payload);
-      // Aplica e memoriza na hora, em todo o app, mesmo antes das outras telas recarregarem
-      const cacheSalvo: any = { ...visual, ...payload };
-      if (logoFile) cacheSalvo.logoUrl = payload.logoUrl;
+      const resposta = await api.patch('/configuracoes/visual', payload);
+      // Aplica e memoriza na hora, em todo o app, mesmo antes das outras telas recarregarem.
+      // Usa o que a API devolveu (logo guardado como arquivo no banco) para o cache
+      // local não guardar um base64 gigante no navegador.
+      const salvo = (resposta.data as any)?.configuracao?.visual || (resposta.data as any)?.visual || null;
+      const cacheSalvo: any = salvo ? { ...visual, ...salvo } : { ...visual, ...payload };
       salvarVisualCache(cacheSalvo);
       aplicarVisualGeral(cacheSalvo);
       setSucesso('Configurações visuais salvas!');
@@ -1324,7 +1326,7 @@ export default function MidiaView() {
               <div className="w-24 h-24 rounded-2xl border-2 border-dashed border-slate-700 bg-slate-950/80 flex items-center justify-center overflow-hidden shrink-0">
                 {visual?.logoUrl ? (
                   <img loading="lazy" decoding="async"
-                    src={visual.logoUrl}
+                    src={urlMidia(visual.logoUrl) || ''}
                     alt="Logo atual da igreja"
                     className="w-full h-full object-contain p-1.5"
                   />
@@ -1484,7 +1486,7 @@ export default function MidiaView() {
               >
                 {visual?.logoUrl ? (
                   <img loading="lazy" decoding="async"
-                    src={visual.logoUrl}
+                    src={urlMidia(visual.logoUrl) || ''}
                     alt="Logo"
                     className="w-8 h-8 rounded-lg object-contain bg-white/15 p-0.5"
                   />

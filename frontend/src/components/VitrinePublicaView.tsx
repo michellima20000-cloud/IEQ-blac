@@ -82,6 +82,7 @@ export const VitrinePublicaView: React.FC<VitrinePublicaProps> = ({ slug }) => {
 
   const corPrimaria = visual.corPrimaria || '#2563eb';
   const corSecundaria = visual.corSecundaria || '#f59e0b';
+  const logoUrl = urlMidia(visual.logoUrl);
   const layout = visual.layoutDivulgacao === 'CARROSSEL' || visual.layoutDivulgacao === 'LISTA'
     ? visual.layoutDivulgacao
     : 'GRID';
@@ -110,11 +111,11 @@ export const VitrinePublicaView: React.FC<VitrinePublicaProps> = ({ slug }) => {
           aria-hidden="true"
         />
         <div className="relative max-w-4xl mx-auto px-4 pt-8 pb-7 text-center">
-          {visual.logoUrl && fotoUtilizavel(visual.logoUrl) && (
+          {logoUrl && fotoUtilizavel(logoUrl) && (
             <img
               loading="lazy"
               decoding="async"
-              src={visual.logoUrl}
+              src={logoUrl}
               alt={nomeIgreja || 'Logo da igreja'}
               className="mx-auto max-h-24 object-contain drop-shadow-lg mb-4"
             />

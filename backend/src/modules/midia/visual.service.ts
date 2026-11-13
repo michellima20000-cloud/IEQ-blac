@@ -2,6 +2,7 @@ import { prisma } from '../../config/prisma.ts';
 import { PermissaoError } from '../../permissions/rules.ts';
 import type { UsuarioAutenticado } from '../../permissions/types.ts';
 import type { PersonalizacaoVisualInput } from './midia.schemas.ts';
+import { caminhoLogoIgreja, extrairDataUrl } from '../../utils/upload.ts';
 
 // Configuração padrão da identidade visual caso ainda não personalizada
 const CONFIG_VISUAL_PADRAO = {
@@ -67,13 +68,17 @@ export class VisualService {
       throw new PermissaoError('Apenas Mídia e Pastor podem alterar a identidade visual da igreja.');
     }
 
+    // O logo é gravado no banco como bytes (arquivos_igreja) e servido por
+    // /logo/:igrejaId: nenhum arquivo fica embutido como base64 no texto.
+    const logoUrl = await VisualService.salvarLogo(usuario.igreja_id, dados.logoUrl);
+
     const config = await prisma.configuracaoIgreja.upsert({
       where: { igreja_id: usuario.igreja_id },
       update: {
         ...(dados.corPrimaria !== undefined ? { corPrimaria: dados.corPrimaria } : {}),
         ...(dados.corSecundaria !== undefined ? { corSecundaria: dados.corSecundaria } : {}),
         ...(dados.corFundo !== undefined ? { corFundo: dados.corFundo } : {}),
-        ...(dados.logoUrl !== undefined ? { logoUrl: dados.logoUrl } : {}),
+        ...(logoUrl !== undefined ? { logoUrl } : {}),
         ...(dados.layoutDivulgacao !== undefined ? { layoutDivulgacao: dados.layoutDivulgacao } : {})
       },
       create: {
@@ -81,7 +86,7 @@ export class VisualService {
         corPrimaria: dados.corPrimaria || CONFIG_VISUAL_PADRAO.corPrimaria,
         corSecundaria: dados.corSecundaria || CONFIG_VISUAL_PADRAO.corSecundaria,
         corFundo: dados.corFundo || CONFIG_VISUAL_PADRAO.corFundo,
-        logoUrl: dados.logoUrl ?? null,
+        logoUrl: logoUrl ?? null,
         layoutDivulgacao: dados.layoutDivulgacao || CONFIG_VISUAL_PADRAO.layoutDivulgacao
       }
     });
@@ -98,6 +103,82 @@ export class VisualService {
       atualizadoPor: usuario.id || (usuario as any).sub,
       atualizadoEm: new Date().toISOString()
     };
+  }
+
+  /**
+   * Grava (ou apaga) o logo da igreja.
+   * - Recebe uma data URL (upload do painel) -> vira bytes no banco e
+   *   devolve o caminho "/logo/:igrejaId".
+   * - Recebe null -> apaga o arquivo.
+   * - Recebe uma URL externa (http/https) -> mantém como está.
+   */
+  static async salvarLogo(igrejaId: string, logoUrl?: string | null): Promise<string | null | undefined> {
+    if (logoUrl === undefined) return undefined;
+
+    if (logoUrl === null || logoUrl === '') {
+      await prisma.arquivoIgreja.deleteMany({ where: { igreja_id: igrejaId } });
+      return null;
+    }
+
+    const extraido = extrairDataUrl(logoUrl);
+    if (!extraido) return logoUrl; // URL externa: mantém como está
+
+    await prisma.arquivoIgreja.upsert({
+      where: { igreja_id: igrejaId },
+      update: {
+        mimeType: extraido.mimeType,
+        bytes: extraido.bytes,
+        tamanho: extraido.bytes.length
+      },
+      create: {
+        igreja_id: igrejaId,
+        mimeType: extraido.mimeType,
+        bytes: extraido.bytes,
+        tamanho: extraido.bytes.length
+      }
+    });
+
+    return caminhoLogoIgreja(igrejaId);
+  }
+
+  /**
+   * Migração dos logos antigos: logos guardados como texto base64 dentro de
+   * configuracao_igrejas.logoUrl passam a ficar gravados como bytes.
+   */
+  static async migrarLogosLegados(): Promise<number> {
+    const legados = await prisma.configuracaoIgreja.findMany({
+      where: { logoUrl: { startsWith: 'data:' } },
+      select: { igreja_id: true, logoUrl: true }
+    });
+
+    let migrados = 0;
+    for (const config of legados) {
+      const extraido = extrairDataUrl(config.logoUrl || '');
+      if (!extraido) continue;
+
+      await prisma.arquivoIgreja.upsert({
+        where: { igreja_id: config.igreja_id },
+        update: {
+          mimeType: extraido.mimeType,
+          bytes: extraido.bytes,
+          tamanho: extraido.bytes.length
+        },
+        create: {
+          igreja_id: config.igreja_id,
+          mimeType: extraido.mimeType,
+          bytes: extraido.bytes,
+          tamanho: extraido.bytes.length
+        }
+      });
+
+      await prisma.configuracaoIgreja.update({
+        where: { igreja_id: config.igreja_id },
+        data: { logoUrl: caminhoLogoIgreja(config.igreja_id) }
+      });
+      migrados++;
+    }
+
+    return migrados;
   }
 }
 

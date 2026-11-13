@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { LogOut } from 'lucide-react';
 import { useAuth, Perfil } from '../context/AuthContext';
-import { api } from '../api/client';
+import { api, urlMidia } from '../api/client';
 import { lerVisualCache, salvarVisualCache, aplicarVisualGeral } from '../utils/visualCache';
 
 interface LayoutProps {
@@ -81,7 +81,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           <div className="flex items-center gap-3 min-w-0">
             {visual?.logoUrl ? (
               <img
-                src={visual.logoUrl}
+                src={urlMidia(visual.logoUrl) || ''}
                 alt="Logo da igreja"
                 loading="lazy"
                 decoding="async"

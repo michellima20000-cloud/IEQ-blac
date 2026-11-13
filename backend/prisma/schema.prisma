@@ -49,6 +49,7 @@ model Igreja {
   visitantes          Visitante[]
   relatorios          RelatorioCelula[]
   conteudosMidia      ConteudoMidia[]
+  arquivo             ArquivoIgreja?
   eventos             EventoCalendario[]
   configuracao        ConfiguracaoIgreja?
   logsAuditoria       LogAuditoria[]
@@ -194,6 +195,20 @@ model MidiaArquivoParte {
 
   @@index([conteudoId, ordem])
   @@map("midia_arquivo_partes")
+}
+
+model ArquivoIgreja {
+  id           String   @id @default(uuid())
+  igreja_id    String   @unique
+  mimeType     String
+  nomeOriginal String?
+  bytes        Bytes
+  tamanho      Int
+  createdAt    DateTime @default(now())
+
+  igreja Igreja @relation(fields: [igreja_id], references: [id], onDelete: Cascade)
+
+  @@map("arquivos_igreja")
 }
 
 model ConteudoMidia {

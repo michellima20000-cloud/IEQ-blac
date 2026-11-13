@@ -5,6 +5,7 @@ import { detectarMimeType, mimeDeVideoValido } from '../src/services/imageProces
 import { criarMidiaSchema } from '../src/modules/midia/midia.schemas.ts';
 import {
   caminhoArquivoMidia,
+  caminhoLogoIgreja,
   dividirEmPartes,
   extrairDataUrl,
   TAMANHO_PARTE_ARQUIVO
@@ -135,14 +136,26 @@ describe('Etapa 8 - Video para a vitrine (upload sem base64)', () => {
       assert.strictEqual(partes.length, 2);
       assert.strictEqual(partes.reduce((s, p) => s + p.length, 0), foto.length);
     });
+
+    it('deve servir o logo pelo mesmo caminho de arquivo (sem base64 no texto)', () => {
+      assert.strictEqual(caminhoLogoIgreja('igreja-1'), '/logo/igreja-1');
+    });
+
+    it('deve expor a rota publica do logo', () => {
+      const rotas = arquivoPublicoRoutes.stack.filter((l) => l.route).map((l) => l.route.path);
+      assert.ok(rotas.includes('/logo/:igrejaId'), 'A rota pública do logo precisa existir');
+    });
   });
 
   describe('5. Rota publica do arquivo (vitrine compartilhavel sem login)', () => {
-    it('deve expor somente a rota do arquivo, sem autenticacao obrigatoria', () => {
+    it('deve expor a rota do arquivo e a do logo, sem autenticacao obrigatoria', () => {
       const rotas = arquivoPublicoRoutes.stack.filter((l) => l.route);
-      assert.strictEqual(rotas.length, 1);
+      assert.strictEqual(rotas.length, 2);
       assert.strictEqual(rotas[0].route.path, '/midia/:id/arquivo');
-      assert.strictEqual(rotas[0].route.stack.length, 1, 'Nenhum middleware de autenticacao na rota publica');
+      assert.strictEqual(rotas[1].route.path, '/logo/:igrejaId');
+      for (const rota of rotas) {
+        assert.strictEqual(rota.route.stack.length, 1, 'Nenhum middleware de autenticacao na rota publica');
+      }
     });
 
     it('deve montar a rota publica ANTES do router de celulas (que exige token)', async () => {

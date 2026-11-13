@@ -66,6 +66,14 @@ export function caminhoArquivoMidia(id: string): string {
 }
 
 /**
+ * Caminho (relativo à API) onde o logo da igreja é servido.
+ * O front transforma em URL absoluta (urlMidia no frontend).
+ */
+export function caminhoLogoIgreja(igrejaId: string): string {
+  return `/logo/${igrejaId}`;
+}
+
+/**
  * Separa uma data URL (texto base64) em MIME + bytes.
  * Usado na migração das mídias antigas: fotos que estavam guardadas
  * como texto dentro da coluna arquivoUrl passam a ficar gravadas

@@ -153,9 +153,14 @@ if (process.env.NODE_ENV !== 'test') {
       // (tabela midia_arquivo_partes), igual aos vídeos.
       try {
         const { MidiaService } = await import('./modules/midia/midia.service.ts');
+        const { VisualService } = await import('./modules/midia/visual.service.ts');
         const migrados = await MidiaService.migrarArquivosLegados();
         if (migrados > 0) {
           console.log(`🔄 ${migrados} mídia(s) da vitrine migradas para bytes no banco.`);
+        }
+        const logos = await VisualService.migrarLogosLegados();
+        if (logos > 0) {
+          console.log(`🔄 ${logos} logo(s) migrado(s) para bytes no banco.`);
         }
       } catch (e: any) {
         console.warn('Aviso na migração das mídias da vitrine:', e.message);
