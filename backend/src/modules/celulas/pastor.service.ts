@@ -2,6 +2,7 @@ import { prisma } from '../../config/prisma.ts';
 import { PermissaoError } from '../../permissions/rules.ts';
 import { BackupService } from '../../services/backup.service.ts';
 import { CleanupService } from '../../services/cleanup.service.ts';
+import { RelatoriosService } from './relatorios.service.ts';
 import type { UsuarioAutenticado } from '../../permissions/types.ts';
 import type { FiltroDashboardPastorInput } from './celulas.schemas.ts';
 
@@ -13,7 +14,7 @@ export class PastorDashboardService {
    * - Espaço em disco usado e estimativa a liberar na limpeza
    */
   static async obterIndicadores(usuario: UsuarioAutenticado, filtros: FiltroDashboardPastorInput) {
-    if (usuario.perfil !== 'PASTOR') {
+    if (usuario.perfil !== 'PASTOR' && usuario.perfil !== 'ADM') {
       throw new PermissaoError('Acesso restrito ao Pastor.');
     }
 
@@ -85,12 +86,24 @@ export class PastorDashboardService {
     const armazenamento = await CleanupService.calcularMetricasArmazenamento(igreja_id);
 
     // 7. Lista detalhada de relatórios com célula, rede, líder e foto
+    // A foto NÃO vem junto: ela é um base64 de vários MB e envio isso no
+    // painel deixava a resposta gigas. O front recebe uma URL assinada e
+    // busca a foto sob demanda (igual à tela de Rede).
     const relatoriosDetalhados = await prisma.relatorioCelula.findMany({
       where: {
         igreja_id,
         ...(redeId ? { celula: { redeId } } : {})
       },
-      include: {
+      select: {
+        id: true,
+        data: true,
+        presentes: true,
+        visitantes: true,
+        observacoes: true,
+        status: true,
+        dataFechamento: true,
+        // Usado só para saber se existe foto (o base64 em si NÃO vai na resposta)
+        fotoUrl: true,
         celula: {
           select: {
             id: true,
@@ -112,6 +125,12 @@ export class PastorDashboardService {
       take: 50
     });
 
+    const relatoriosComUrl = relatoriosDetalhados.map(({ fotoUrl, ...rel }: any) => ({
+      ...rel,
+      temFoto: !!fotoUrl,
+      fotoUrlAssinada: fotoUrl ? RelatoriosService.gerarUrlAssinadaFoto(rel.id) : null
+    }));
+
     return {
       periodo: {
         inicio: inicio.toISOString(),
@@ -128,7 +147,7 @@ export class PastorDashboardService {
       },
       segurancaBackup: statusBackup,
       armazenamento,
-      relatorios: relatoriosDetalhados
+      relatorios: relatoriosComUrl
     };
   }
 
@@ -144,7 +163,7 @@ export class PastorDashboardService {
     tipo: string,
     filtros: FiltroDashboardPastorInput
   ) {
-    if (usuario.perfil !== 'PASTOR') {
+    if (usuario.perfil !== 'PASTOR' && usuario.perfil !== 'ADM') {
       throw new PermissaoError('Acesso restrito ao Pastor.');
     }
 

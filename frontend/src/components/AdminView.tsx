@@ -1,13 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, Suspense, lazy } from 'react';
 import {
   Shield, Building2, Users, FileText, RefreshCw, Plus, Pencil, Trash2, X,
-  Server, HardDrive, CheckCircle2, AlertTriangle
+  Server, HardDrive, CheckCircle2, AlertTriangle, LayoutDashboard, Loader2
 } from 'lucide-react';
 import { ApiClient } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { SkeletonPage } from './Skeleton';
 
-type Aba = 'sistema' | 'igrejas' | 'usuarios' | 'auditoria';
+const PastorView = lazy(() => import('./PastorView'));
+
+type Aba = 'sistema' | 'igrejas' | 'usuarios' | 'auditoria' | 'gerenciar';
 
 const perfis = ['CELULA', 'REDE', 'PASTOR', 'MIDIA', 'ADM'] as const;
 
@@ -25,6 +27,16 @@ export const AdminView: React.FC = () => {
   const [filtroIgreja, setFiltroIgreja] = useState('');
   const [filtroPerfil, setFiltroPerfil] = useState('');
   const [busca, setBusca] = useState('');
+
+  const [igrejaContexto, setIgrejaContexto] = useState<string>(
+    () => (typeof localStorage !== 'undefined' && localStorage.getItem('ieq_admin_igreja_id')) || ''
+  );
+
+  useEffect(() => {
+    if (typeof localStorage === 'undefined') return;
+    if (igrejaContexto) localStorage.setItem('ieq_admin_igreja_id', igrejaContexto);
+    else localStorage.removeItem('ieq_admin_igreja_id');
+  }, [igrejaContexto]);
 
   const [modalAberto, setModalAberto] = useState(false);
   const [editando, setEditando] = useState<any | null>(null);
@@ -237,11 +249,21 @@ export const AdminView: React.FC = () => {
         </div>
       )}
 
+      <div className="card-soft p-3 flex flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold text-slate-300">Contexto da igreja (para gerenciar):</span>
+        <select className="input max-w-xs text-xs" value={igrejaContexto} onChange={(e) => setIgrejaContexto(e.target.value)}>
+          <option value="">Nenhuma (visão global)</option>
+          {igrejas.map((ig: any) => <option key={ig.id} value={ig.id}>{ig.nome} ({ig.slug})</option>)}
+        </select>
+        {igrejaContexto && <span className="text-[11px] text-emerald-400">Ações/API usarão esta igreja (x-igreja-id).</span>}
+      </div>
+
       <div className="flex gap-2 flex-wrap">
         {([
           { id: 'sistema', label: 'Sistema', Icon: Server },
           { id: 'igrejas', label: 'Igrejas', Icon: Building2 },
           { id: 'usuarios', label: 'Usuários', Icon: Users },
+          { id: 'gerenciar', label: 'Gerenciar igreja', Icon: LayoutDashboard },
           { id: 'auditoria', label: 'Auditoria', Icon: FileText },
         ] as const).map(({ id, label, Icon }) => (
           <button key={id} onClick={() => setAba(id)}
@@ -365,6 +387,20 @@ export const AdminView: React.FC = () => {
             ))}
             {usuariosFiltrados.length === 0 && <div className="text-sm text-slate-400 text-center py-6">Nenhum usuário encontrado.</div>}
           </div>
+        </div>
+      )}
+
+      {aba === 'gerenciar' && (
+        <div className="space-y-3">
+          {!igrejaContexto ? (
+            <div className="card-soft p-4 text-sm text-slate-300">
+              Selecione uma igreja no <b>contexto</b> acima para gerenciar células, redes, membros, relatórios, usuários, aprovações e configurações dessa igreja (como pastor, com acesso ADM).
+            </div>
+          ) : (
+            <Suspense fallback={<div className="flex items-center gap-2 text-slate-400 text-sm py-8 justify-center"><Loader2 size={18} className="animate-spin" />Carregando painel da igreja...</div>}>
+              <PastorView key={igrejaContexto} />
+            </Suspense>
+          )}
         </div>
       )}
 

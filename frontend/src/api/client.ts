@@ -3,14 +3,17 @@ const DEFAULT_URL = isLocal ? 'http://localhost:3001/api/v1' : 'https://ieq-blac
 const BASE_URL = ((import.meta as any).env?.VITE_API_URL as string) || DEFAULT_URL;
 
 /**
- * Uma foto só pode ser exibida pelo navegador se for data URL (base64)
- * ou uma URL http(s). Valores antigos como `minio://...` quebram a imagem.
+ * Uma foto só pode ser exibida pelo navegador se for data URL (base64),
+ * uma URL http(s) ou um caminho relativo servido pela API (ex.: /logo/:id).
+ * Valores antigos como `minio://...` quebram a imagem.
  */
 export function fotoUtilizavel(url?: string | null): url is string {
   return typeof url === 'string' && (
     url.startsWith('data:') ||
+    url.startsWith('blob:') ||
     url.startsWith('http://') ||
-    url.startsWith('https://')
+    url.startsWith('https://') ||
+    url.startsWith('/')
   );
 }
 
@@ -95,6 +98,9 @@ export class ApiClient {
       if (qs) url += `?${qs}`;
     }
 
+    // Contexto de igreja para ações do ADM (permite atuar em qualquer igreja)
+    const igrejaContexto = typeof localStorage !== 'undefined' ? localStorage.getItem('ieq_admin_igreja_id') : null;
+
     const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
     const baseHeaders: Record<string, string> = isFormData
       ? {}
@@ -114,19 +120,40 @@ export class ApiClient {
       delete headers['Content-Type'];
     }
 
+    if (igrejaContexto) {
+      headers['X-Igreja-Id'] = igrejaContexto;
+    }
+
     const token = this.getAccessToken();
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
     const MAX_TENTATIVAS = 2;
+    const TIMEOUT_MS = 30000; // evita requisição travada em rede ruim (economia/erros)
 
     for (let tentativa = 1; tentativa <= MAX_TENTATIVAS + 1; tentativa++) {
-      const response = await fetch(url, {
-        method: options.method || 'GET',
-        ...options,
-        headers: { ...headers, ...(options.headers || {}) }
-      });
+      // Timeout por requisição (sem cancelar se o chamador já passou um signal)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+      const signal = options.signal ?? controller.signal;
+
+      let response: Response;
+      try {
+        response = await fetch(url, {
+          method: options.method || 'GET',
+          ...options,
+          headers: { ...headers, ...(options.headers || {}) },
+          signal
+        });
+      } catch (err: any) {
+        clearTimeout(timeoutId);
+        if (err?.name === 'AbortError') {
+          throw new Error('A requisição demorou demais. Verifique sua conexão e tente novamente.');
+        }
+        throw err;
+      }
+      clearTimeout(timeoutId);
 
       if (response.status === 401 && endpoint !== '/auth/login' && endpoint !== '/auth/refresh') {
         const refreshToken = this.getRefreshToken();
@@ -144,6 +171,10 @@ export class ApiClient {
               headers['Authorization'] = `Bearer ${tokens.accessToken}`;
               continue; // Tenta a requisição novamente com novo token
             }
+
+            // O refresh foi recusado (token expirado/revogado): a sessão acabou.
+            // Sem isto o app ficava "logado" e todas as requisições devolviam 401.
+            this.encerrarSessaoExpirada();
           } catch {
             this.encerrarSessaoExpirada();
             throw new Error('Falha ao renovar token');

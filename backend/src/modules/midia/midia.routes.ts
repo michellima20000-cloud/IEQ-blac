@@ -12,7 +12,8 @@ import {
   devolverMidiaSchema,
   criarEventoSchema,
   atualizarEventoSchema,
-  personalizacaoVisualSchema
+  personalizacaoVisualSchema,
+  retencaoFotosSchema
 } from './midia.schemas.ts';
 
 // Upload via multipart com o arquivo BINÁRIO (evita transformar um vídeo de
@@ -89,9 +90,9 @@ router.patch('/midia/:id', validate(atualizarMidiaSchema), MidiaController.atual
 router.delete('/midia/:id', MidiaController.excluirMidia);
 
 // --- FLUXO DE APROVAÇÃO (EXCLUSIVO DO PASTOR) ---
-router.get('/midia/pendentes', requirePerfil('PASTOR'), MidiaController.listarPendentes);
-router.post('/midia/:id/aprovar', requirePerfil('PASTOR'), MidiaController.aprovar);
-router.post('/midia/:id/devolver', requirePerfil('PASTOR'), validate(devolverMidiaSchema), MidiaController.devolver);
+router.get('/midia/pendentes', requirePerfil('PASTOR', 'ADM'), MidiaController.listarPendentes);
+router.post('/midia/:id/aprovar', requirePerfil('PASTOR', 'ADM'), MidiaController.aprovar);
+router.post('/midia/:id/devolver', requirePerfil('PASTOR', 'ADM'), validate(devolverMidiaSchema), MidiaController.devolver);
 
 // --- CALENDÁRIO ---
 router.get('/calendario', MidiaController.listarEventos);
@@ -102,6 +103,27 @@ router.delete('/calendario/:id', MidiaController.excluirEvento);
 // --- PERSONALIZAÇÃO VISUAL ---
 router.get('/configuracoes/visual', MidiaController.obterVisual);
 router.patch('/configuracoes/visual', validate(personalizacaoVisualSchema), MidiaController.atualizarVisual);
+
+// --- RETENÇÃO DE FOTOS DOS RELATÓRIOS (PASTOR) ---
+/**
+ * @swagger
+ * /configuracoes/retencao:
+ *   get:
+ *     summary: Prazo de retenção das fotos dos relatórios
+ *     tags: [Configurações]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Prazo configurado em dias
+ */
+router.get('/configuracoes/retencao', requirePerfil('PASTOR', 'ADM'), MidiaController.obterRetencao);
+router.patch(
+  '/configuracoes/retencao',
+  requirePerfil('PASTOR', 'ADM'),
+  validate(retencaoFotosSchema),
+  MidiaController.atualizarRetencao
+);
 
 export default router;
 
