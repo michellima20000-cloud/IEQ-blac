@@ -27,6 +27,9 @@ services:
       # Segredo das rotas de manutenção (/api/v1/setup-db e /admin/bootstrap)
       - key: SETUP_SECRET
         generateValue: true
+      # Dono do sistema: SOMENTE este e-mail (perfil ADM) acessa /api/v1/admin
+      - key: ADMIN_OWNER_EMAILS
+        value: michel.lima20000@gmail.com
       - key: REDIS_URL
         sync: false
       - key: UPSTASH_REDIS_REST_URL
