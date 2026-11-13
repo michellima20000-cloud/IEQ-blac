@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import type { Response } from 'express';
 import { prisma } from '../../config/prisma.ts';
 import { AuthService } from './auth.service.ts';
 import type { LoginInput, RefreshInput } from './auth.schemas.ts';
@@ -10,6 +10,20 @@ export class AuthController {
    * POST /api/v1/auth/login
    */
   static async login(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      await this.executarLogin(req, res);
+    } catch (err: any) {
+      // Sem este try/catch, uma falha do banco deixava a requisição pendurada
+      // (no Express 4, rejeição de handler assíncrono não chega ao errorHandler).
+      console.error('[auth] Falha no login:', err?.message);
+      res.status(500).json({
+        error: 'Erro no login',
+        message: 'Não foi possível concluir o login. Tente novamente em instantes.'
+      });
+    }
+  }
+
+  private static async executarLogin(req: AuthenticatedRequest, res: Response): Promise<void> {
     const { email, senha, slugIgreja } = req.body as LoginInput;
 
     // Localizar a igreja pelo slug (aceita variações de escrita/caixa/espaços)

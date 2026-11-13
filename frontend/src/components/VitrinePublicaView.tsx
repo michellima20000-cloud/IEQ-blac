@@ -259,7 +259,7 @@ export const VitrinePublicaView: React.FC<VitrinePublicaProps> = ({ slug }) => {
 
                       {isVideo && arquivoUrl && !item.videoUrl && (
                         <div className={ehHorizontal ? 'w-full sm:w-2/5 shrink-0 h-36' : 'aspect-video w-full bg-black'}>
-                          <video src={arquivoUrl} controls className="w-full h-full" title={item.titulo} playsInline />
+                          <video src={arquivoUrl} controls preload="metadata" className="w-full h-full" title={item.titulo} playsInline />
                         </div>
                       )}
 

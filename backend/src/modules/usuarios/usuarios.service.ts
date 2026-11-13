@@ -225,9 +225,25 @@ export class UsuariosService {
 
   /**
    * Atualiza usuário da igreja (nome, e-mail, senha, perfil, vínculos e status)
+   *
+   * `perfilSolicitante` impede que um Pastor altere (ou troque a senha de) uma
+   * conta ADM: o perfil ADM enxerga todas as igrejas.
    */
-  static async atualizar(igreja_id: string, id: string, dados: AtualizarUsuarioInput) {
+  static async atualizar(
+    igreja_id: string,
+    id: string,
+    dados: AtualizarUsuarioInput,
+    perfilSolicitante?: string
+  ) {
     const usuario = await this.buscarPorId(igreja_id, id);
+
+    const ehAdministrador = perfilSolicitante === 'ADM';
+    if (usuario.perfil === 'ADM' && !ehAdministrador) {
+      throw new Error('Somente o Administrador do sistema pode alterar uma conta ADM.');
+    }
+    if (dados.perfil === 'ADM' && !ehAdministrador) {
+      throw new Error('Somente o Administrador do sistema pode conceder o perfil ADM.');
+    }
 
     // E-mail duplicado na mesma igreja
     if (dados.email && dados.email.toLowerCase() !== usuario.email.toLowerCase()) {

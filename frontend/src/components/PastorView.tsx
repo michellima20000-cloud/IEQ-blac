@@ -127,6 +127,11 @@ const usuariosFiltrados = usuarios.filter((u) => {
 
   // Configurações
   const [prazoRetencao, setPrazoRetencao] = useState(60);
+  const [salvandoRetencao, setSalvandoRetencao] = useState(false);
+
+  // Fotos dos relatórios: carregadas sob demanda (a API não manda a imagem
+  // embutida em base64 junto com a lista, senão o painel virava megabytes)
+  const [fotos, setFotos] = useState<Record<string, string | null>>({});
 
   const [mensagemSucesso, setMensagemSucesso] = useState<string | null>(null);
   const [mensagemErro, setMensagemErro] = useState<string | null>(null);
@@ -135,23 +140,63 @@ const usuariosFiltrados = usuarios.filter((u) => {
     carregarDadosPastor();
   }, []);
 
+  // Busca as fotos apenas dos relatórios visíveis (evita dezenas de requests)
+  useEffect(() => {
+    listaRelatorios.visiveis.forEach((rel: any) => {
+      if (rel.fotoUrlAssinada && fotos[rel.id] === undefined) {
+        carregarFoto(rel);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dashboard, listaRelatorios.visiveis.length]);
+
+  const carregarFoto = async (rel: any) => {
+    try {
+      const token = new URL(rel.fotoUrlAssinada, window.location.origin).searchParams.get('token');
+      const res = token ? await ApiClient.get(`/relatorios/${rel.id}/foto`, { token }) : null;
+      const url = res?.fotoUrl;
+      setFotos((prev) => ({ ...prev, [rel.id]: fotoUtilizavel(url) ? url : null }));
+    } catch {
+      setFotos((prev) => ({ ...prev, [rel.id]: null }));
+    }
+  };
+
   const carregarDadosPastor = async () => {
     setCarregando(true);
     try {
-      const [resDash, resPendentes, resUsers, resRedes] = await Promise.all([
+      const [resDash, resPendentes, resUsers, resRedes, resRetencao] = await Promise.all([
         ApiClient.get('/dashboard/pastor'),
         ApiClient.get('/midia/pendentes'),
         ApiClient.get('/usuarios'),
-        ApiClient.get('/redes').catch(() => ({ redes: [] }))
+        ApiClient.get('/redes').catch(() => ({ redes: [] })),
+        ApiClient.get('/configuracoes/retencao').catch(() => null)
       ]);
       setDashboard(resDash);
       setPendentes(resPendentes.pendentes || []);
       setUsuarios(resUsers.usuarios || []);
       setRedesDisponiveis(resRedes?.redes || []);
-    } catch {
-      // Ignora falhas pontuais
+      if (resRetencao?.prazoRetencaoFotosDias) {
+        setPrazoRetencao(resRetencao.prazoRetencaoFotosDias);
+      }
+    } catch (err: any) {
+      setMensagemErro(err?.message || 'Não foi possível carregar o painel do Pastor.');
     } finally {
       setCarregando(false);
+    }
+  };
+
+  const salvarRetencao = async () => {
+    setSalvandoRetencao(true);
+    setMensagemErro(null);
+    setMensagemSucesso(null);
+    try {
+      await ApiClient.patch('/configuracoes/retencao', { prazoRetencaoFotosDias: prazoRetencao });
+      setMensagemSucesso(`Prazo de retenção atualizado para ${prazoRetencao} dias.`);
+      carregarDadosPastor();
+    } catch (err: any) {
+      setMensagemErro(err?.message || 'Falha ao salvar o prazo de retenção.');
+    } finally {
+      setSalvandoRetencao(false);
     }
   };
 
@@ -522,12 +567,12 @@ const usuariosFiltrados = usuarios.filter((u) => {
                       </button>
                     </div>
 
-                    {fotoUtilizavel(rel.fotoUrl) && (
+                    {fotoUtilizavel(fotos[rel.id]) && (
                       <div className="pt-1">
                         <img loading="lazy" decoding="async"
-                          src={rel.fotoUrl}
+                          src={fotos[rel.id] as string}
                           alt="Foto da Reunião"
-                          onClick={() => setFotoModal(rel.fotoUrl)}
+                          onClick={() => setFotoModal(fotos[rel.id] as string)}
                           className="w-full h-28 object-cover rounded-lg border border-slate-800 cursor-pointer hover:opacity-90 transition-opacity"
                         />
                       </div>
@@ -639,15 +684,15 @@ const usuariosFiltrados = usuarios.filter((u) => {
                     </button>
                   </div>
 
-                  {fotoUtilizavel(rel.fotoUrl) && (
+                  {fotoUtilizavel(fotos[rel.id]) && (
                     <div className="pt-2 border-t border-slate-800">
                       <span className="text-[10px] uppercase text-slate-400 block mb-1.5 font-medium">
                         Foto da Reunião
                       </span>
                       <img loading="lazy" decoding="async"
-                        src={rel.fotoUrl}
+                        src={fotos[rel.id] as string}
                         alt="Foto da Célula"
-                        onClick={() => setFotoModal(rel.fotoUrl)}
+                        onClick={() => setFotoModal(fotos[rel.id] as string)}
                         className="w-full h-40 object-cover rounded-xl border border-slate-700/80 cursor-pointer hover:opacity-90 transition-opacity"
                       />
                     </div>
@@ -1071,7 +1116,7 @@ const usuariosFiltrados = usuarios.filter((u) => {
               marcadas para manter). O relatório em si permanece intacto.
             </p>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
               <input
                 type="range"
                 min="7"
@@ -1081,6 +1126,14 @@ const usuariosFiltrados = usuarios.filter((u) => {
                 className="w-64 accent-blue-500"
               />
               <span className="text-sm font-bold text-white">{prazoRetencao} dias</span>
+              <button
+                type="button"
+                onClick={salvarRetencao}
+                disabled={salvandoRetencao}
+                className="btn-primary btn-sm disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {salvandoRetencao ? 'Salvando...' : 'Salvar prazo'}
+              </button>
             </div>
           </div>
 

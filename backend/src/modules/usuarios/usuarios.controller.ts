@@ -1,7 +1,8 @@
-import { Response } from 'express';
+import type { Response } from 'express';
 import { UsuariosService } from './usuarios.service.ts';
 import type { AuthenticatedRequest } from '../../middlewares/auth.ts';
 import type { CriarUsuarioInput, AtualizarUsuarioInput } from './usuarios.schemas.ts';
+import { PERFIS_GERENCIAVEIS } from './usuarios.schemas.ts';
 
 export class UsuariosController {
   /**
@@ -32,15 +33,28 @@ export class UsuariosController {
    * Lista usuários da igreja do pastor
    */
   static async listar(req: AuthenticatedRequest, res: Response): Promise<void> {
-    const igreja_id = req.igreja_id!;
-    const { perfil } = req.query;
+    try {
+      const igreja_id = req.igreja_id!;
+      const { perfil } = req.query;
 
-    const usuarios = await UsuariosService.listar(igreja_id, perfil as string);
+      // O filtro vai direto para o Prisma: precisa ser um perfil válido,
+      // senão a consulta estoura e a requisição fica pendurada.
+      const perfilValido = PERFIS_GERENCIAVEIS.includes(perfil as any)
+        ? (perfil as string)
+        : undefined;
 
-    res.json({
-      total: usuarios.length,
-      usuarios
-    });
+      const usuarios = await UsuariosService.listar(igreja_id, perfilValido);
+
+      res.json({
+        total: usuarios.length,
+        usuarios
+      });
+    } catch (err: any) {
+      res.status(400).json({
+        error: 'Erro ao listar usuários',
+        message: err.message || 'Falha ao listar usuários.'
+      });
+    }
   }
 
   /**
@@ -71,7 +85,12 @@ export class UsuariosController {
       const { id } = req.params;
       const dados = req.body as AtualizarUsuarioInput;
 
-      const atualizado = await UsuariosService.atualizar(igreja_id, id, dados);
+      const atualizado = await UsuariosService.atualizar(
+        igreja_id,
+        id,
+        dados,
+        req.user?.perfil as string | undefined
+      );
 
       res.json({
         message: 'Usuário atualizado com sucesso.',

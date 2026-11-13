@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import type { Response } from 'express';
 import { CelulasService } from './celulas.service.ts';
 import { RelatoriosService } from './relatorios.service.ts';
 import { RedesService } from './redes.service.ts';
@@ -24,6 +24,14 @@ export class CelulasController {
 
   static async listarTodasCelulas(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
+      // Perfil Mídia nunca acessa dados de células (regra do projeto).
+      if (req.user?.perfil === 'MIDIA') {
+        res.status(403).json({
+          error: 'Acesso negado',
+          message: 'Perfil Mídia não possui acesso ao módulo de células.'
+        });
+        return;
+      }
       const celulas = await CelulasService.listarTodas(req.igreja_id!);
       res.json({ celulas });
     } catch (err: any) {
@@ -33,6 +41,13 @@ export class CelulasController {
 
   static async listarTodasRedes(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
+      if (req.user?.perfil === 'MIDIA') {
+        res.status(403).json({
+          error: 'Acesso negado',
+          message: 'Perfil Mídia não possui acesso ao módulo de células.'
+        });
+        return;
+      }
       const { prisma } = await import('../../config/prisma.ts');
       const redes = await prisma.rede.findMany({
         where: { igreja_id: req.igreja_id! },

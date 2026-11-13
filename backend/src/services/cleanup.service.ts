@@ -14,8 +14,27 @@ export interface RelatorioItemLimpeza {
 }
 
 const MAX_TENTATIVAS_STORAGE = 3;
+const PRAZO_PADRAO_DIAS = 60;
 
 export class CleanupService {
+  /**
+   * Prazo de retenção de fotos configurado pelo Pastor para a igreja.
+   * Se a igreja não tiver configuração (ou o banco estiver indisponível),
+   * usa o padrão de 60 dias.
+   */
+  static async obterPrazoRetencaoDias(igreja_id: string): Promise<number> {
+    try {
+      const configuracao = await prisma.configuracaoIgreja.findUnique({
+        where: { igreja_id },
+        select: { prazoRetencaoFotosDias: true }
+      });
+      const prazo = configuracao?.prazoRetencaoFotosDias;
+      return prazo && prazo > 0 ? prazo : PRAZO_PADRAO_DIAS;
+    } catch {
+      return PRAZO_PADRAO_DIAS;
+    }
+  }
+
   /**
    * Executa a limpeza diária de fotos de relatórios vencidas:
    * 1. Consulta prazo da igreja (default 60 dias)
@@ -27,7 +46,7 @@ export class CleanupService {
     // 1. Obtém o prazo configurado pelo pastor (default 60 dias)
     // Se prazoDiasOverride for fornecido (por exemplo, em testes com dados mock),
     // usa-se este valor em vez de consultar o banco
-    const prazoDias = prazoDiasOverride ?? 60;
+    const prazoDias = prazoDiasOverride ?? (await this.obterPrazoRetencaoDias(igreja_id));
 
     const dataLimite = new Date();
     dataLimite.setDate(dataLimite.getDate() - prazoDias);
@@ -88,7 +107,7 @@ export class CleanupService {
                 detalhesJson: JSON.stringify({
                   relatorioId: relatorio.id,
                   motivo: `Prazo de retenção de ${prazoDias} dias expirado`,
-                  dataReuniao: relorio.data.toISOString()
+                  dataReuniao: relatorio.data.toISOString()
                 })
               }
             });
@@ -138,7 +157,7 @@ export class CleanupService {
   static async identificarFotosPrestesAVencer(igreja_id: string, relatoriosMock?: RelatorioItemLimpeza[], prazoDiasOverride?: number) {
     // Se prazoDiasOverride for fornecido (por exemplo, em testes com dados mock),
     // usa-se este valor em vez de consultar o banco
-    const prazoDias = prazoDiasOverride ?? 60;
+    const prazoDias = prazoDiasOverride ?? (await this.obterPrazoRetencaoDias(igreja_id));
 
     const dataLimite = new Date();
     dataLimite.setDate(dataLimite.getDate() - prazoDias);
@@ -179,11 +198,11 @@ export class CleanupService {
    * - Espaço estimado a ser liberado na próxima limpeza
    */
   static async calcularMetricasArmazenamento(igreja_id: string, prazoDiasOverride?: number) {
-    const espacoUsadoBytes = await StorageService.obterEspacoUtilizado();
+    const espacoUsadoBytes = await StorageService.obterEspacoUtilizado(igreja_id);
 
     // Se prazoDiasOverride for fornecido (por exemplo, em testes com dados mock),
     // usa-se este valor em vez de consultar o banco
-    const prazoDias = prazoDiasOverride ?? 60;
+    const prazoDias = prazoDiasOverride ?? (await this.obterPrazoRetencaoDias(igreja_id));
 
     // Estimativa de 800 KB por foto de celular comprimida em WebP
     const TAMANHO_MEDIO_FOTO_BYTES = 800 * 1024;

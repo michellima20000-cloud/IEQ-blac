@@ -51,8 +51,13 @@ export function validarPermissao(
   // 4. REGRA DO LÍDER DE REDE:
   if (usuario.perfil === 'REDE') {
     if (['CELULA', 'MEMBRO', 'VISITANTE', 'RELATORIO'].includes(recurso)) {
-      // Líder de rede só acessa células pertencentes à sua rede
-      if (usuario.redeId && alvo.redeId !== usuario.redeId) {
+      // Líder de rede só acessa células pertencentes à sua rede.
+      // Sem rede vinculada não há escopo definido: o acesso é NEGADO
+      // (falhar em branco daria acesso a todas as células da igreja).
+      if (!usuario.redeId) {
+        throw new PermissaoError('Acesso negado: Líder de rede sem rede vinculada. Fale com o Pastor.');
+      }
+      if (alvo.redeId !== usuario.redeId) {
         throw new PermissaoError('Acesso negado: Líder de rede só pode acessar células da sua própria rede.');
       }
       return true;
@@ -70,8 +75,12 @@ export function validarPermissao(
   // 5. REGRA DO LÍDER DE CÉLULA:
   if (usuario.perfil === 'CELULA') {
     if (['CELULA', 'MEMBRO', 'VISITANTE', 'RELATORIO'].includes(recurso)) {
-      // Líder de célula só acessa sua própria célula
-      if (usuario.celulaId && alvo.celulaId !== usuario.celulaId) {
+      // Líder de célula só acessa a sua própria célula.
+      // Sem célula vinculada o acesso é NEGADO (nunca liberado para todas).
+      if (!usuario.celulaId) {
+        throw new PermissaoError('Acesso negado: Líder de célula sem célula vinculada. Fale com o Pastor.');
+      }
+      if (alvo.celulaId !== usuario.celulaId) {
         throw new PermissaoError('Acesso negado: Líder de célula só pode acessar a sua própria célula.');
       }
       return true;

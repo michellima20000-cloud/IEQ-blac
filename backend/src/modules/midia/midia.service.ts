@@ -41,6 +41,18 @@ const selectMidia = {
   updatedAt: true
 } as const;
 
+/**
+ * Status inicial de um conteúdo publicado.
+ *
+ * REGRA DO PROJETO: o conteúdo enviado pela equipe de Mídia passa pelo
+ * Pastor antes de ir para a vitrine pública. Só o Pastor publica direto.
+ */
+export function definirStatusInicial(perfil: string, precisaAprovacao?: boolean): 'PUBLICADO' | 'PENDENTE' {
+  if (perfil === 'MIDIA') return 'PENDENTE';
+  if (precisaAprovacao) return 'PENDENTE';
+  return 'PUBLICADO';
+}
+
 export class MidiaService {
   /**
    * Criação de conteúdo pela equipe de Mídia ou pelo Pastor
@@ -50,11 +62,9 @@ export class MidiaService {
       throw new PermissaoError('Apenas os perfis Mídia e Pastor podem criar conteúdos de divulgação.');
     }
 
-    // Se for Pastor ou não precisar de aprovação, publica direto. Caso contrário, vai para PENDENTE.
-    let status: 'PUBLICADO' | 'PENDENTE' = 'PUBLICADO';
-    if (dados.precisaAprovacao || usuario.perfil === 'MIDIA') {
-      status = dados.precisaAprovacao ? 'PENDENTE' : 'PUBLICADO';
-    }
+    // REGRA DO PROJETO: o conteúdo enviado pela equipe de Mídia passa pelo
+    // Pastor antes de ir para a vitrine pública. Só o Pastor publica direto.
+    const status = definirStatusInicial(usuario.perfil, dados.precisaAprovacao);
 
     const autorId = usuario.id || (usuario as any).sub;
     return prisma.conteudoMidia.create({
@@ -195,15 +205,14 @@ export class MidiaService {
    * REGRA MANDATÓRIA: Conteúdo pendente, rascunho ou devolvido NUNCA aparece na vitrine.
    */
   static async listarVitrine(usuario: UsuarioAutenticado) {
-    const where: any = {
-      igreja_id: usuario.igreja_id,
-      status: 'PUBLICADO'
-    };
-    if (usuario.perfil === 'MIDIA') {
-      where.autorId = usuario.id || (usuario as any).sub;
-    }
+    // A vitrine mostra o conteúdo PUBLICADO da igreja inteira:
+    // filtrar por autor esconderia dos demais membros o que a equipe de
+    // Mídia já aprovou.
     return prisma.conteudoMidia.findMany({
-      where,
+      where: {
+        igreja_id: usuario.igreja_id,
+        status: 'PUBLICADO'
+      },
       select: {
         ...selectMidia,
         autor: {
@@ -316,8 +325,14 @@ export class MidiaService {
       throw new PermissaoError('Acesso não autorizado.');
     }
 
+    const where: any = { id, igreja_id: usuario.igreja_id };
+    // MIDIA só mexe no próprio conteúdo (igual à exclusão).
+    if (usuario.perfil === 'MIDIA') {
+      where.autorId = usuario.id || (usuario as any).sub;
+    }
+
     const conteudo = await prisma.conteudoMidia.findFirst({
-      where: { id, igreja_id: usuario.igreja_id },
+      where,
       select: { id: true, tamanhoArquivoBytes: true }
     });
 
@@ -369,7 +384,9 @@ export class MidiaService {
     // Verifica constraint manualmente antes de deletar
     // Se houver foreign keys referenciando este conteúdo, o delete padrão falha
     try {
-      return prisma.conteudoMidia.delete({ where: { id } });
+      // O await é obrigatório: sem ele a resposta sai antes do delete
+      // (e um erro de constraint viraria "unhandled rejection").
+      return await prisma.conteudoMidia.delete({ where: { id } });
     } catch (error: any) {
       // Se falhar por constraint, tenta deletar relations primeiro ou lança erro mais claro
       if (error.message && (error.message.includes('constraint') || error.message.includes('Foreign key'))) {

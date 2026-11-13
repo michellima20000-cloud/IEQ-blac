@@ -23,6 +23,7 @@ router.get('/publico/vitrine/:slug', async (req, res, next) => {
     const emCache = await cacheGet<any>(chave);
     if (emCache) {
       res.setHeader('X-Cache', 'HIT');
+      res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
       return res.json(emCache);
     }
 
@@ -40,9 +41,11 @@ router.get('/publico/vitrine/:slug', async (req, res, next) => {
       eventos
     };
 
-    // TTL curto: a vitrine pública fica visível por até 1 minuto após a publicação
+    // TTL curto: a vitrine pública fica visível por até 1 minuto após a publicação.
+    // Cache-Control no navegador/CDN evita baixar o JSON repetidamente (economia de dados).
     await cacheSet(chave, resposta, 60);
     res.setHeader('X-Cache', 'MISS');
+    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
     return res.json(resposta);
   } catch (err) {
     return next(err);

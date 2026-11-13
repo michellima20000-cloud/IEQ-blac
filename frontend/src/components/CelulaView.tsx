@@ -66,8 +66,9 @@ export const CelulaView: React.FC = () => {
       ]);
       setMembros(resM.membros || []);
       setVisitantes(resV.visitantes || []);
-    } catch {
-      // Ignora falha inicial
+    } catch (err: any) {
+      // Sem isto a tela ficava vazia sem explicar o motivo da falha
+      setMensagemErro(err?.message || 'Não foi possível carregar membros e visitantes.');
     }
   };
 
@@ -163,6 +164,14 @@ export const CelulaView: React.FC = () => {
       return;
     }
     setMensagemErro(null);
+
+    // A foto da reunião é obrigatória (regra do painel da célula):
+    // sem ela o relatório não tem o registro fotográfico da reunião.
+    if (!fotoBase64) {
+      setMensagemErro('A foto da reunião é obrigatória: tire a foto ou importe da galeria antes de enviar.');
+      return;
+    }
+
     setEnviando(true);
 
     try {
@@ -171,7 +180,7 @@ export const CelulaView: React.FC = () => {
         presentes: Number(presentes),
         visitantes: Number(totalVisitantes),
         observacoes,
-        fotoUrl: fotoBase64 || null
+        fotoUrl: fotoBase64
       });
 
       setRelatorioAtual(res.relatorio);
@@ -474,7 +483,11 @@ export const CelulaView: React.FC = () => {
                       )}
                     </div>
                   </div>
-                  <span className="badge-emerald">Ativo</span>
+                  {m.ativo === false ? (
+                    <span className="badge-slate">Inativo</span>
+                  ) : (
+                    <span className="badge-emerald">Ativo</span>
+                  )}
                 </div>
               ))}
             </div>

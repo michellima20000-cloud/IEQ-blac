@@ -59,15 +59,16 @@ export const LoginView: React.FC = () => {
       setDeferredPrompt(e);
       if (!appInstalado) setShowInstallBanner(true);
     };
-    window.addEventListener('beforeinstallprompt', handler);
-    window.addEventListener('appinstalled', () => {
+    const handlerInstalado = () => {
       setShowInstallBanner(false);
       setDeferredPrompt(null);
       setAppInstalado(true);
-    });
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', handlerInstalado);
     return () => {
       window.removeEventListener('beforeinstallprompt', handler);
-      window.removeEventListener('appinstalled', () => {});
+      window.removeEventListener('appinstalled', handlerInstalado);
     };
   }, [appInstalado]);
 

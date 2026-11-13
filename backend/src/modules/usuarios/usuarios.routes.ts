@@ -162,7 +162,7 @@ router.patch('/:id', validate(atualizarUsuarioSchema), UsuariosController.atuali
  *       200:
  *         description: Usuário excluído ou desativado
  *       400:
- *         description: Operação inválida (ex: excluir o próprio usuário)
+ *         description: "Operação inválida (ex: excluir o próprio usuário)"
  *       404:
  *         description: Usuário não encontrado
  */

@@ -37,6 +37,8 @@ export class RedesService {
     inicio.setDate(inicio.getDate() - 7);
 
     // 1. Relatórios FECHADOS de todas as células da rede
+    // A foto (base64 de vários MB) NÃO vem na resposta: o front recebe uma
+    // URL assinada e busca a imagem sob demanda.
     const relatoriosFechados = await prisma.relatorioCelula.findMany({
       where: {
         celula: { redeId },
@@ -47,7 +49,14 @@ export class RedesService {
           lte: fim
         }
       },
-      include: {
+      select: {
+        id: true,
+        data: true,
+        presentes: true,
+        visitantes: true,
+        observacoes: true,
+        status: true,
+        fotoUrl: true,
         celula: { select: { id: true, nome: true } },
         lider: { select: { id: true, nome: true } }
       },
@@ -55,9 +64,10 @@ export class RedesService {
     });
 
     // Anexa a URL assinada para cada relatório que tem foto
-    const relatoriosComUrlAssinada = relatoriosFechados.map((rel) => ({
+    const relatoriosComUrlAssinada = relatoriosFechados.map(({ fotoUrl, ...rel }: any) => ({
       ...rel,
-      fotoUrlAssinada: rel.fotoUrl ? RelatoriosService.gerarUrlAssinadaFoto(rel.id) : null
+      temFoto: !!fotoUrl,
+      fotoUrlAssinada: fotoUrl ? RelatoriosService.gerarUrlAssinadaFoto(rel.id) : null
     }));
 
     // 2. Consolidado semanal da rede

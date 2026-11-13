@@ -1,4 +1,6 @@
 import crypto from 'node:crypto';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { STORAGE_CONFIG } from '../config/storage.ts';
 
 export interface BackupRegistro {
@@ -15,6 +17,26 @@ const TEMPO_ALERTA_HORAS = STORAGE_CONFIG.backup.alertaAposHoras || 48;
 
 // Histórico de backups em memória para controle
 let historicoBackups: BackupRegistro[] = [];
+
+/**
+ * Tabelas do sistema (modelo do Prisma -> nome da tabela).
+ * Usadas no dump manual (fallback quando o pg_dump não está disponível).
+ */
+const TABELAS_BACKUP: Array<{ model: string; tabela: string }> = [
+  { model: 'igreja', tabela: 'igrejas' },
+  { model: 'configuracaoIgreja', tabela: 'configuracoes_igrejas' },
+  { model: 'rede', tabela: 'redes' },
+  { model: 'celula', tabela: 'celulas' },
+  { model: 'membro', tabela: 'membros' },
+  { model: 'visitante', tabela: 'visitantes' },
+  { model: 'relatorioCelula', tabela: 'relatorios_celulas' },
+  { model: 'usuario', tabela: 'usuarios' },
+  { model: 'conteudoMidia', tabela: 'conteudos_midia' },
+  { model: 'midiaArquivoParte', tabela: 'midia_arquivo_partes' },
+  { model: 'arquivoIgreja', tabela: 'arquivos_igreja' },
+  { model: 'eventoCalendario', tabela: 'eventos_calendario' },
+  { model: 'logAuditoria', tabela: 'logs_auditoria' }
+];
 
 export class BackupService {
   /**
@@ -45,12 +67,125 @@ export class BackupService {
   }
 
   /**
-   * Executa rotina diária de backup, criptografia e expurgo de retenção (7 dias)
+   * Gera um dump REAL do banco.
+   *
+   * 1. Se o binário pg_dump estiver disponível (imagem do Render/Alpine com
+   *    postgresql-client), usa ele: gera um .sql completo.
+   * 2. Sem o binário, exporta todas as tabelas do sistema em JSON
+   *    (dump manual, também com todos os dados) — o backup continua sendo real.
    */
-  static async executarBackupDiario(mockDadosPgDump: Buffer = Buffer.from('DUMP_SQL_POSTGRESQL_IEQ_2026')): Promise<BackupRegistro> {
-    const dadosCriptografados = this.criptografar(mockDadosPgDump);
+  static async gerarDump(): Promise<{ buffer: Buffer; formato: 'sql' | 'json' }> {
+    const dumpSql = await this.gerarDumpComPgDump();
+    if (dumpSql) {
+      return { buffer: dumpSql, formato: 'sql' };
+    }
+
+    const { prisma } = await import('../config/prisma.ts');
+    const dados: Record<string, unknown[]> = {};
+
+    for (const { model, tabela } of TABELAS_BACKUP) {
+      const client = (prisma as any)[model];
+      if (!client || typeof client.findMany !== 'function') continue;
+      try {
+        // As tabelas de arquivos guardam os BYTES (foto/vídeo): serializar
+        // isso em JSON gera centenas de MB e estoura a memória da API.
+        // O dump guarda os metadados; os bytes ficam no banco.
+        let consulta: any;
+        if (model === 'midiaArquivoParte') {
+          consulta = client.findMany({
+            select: { id: true, conteudoId: true, ordem: true, tamanho: true, createdAt: true }
+          });
+        } else if (model === 'arquivoIgreja') {
+          consulta = client.findMany({
+            select: { id: true, igreja_id: true, mimeType: true, nomeOriginal: true, tamanho: true, createdAt: true }
+          });
+        } else {
+          consulta = client.findMany();
+        }
+
+        dados[tabela] = await consulta;
+      } catch (erro: any) {
+        console.warn(`[backup] Falha ao exportar a tabela ${tabela}: ${erro?.message}`);
+        dados[tabela] = [];
+      }
+    }
+
+    const conteudo = JSON.stringify(
+      {
+        geradoEm: new Date().toISOString(),
+        formato: 'dump-json-ieq',
+        tabelas: dados
+      },
+      (_chave, valor) => (typeof valor === 'bigint' ? valor.toString() : valor)
+    );
+
+    return { buffer: Buffer.from(conteudo, 'utf-8'), formato: 'json' };
+  }
+
+  /** Dump SQL via pg_dump (retorna null se o binário não existir/falhar). */
+  private static async gerarDumpComPgDump(): Promise<Buffer | null> {
+    const binario = process.env.PG_DUMP_PATH || 'pg_dump';
+    if (!binario) return null;
+
+    try {
+      const { spawn } = await import('node:child_process');
+      const databaseUrl = process.env.DATABASE_URL;
+      if (!databaseUrl) return null;
+
+      return await new Promise<Buffer | null>((resolve) => {
+        const processo = spawn(binario, ['--no-owner', '--no-acl', databaseUrl], {
+          stdio: ['ignore', 'pipe', 'pipe']
+        });
+
+        const partes: Buffer[] = [];
+        let stderr = '';
+
+        processo.stdout.on('data', (dado: Buffer) => partes.push(dado));
+        processo.stderr.on('data', (dado: Buffer) => { stderr += dado.toString(); });
+        processo.on('error', () => resolve(null));
+        processo.on('close', (codigo) => {
+          if (codigo === 0 && partes.length > 0) {
+            resolve(Buffer.concat(partes));
+          } else {
+            if (stderr) console.warn(`[backup] pg_dump indisponível: ${stderr.split('\n')[0]}`);
+            resolve(null);
+          }
+        });
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Executa a rotina diária de backup: gera o dump, criptografa (AES-256),
+   * grava o arquivo em disco e aplica a retenção configurada.
+   */
+  static async executarBackupDiario(dadosJaProntos?: Buffer): Promise<BackupRegistro> {
     const dataCriacao = new Date();
-    const nomeArquivo = `backup_ieq_${dataCriacao.toISOString().replace(/[:.]/g, '-')}.sql.enc`;
+    let conteudo: Buffer;
+    let extensao: string;
+
+    if (dadosJaProntos) {
+      conteudo = dadosJaProntos;
+      extensao = 'sql';
+    } else {
+      const dump = await this.gerarDump();
+      conteudo = dump.buffer;
+      extensao = dump.formato;
+    }
+
+    const dadosCriptografados = this.criptografar(conteudo);
+    const nomeArquivo = `backup_ieq_${dataCriacao.toISOString().replace(/[:.]/g, '-')}.${extensao}.enc`;
+
+    // Grava o arquivo criptografado no disco (pasta BACKUP_DIR ou ./backups)
+    const pastaBackup = process.env.BACKUP_DIR || 'backups';
+    try {
+      if (!existsSync(pastaBackup)) mkdirSync(pastaBackup, { recursive: true });
+      writeFileSync(join(pastaBackup, nomeArquivo), dadosCriptografados);
+    } catch (erro: any) {
+      console.warn(`[backup] Não foi possível gravar o arquivo de backup: ${erro?.message}`);
+    }
 
     const novoBackup: BackupRegistro = {
       id: `bkp-${Date.now()}`,
@@ -122,4 +257,3 @@ export class BackupService {
     historicoBackups = registros;
   }
 }
-

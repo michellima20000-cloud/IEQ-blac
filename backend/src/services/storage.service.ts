@@ -93,13 +93,51 @@ export class StorageService {
   }
 
   /**
-   * Calcula o espaço em disco utilizado em bytes
+   * Calcula o espaço em disco utilizado em bytes.
+   *
+   * Os arquivos do sistema ficam gravados NO BANCO (midia_arquivo_partes e
+   * arquivos_igreja) e as fotos dos relatórios em base64 (relatorios_celulas).
+   * A contagem é feita a partir desses dados — antes retornava 0 MB.
    */
-  static async obterEspacoUtilizado(): Promise<number> {
+  static async obterEspacoUtilizado(igreja_id?: string): Promise<number> {
     let total = 0;
-    for (const item of localStorageMock.values()) {
-      total += item.size;
+
+    // 1. Arquivos de mídia (fotos/vídeos da vitrine) e logo da igreja
+    try {
+      const { prisma } = await import('../config/prisma.ts');
+
+      const partes = await prisma.midiaArquivoParte.findMany({
+        where: igreja_id
+          ? { conteudo: { igreja_id } }
+          : undefined,
+        select: { tamanho: true }
+      });
+      total += partes.reduce((soma, parte) => soma + (parte.tamanho || 0), 0);
+
+      const logos = await prisma.arquivoIgreja.findMany({
+        where: igreja_id ? { igreja_id } : undefined,
+        select: { tamanho: true }
+      });
+      total += logos.reduce((soma, logo) => soma + (logo.tamanho || 0), 0);
+
+      // 2. Fotos dos relatórios (base64): o tamanho real é ~3/4 do texto
+      const relatorios = await prisma.relatorioCelula.findMany({
+        where: {
+          ...(igreja_id ? { igreja_id } : {}),
+          fotoUrl: { not: null }
+        },
+        select: { fotoUrl: true }
+      });
+      total += relatorios.reduce((soma, relatorio) => {
+        const texto = relatorio.fotoUrl || '';
+        if (!texto.startsWith('data:')) return soma;
+        return soma + Math.round((texto.length * 3) / 4);
+      }, 0);
+    } catch (erro: any) {
+      console.warn(`[storage] Não foi possível calcular o espaço utilizado: ${erro?.message}`);
+      return 0;
     }
+
     return total;
   }
 

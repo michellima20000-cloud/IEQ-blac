@@ -40,6 +40,7 @@ export const VitrineView: React.FC = () => {
   const [layout, setLayout] = useState<'GRID' | 'CARROSSEL' | 'LISTA'>('GRID');
   const [corPrimaria, setCorPrimaria] = useState('#2563eb');
   const [corSecundaria, setCorSecundaria] = useState('#f59e0b');
+  const [erroCarregamento, setErroCarregamento] = useState<string | null>(null);
 
   // Paginação incremental: menos iframes/imagens montadas de uma vez
   const listaEventos = useListaIncremental(eventos, 12);
@@ -65,6 +66,7 @@ export const VitrineView: React.FC = () => {
 
   const carregarDados = async () => {
     setCarregando(true);
+    setErroCarregamento(null);
     try {
       const [resMidia, resEventos, resVisual] = await Promise.all([
         ApiClient.get('/midia/vitrine'),
@@ -85,8 +87,9 @@ export const VitrineView: React.FC = () => {
         if (visual.corSecundaria) setCorSecundaria(visual.corSecundaria);
         salvarVisualCache(visual);
       }
-    } catch {
-      // Falha graciosa
+    } catch (err: any) {
+      // Falha graciosa, mas o usuário precisa saber que a vitrine não carregou
+      setErroCarregamento(err?.message || 'Não foi possível carregar a vitrine.');
     } finally {
       setCarregando(false);
     }
@@ -113,6 +116,12 @@ export const VitrineView: React.FC = () => {
         />
         <p className="section-sub mt-2">Avisos, destaques, vídeos e agenda oficial da congregação</p>
       </div>
+
+      {erroCarregamento && (
+        <div className="card card-pad border-red-500/40 bg-red-500/5 text-red-200 text-sm">
+          Não foi possível carregar a vitrine: {erroCarregamento}
+        </div>
+      )}
 
       {/* Calendário de Eventos */}
       {eventos.length > 0 && (
@@ -213,7 +222,7 @@ export const VitrineView: React.FC = () => {
 
                   {isVideo && arquivoUrl && !item.videoUrl && (
                     <div className={ehHorizontal ? 'w-full sm:w-2/5 shrink-0 h-36' : 'aspect-video w-full bg-black'}>
-                      <video src={arquivoUrl} controls className="w-full h-full" title={item.titulo} playsInline />
+                      <video src={arquivoUrl} controls preload="metadata" className="w-full h-full" title={item.titulo} playsInline />
                     </div>
                   )}
 

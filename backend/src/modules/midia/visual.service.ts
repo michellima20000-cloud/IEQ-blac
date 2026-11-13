@@ -106,6 +106,47 @@ export class VisualService {
   }
 
   /**
+   * Prazo de retenção das fotos dos relatórios (configurado pelo Pastor).
+   * É este prazo que o job de limpeza usa para apagar as fotos vencidas.
+   */
+  static async obterRetencao(usuario: UsuarioAutenticado) {
+    const config = await prisma.configuracaoIgreja.findUnique({
+      where: { igreja_id: usuario.igreja_id },
+      select: { prazoRetencaoFotosDias: true }
+    });
+
+    return {
+      igreja_id: usuario.igreja_id,
+      prazoRetencaoFotosDias: config?.prazoRetencaoFotosDias ?? 60
+    };
+  }
+
+  /**
+   * Atualiza o prazo de retenção das fotos dos relatórios.
+   * Só Pastor (ou ADM) altera essa política.
+   */
+  static async atualizarRetencao(usuario: UsuarioAutenticado, prazoRetencaoFotosDias: number) {
+    if (usuario.perfil !== 'PASTOR' && usuario.perfil !== 'ADM') {
+      throw new PermissaoError('Apenas o Pastor pode alterar o prazo de retenção das fotos.');
+    }
+
+    const prazo = Math.min(Math.max(Math.round(prazoRetencaoFotosDias), 1), 365);
+
+    const config = await prisma.configuracaoIgreja.upsert({
+      where: { igreja_id: usuario.igreja_id },
+      update: { prazoRetencaoFotosDias: prazo },
+      create: { igreja_id: usuario.igreja_id, prazoRetencaoFotosDias: prazo },
+      select: { prazoRetencaoFotosDias: true }
+    });
+
+    return {
+      igreja_id: usuario.igreja_id,
+      prazoRetencaoFotosDias: config.prazoRetencaoFotosDias,
+      atualizadoEm: new Date().toISOString()
+    };
+  }
+
+  /**
    * Grava (ou apaga) o logo da igreja.
    * - Recebe uma data URL (upload do painel) -> vira bytes no banco e
    *   devolve o caminho "/logo/:igrejaId".

@@ -71,6 +71,12 @@ export const personalizacaoVisualSchema = z.object({
   layoutDivulgacao: z.enum(['GRID', 'CARROSSEL', 'LISTA']).optional()
 });
 
+export const retencaoFotosSchema = z.object({
+  prazoRetencaoFotosDias: z.number()
+    .min(1, 'O prazo mínimo é de 1 dia')
+    .max(365, 'O prazo máximo é de 365 dias')
+});
+
 export type CriarMidiaInput = z.infer<typeof criarMidiaSchema>;
 export type AtualizarMidiaInput = z.infer<typeof atualizarMidiaSchema>;
 export type DevolverMidiaInput = z.infer<typeof devolverMidiaSchema>;

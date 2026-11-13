@@ -130,7 +130,14 @@ export class MidiaController {
    * Se vier em memória (integrações antigas), grava em arquivo temporário.
    */
   private static async caminhoDoArquivo(arquivo: any, temporarios: string[]): Promise<string> {
-    if (arquivo?.path) return String(arquivo.path);
+    // O arquivo gravado pelo multer (em disco) também é temporário:
+    // depois de gravado no banco ele não serve para mais nada e ficaria
+    // ocupando espaço na pasta temporária do sistema para sempre.
+    if (arquivo?.path) {
+      const caminhoDisco = String(arquivo.path);
+      temporarios.push(caminhoDisco);
+      return caminhoDisco;
+    }
 
     const buffer: Buffer | undefined = arquivo?.buffer;
     if (!buffer) {
@@ -184,13 +191,15 @@ export class MidiaController {
         return;
       }
 
-      const { partes, total } = await MidiaService.listarPartes(id);
-      if (!partes.length || total === 0) {
+      // Autorização ANTES de qualquer informação sobre o arquivo:
+      // quem não tem acesso não deve saber se ele existe nem o tamanho dele.
+      if (conteudo.status !== 'PUBLICADO' && !MidiaController.usuarioDaMesmaIgreja(req, conteudo.igreja_id)) {
         res.status(404).json({ error: 'NaoEncontrado', message: 'Arquivo não encontrado.' });
         return;
       }
 
-      if (conteudo.status !== 'PUBLICADO' && !MidiaController.usuarioDaMesmaIgreja(req, conteudo.igreja_id)) {
+      const { partes, total } = await MidiaService.listarPartes(id);
+      if (!partes.length || total === 0) {
         res.status(404).json({ error: 'NaoEncontrado', message: 'Arquivo não encontrado.' });
         return;
       }
@@ -200,13 +209,24 @@ export class MidiaController {
       let parcial = false;
 
       const range = req.headers.range;
-      const match = range ? /bytes=(\d*)-(\d*)/.exec(String(range)) : null;
+      const match = range ? /^bytes=(\d*)-(\d*)$/.exec(String(range).trim()) : null;
       if (match) {
         parcial = true;
-        inicio = match[1] ? parseInt(match[1], 10) : 0;
-        fim = match[2] ? parseInt(match[2], 10) : total - 1;
-        if (Number.isNaN(inicio) || inicio < 0) inicio = 0;
-        if (Number.isNaN(fim) || fim >= total) fim = total - 1;
+        const brutoInicio = match[1] ? parseInt(match[1], 10) : NaN;
+        const brutoFim = match[2] ? parseInt(match[2], 10) : NaN;
+
+        if (match[1] === '' && match[2] !== '') {
+          // "bytes=-500" = os ÚLTIMOS 500 bytes (não do byte 0 ao 500)
+          const tamanho = Number.isNaN(brutoFim) ? 0 : brutoFim;
+          inicio = Math.max(0, total - tamanho);
+          fim = total - 1;
+        } else {
+          inicio = Number.isNaN(brutoInicio) ? 0 : brutoInicio;
+          fim = Number.isNaN(brutoFim) ? total - 1 : brutoFim;
+        }
+
+        if (inicio < 0) inicio = 0;
+        if (fim >= total) fim = total - 1;
 
         if (inicio > fim || inicio >= total) {
           res.status(416).setHeader('Content-Range', `bytes */${total}`);
@@ -221,7 +241,6 @@ export class MidiaController {
         'Cache-Control',
         conteudo.status === 'PUBLICADO' ? 'public, max-age=86400' : 'private, max-age=3600'
       );
-      res.setHeader('Content-Length', String(fim - inicio + 1));
       if (conteudo.nomeOriginal) {
         res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(conteudo.nomeOriginal)}"`);
       }
@@ -230,8 +249,12 @@ export class MidiaController {
         res.setHeader('Content-Range', `bytes ${inicio}-${fim}/${total}`);
       }
 
-      // Envia apenas os pedaços que intersectam o intervalo pedido
+      // Envia apenas os pedaços que intersectam o intervalo pedido.
+      // O Content-Length só é declarado depois de saber quantos bytes serão
+      // enviados: declarar antes e pular partes faltantes deixava a
+      // resposta truncada (o navegador travava o vídeo).
       let posicao = 0;
+      let enviados = 0;
       for (const parte of partes) {
         const parteInicio = posicao;
         const parteFim = posicao + parte.tamanho - 1;
@@ -246,9 +269,12 @@ export class MidiaController {
         const corteFim = Math.min(bytes.length - 1, fim - parteInicio);
         if (corteFim < corteInicio) continue;
 
-        res.write(bytes.subarray(corteInicio, corteFim + 1));
+        const trecho = bytes.subarray(corteInicio, corteFim + 1);
+        res.write(trecho);
+        enviados += trecho.length;
       }
 
+      res.setHeader('Content-Length', String(enviados));
       res.end();
     } catch (err: any) {
       res.status(err.statusCode || 400).json({ error: err.name || 'Erro', message: err.message });
@@ -426,6 +452,28 @@ export class MidiaController {
       const atualizado = await VisualService.atualizar(req.user as any, req.body as PersonalizacaoVisualInput);
       await cacheDel(chavesCache.vitrine(req.user!.igreja_id), chavesCache.vitrinePublica(req.user!.igreja_id));
       res.json({ message: 'Identidade visual atualizada com sucesso.', configuracao: atualizado });
+    } catch (err: any) {
+      res.status(err.statusCode || 400).json({ error: err.name || 'Erro', message: err.message });
+    }
+  }
+
+  // --- RETENÇÃO DE FOTOS ---
+  static async obterRetencao(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const config = await VisualService.obterRetencao(req.user as any);
+      res.json(config);
+    } catch (err: any) {
+      res.status(err.statusCode || 400).json({ error: err.name || 'Erro', message: err.message });
+    }
+  }
+
+  static async atualizarRetencao(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const atualizado = await VisualService.atualizarRetencao(
+        req.user as any,
+        Number(req.body?.prazoRetencaoFotosDias)
+      );
+      res.json({ message: 'Prazo de retenção de fotos atualizado com sucesso.', ...atualizado });
     } catch (err: any) {
       res.status(err.statusCode || 400).json({ error: err.name || 'Erro', message: err.message });
     }

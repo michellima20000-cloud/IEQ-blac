@@ -152,39 +152,6 @@ export default function MidiaView() {
   const [uploadDescricao, setUploadDescricao] = useState('');
   const [uploadArquivo, setUploadArquivo] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  <input
-  id="upload-imagem"
-  ref={fileRef}
-  type="file"
-  accept="image/*"
-  multiple
-  onChange={async (e) => {
-    const files = e.target.files ?? [];
-    const newFiles = Array.from(files);
-    setSelectedFiles(prev => {
-      // Evita duplicatas pelo nome e tamanho
-      const existentes = new Set(prev.map(f => f.name + f.size));
-      return [...prev.filter(f => !existentes.has(f.name + f.size)), ...newFiles].filter(
-        (f, idx, self) => self.findIndex(f2 => f2.name === f.name && f2.size === f.size) === idx
-      );
-    });
-    setUploadArquivo(selectedFiles[0] ?? null);
-    // Pré-visualização das imagens selecionadas
-    const previewUrls = selectedFiles.map(f => URL.createObjectURL(f));
-    setPreviewUrl(previewUrls[0] ?? null);
-    // Limpar pré-visualizações antigas após renderização
-    // (os Object URLs serão revogados quando o componente desmonta ou ao trocar de arquivo)
-    const img = new Image();
-    img.src = previewUrls[0] ?? '';
-    img.onload = () => {
-      const kb = files[0] ? Math.round(files[0].size / 1024) : 0;
-      setArquivoInfo(`${img.width} × ${img.height} • ${kb} KB`);
-      // Revoga os Object URLs das pré-visualizações para evitar memory leak
-      previewUrls.forEach(url => URL.revokeObjectURL(url));
-    };
-  }}
-  className="input sr-only peer"
-/>
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [arquivoInfo, setArquivoInfo] = useState<string | null>(null);
@@ -228,15 +195,16 @@ export default function MidiaView() {
       setDeferredPrompt(e);
       if (!appInstalado) setShowInstallBanner(true);
     };
-    window.addEventListener('beforeinstallprompt', handler);
-    window.addEventListener('appinstalled', () => {
+    const handlerInstalado = () => {
       setShowInstallBanner(false);
       setDeferredPrompt(null);
       setAppInstalado(true);
-    });
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', handlerInstalado);
     return () => {
       window.removeEventListener('beforeinstallprompt', handler);
-      window.removeEventListener('appinstalled', () => {});
+      window.removeEventListener('appinstalled', handlerInstalado);
     };
   }, [appInstalado]);
 
@@ -791,27 +759,45 @@ export default function MidiaView() {
   id="upload-imagem"
   ref={fileRef}
   type="file"
-  accept="image/*"
+  accept="image/*,video/*"
   multiple
   onChange={async (e) => {
-    const files = e.target.files ?? [];
-    const newFiles = Array.from(files);
+    const arquivos = e.target.files ?? [];
+    const novos = Array.from(arquivos);
+    if (novos.length === 0) return;
+
+    // O arquivo enviado é o PRIMEIRO selecionado agora (o estado `selectedFiles`
+    // do render anterior não tem o arquivo novo: usar ele enviava o arquivo
+    // errado ou nenhum).
+    const escolhido = novos[0];
+    setUploadArquivo(escolhido);
+
     setSelectedFiles(prev => {
       const existentes = new Set(prev.map(f => f.name + f.size));
-      return [...prev.filter(f => !existentes.has(f.name + f.size)), ...newFiles].filter(
+      return [...prev.filter(f => !existentes.has(f.name + f.size)), ...novos].filter(
         (f, idx, self) => self.findIndex(f2 => f2.name === f.name && f2.size === f.size) === idx
       );
     });
-    setUploadArquivo(selectedFiles[0] ?? null);
-    const previewUrls = selectedFiles.map(f => URL.createObjectURL(f));
-    setPreviewUrl(previewUrls[0] ?? null);
+
+    // Pré-visualização: imagem mostra miniatura, vídeo não.
+    const ehVideo = escolhido.type.startsWith('video/');
+    if (ehVideo) {
+      setPreviewUrl(null);
+      setArquivoInfo(`${escolhido.name} • ${Math.round(escolhido.size / 1024)} KB`);
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(escolhido);
+    setPreviewUrl(objectUrl);
     const img = new Image();
-    img.src = previewUrls[0] ?? '';
     img.onload = () => {
-      const kb = files[0] ? Math.round(files[0].size / 1024) : 0;
+      const kb = Math.round(escolhido.size / 1024);
       setArquivoInfo(`${img.width} × ${img.height} • ${kb} KB`);
-      previewUrls.forEach(url => URL.revokeObjectURL(url));
     };
+    img.onerror = () => {
+      setArquivoInfo(`${escolhido.name} • ${Math.round(escolhido.size / 1024)} KB`);
+    };
+    img.src = objectUrl;
   }}
   className="input sr-only peer"
 />
