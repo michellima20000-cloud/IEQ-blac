@@ -62,11 +62,20 @@ app.get('/health', (_req: Request, res: Response) => {
   });
 });
 
-app.get('/api/v1/health', (_req: Request, res: Response) => {
+app.get('/api/v1/health', async (_req: Request, res: Response) => {
+  let database = 'unknown';
+  try {
+    const { prisma } = await import('./config/prisma.ts');
+    await prisma.$queryRaw`SELECT 1`;
+    database = 'ok';
+  } catch (e: any) {
+    database = 'error';
+  }
   res.json({
     status: 'ok',
     version: '1.0.0',
     api: 'v1',
+    database,
     docs: '/api/v1/docs',
     timestamp: new Date().toISOString()
   });
