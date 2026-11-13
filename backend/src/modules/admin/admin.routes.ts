@@ -2,9 +2,11 @@ import { Router } from 'express';
 import { AdminController } from './admin.controller.ts';
 import { authMiddleware } from '../../middlewares/auth.ts';
 import { requirePerfil } from '../../middlewares/rbac.ts';
+import { PermissaoError } from '../../permissions/rules.ts';
+import { ENV } from '../../config/env.ts';
+import { exigirSegredoManutencao } from '../../middlewares/setupSecret.ts';
 import { validate } from '../../middlewares/validate.ts';
-import { criarAdminUsuarioSchema } from './admin.schemas.ts';
-import { atualizarUsuarioSchema } from '../usuarios/usuarios.schemas.ts';
+import { criarAdminUsuarioSchema, atualizarAdminUsuarioSchema } from './admin.schemas.ts';
 
 const router = Router();
 
@@ -13,7 +15,14 @@ const router = Router();
  * /admin/bootstrap:
  *   post:
  *     summary: Bootstrap do primeiro ADM (indisponível após existir um ADM no sistema)
+ *     description: Exige o segredo de manutenção no header x-setup-secret.
  *     tags: [Administração]
+ *     parameters:
+ *       - in: header
+ *         name: x-setup-secret
+ *         required: true
+ *         schema:
+ *           type: string
  *     requestBody:
  *       content:
  *         application/json:
@@ -31,14 +40,23 @@ const router = Router();
  *     responses:
  *       200:
  *         description: ADM criado ou promovido
+ *       401:
+ *         description: Segredo de manutenção inválido
  *       403:
  *         description: Já existe um ADM no sistema
  */
-router.post('/bootstrap', AdminController.bootstrapAdm);
+router.post('/bootstrap', exigirSegredoManutencao, AdminController.bootstrapAdm);
 
-// Todas as rotas administrativas exigem autenticação e perfil ADM (superusuário)
+// Todas as rotas administrativas: somente o DONO do sistema (ADMIN_OWNER_EMAILS) com perfil ADM
 router.use(authMiddleware);
-router.use(requirePerfil('ADM'));
+router.use((req: any, res: any, next: any) => {
+  const email = String(req.user?.email || '').trim().toLowerCase();
+  const donoOk = ENV.ADMIN_OWNER_EMAILS.length > 0 && ENV.ADMIN_OWNER_EMAILS.includes(email);
+  if (req.user?.perfil !== 'ADM' || !donoOk) {
+    return res.status(403).json({ error: 'AcessoNegado', message: 'Acesso restrito ao dono do sistema.' });
+  }
+  next();
+});
 
 /**
  * @swagger
@@ -107,7 +125,7 @@ router.post('/usuarios', validate(criarAdminUsuarioSchema), AdminController.cria
  *       200:
  *         description: Usuário atualizado
  */
-router.patch('/usuarios/:id', validate(atualizarUsuarioSchema), AdminController.atualizarUsuario);
+router.patch('/usuarios/:id', validate(atualizarAdminUsuarioSchema), AdminController.atualizarUsuario);
 
 /**
  * @swagger

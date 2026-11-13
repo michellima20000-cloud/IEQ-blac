@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useMemo, useState, useEffect } from 'react';
 import { ApiClient } from '../api/client';
 
-export type Perfil = 'CELULA' | 'REDE' | 'PASTOR' | 'MIDIA';
+export type Perfil = 'CELULA' | 'REDE' | 'PASTOR' | 'MIDIA' | 'ADM';
 
 export interface UsuarioLogado {
   id: string;

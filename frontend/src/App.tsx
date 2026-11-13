@@ -12,6 +12,7 @@ const PastorView = lazy(() => import('./components/PastorView'));
 const MidiaView = lazy(() => import('./components/MidiaView'));
 const VitrineView = lazy(() => import('./components/VitrineView'));
 const VitrinePublicaView = lazy(() => import('./components/VitrinePublicaView'));
+const AdminView = lazy(() => import('./components/AdminView'));
 
 function CarregandoTela() {
   return (
@@ -70,13 +71,17 @@ function AppContent() {
       case 'REDE':   return <RedeView />;
       case 'PASTOR': return <PastorView />;
       case 'MIDIA':  return <MidiaView />;
+      case 'ADM':    return <AdminView />;
       default:       return <VitrineView />;
     }
-  }  const labelMinha: Record<string, string> = {
+  }
+
+  const labelMinha: Record<string, string> = {
     CELULA: 'Minha Célula',
     REDE: 'Minha Rede',
     PASTOR: 'Painel',
     MIDIA: 'Mídia',
+    ADM: 'Admin',
   };
 
   const tabs = [

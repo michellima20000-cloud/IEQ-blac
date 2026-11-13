@@ -6,6 +6,8 @@ import { StorageService } from '../../services/storage.service.ts';
 import { UsuariosService } from '../usuarios/usuarios.service.ts';
 import type { CriarUsuarioInput, AtualizarUsuarioInput } from '../usuarios/usuarios.schemas.ts';
 
+import { ENV } from '../../config/env.ts';
+
 function formatarBytes(bytes: number): string {
   if (!bytes || bytes <= 0) return '0 MB';
   const mb = bytes / (1024 * 1024);
@@ -14,18 +16,28 @@ function formatarBytes(bytes: number): string {
   return `${Math.round(bytes / 1024)} KB`;
 }
 
+function emailDonoPermitido(email?: string | null): boolean {
+  const donos = ENV.ADMIN_OWNER_EMAILS;
+  if (!donos.length) return false; // sem dono configurado = acesso ADM bloqueado
+  return donos.includes(String(email || '').trim().toLowerCase());
+}
+
 export class AdminService {
-  private static exigirADM(usuario: UsuarioAutenticado) {
-    if (usuario.perfil !== 'ADM') {
-      throw new PermissaoError('Acesso restrito ao Administrador do sistema.');
+  private static exigirADM(usuario: UsuarioAutenticado & { email?: string }) {
+    if (usuario.perfil !== 'ADM' || !emailDonoPermitido(usuario.email)) {
+      throw new PermissaoError('Acesso restrito ao dono do sistema.');
     }
   }
 
   /**
-   * Bootstrap do primeiro ADM: só funciona enquanto NÃO existe nenhum ADM no sistema.
-   * Cria (ou promove) o usuário informado como ADM da igreja base (primeira igreja).
+   * Bootstrap do ADM dono: só funciona enquanto NÃO existe nenhum ADM no sistema.
+   * Apenas o e-mail configurado em ADMIN_OWNER_EMAILS pode ser promovido/criado.
    */
   static async bootstrapAdm(dados: { email: string; senha: string; nome?: string; slugIgreja?: string }) {
+    if (!emailDonoPermitido(dados.email)) {
+      throw new PermissaoError('Bootstrap permitido apenas para o e-mail do dono do sistema (ADMIN_OWNER_EMAILS).', 403);
+    }
+
     const jaExisteAdm = await prisma.usuario.findFirst({ where: { perfil: 'ADM' } });
     if (jaExisteAdm) {
       throw new PermissaoError('O sistema já possui um Administrador. Bootstrap indisponível.', 403);
@@ -128,10 +140,13 @@ export class AdminService {
   static async listarUsuarios(usuario: UsuarioAutenticado, filtros: { igrejaId?: string; perfil?: string }) {
     this.exigirADM(usuario);
 
+    const perfisValidos = ['CELULA', 'REDE', 'MIDIA', 'PASTOR', 'ADM'];
+    const perfil = filtros.perfil && perfisValidos.includes(filtros.perfil) ? filtros.perfil : undefined;
+
     return prisma.usuario.findMany({
       where: {
         ...(filtros.igrejaId ? { igreja_id: filtros.igrejaId } : {}),
-        ...(filtros.perfil ? { perfil: filtros.perfil as any } : {})
+        ...(perfil ? { perfil: perfil as any } : {})
       },
       select: {
         id: true,
@@ -186,7 +201,7 @@ export class AdminService {
       throw new Error('Usuário não encontrado.');
     }
 
-    return UsuariosService.atualizar(alvo.igreja_id, id, dados);
+    return UsuariosService.atualizar(alvo.igreja_id, id, dados, 'ADM');
   }
 
   /**
