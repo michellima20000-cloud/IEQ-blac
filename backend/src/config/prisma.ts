@@ -1,13 +1,17 @@
-import type { PrismaClient as PrismaClientType } from '@prisma/client';
+import { createRequire } from 'node:module';
 
-const globalForPrisma = globalThis as unknown as { __prisma?: PrismaClientType };
+const globalForPrisma = globalThis as unknown as { __prisma?: any };
 
-async function criarPrisma() {
+function criarPrisma() {
+  if (globalForPrisma.__prisma) return globalForPrisma.__prisma;
   try {
-    const { PrismaClient } = await import('@prisma/client');
-    return new PrismaClient({
+    const require = createRequire(import.meta.url);
+    const { PrismaClient } = require('@prisma/client');
+    const client = new PrismaClient({
       log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
-    }) as any;
+    });
+    globalForPrisma.__prisma = client;
+    return client;
   } catch {
     // Mock gracioso para ambientes sem client gerado/instalado
     return new Proxy({}, {
@@ -17,9 +21,8 @@ async function criarPrisma() {
           get: () => async () => null
         });
       }
-    }) as any;
+    });
   }
 }
 
-export const prisma: PrismaClientType = globalForPrisma.__prisma ?? (await criarPrisma());
-if (!globalForPrisma.__prisma) globalForPrisma.__prisma = prisma as any;
+export const prisma: any = criarPrisma();
