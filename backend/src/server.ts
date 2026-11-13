@@ -1,4 +1,5 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
+import type { Request, Response } from 'express';
 import cors from 'cors';
 import compression from 'compression';
 import swaggerUi from 'swagger-ui-express';
@@ -6,6 +7,7 @@ import { ENV } from './config/env.ts';
 import { swaggerSpec } from './config/swagger.ts';
 import { globalRateLimiter } from './middlewares/rateLimiter.ts';
 import { errorHandler } from './middlewares/errorHandler.ts';
+import { exigirSegredoManutencao } from './middlewares/setupSecret.ts';
 import { QueueManager } from './jobs/queues.ts';
 import v1Router from './routes.ts';
 
@@ -70,8 +72,10 @@ app.get('/api/v1/health', (_req: Request, res: Response) => {
   });
 });
 
-// Endpoint facilitador para inicializar/reparar banco no Render
-app.get('/api/v1/setup-db', async (_req: Request, res: Response) => {
+// Endpoint facilitador para inicializar/reparar banco no Render.
+// Protegido pelo segredo de manutenção (SETUP_SECRET) — sem ele a rota fica
+// desabilitada, porque o seed apaga todos os dados do banco.
+app.get('/api/v1/setup-db', exigirSegredoManutencao, async (_req: Request, res: Response) => {
   try {
     const { execSync } = await import('child_process');
     console.log('🔄 Executando prisma db push...');
@@ -102,72 +106,75 @@ app.use('/api/v1', v1Router);
 app.use(errorHandler);
 
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(ENV.PORT, async () => {
+  app.listen(ENV.PORT, () => {
     console.log(`🚀 API IEQ rodando em http://localhost:${ENV.PORT}`);
     console.log(`📖 Documentação Swagger em http://localhost:${ENV.PORT}/api/v1/docs`);
 
-    // Sincronização automática do schema e seed se conectado ao banco
-    try {
-      if (process.env.DATABASE_URL) {
-        const { execSync } = await import('child_process');
-        console.log('🔄 Sincronizando tabelas com o banco de dados...');
-        try {
-          execSync('npx prisma db push --accept-data-loss', { stdio: 'inherit' });
-        } catch (e: any) {
-          console.warn('Aviso no db push:', e.message);
-        }
-      }
-
-      const { prisma } = await import('./config/prisma.ts');
-      const totalIgrejas = await prisma.igreja.count();
-      if (totalIgrejas === 0) {
-        console.log('🌱 Banco vazio detectado. Criando dados iniciais da IEQ...');
-        const { main: runSeed } = await import('../prisma/seed.ts');
-        await runSeed();
-        console.log('✅ Seed inicial da IEQ concluído com sucesso!');
-      }
-
-      // Migração do identificador (slug) da igreja principal:
-      // "ieq-sede" -> "ieq-cidade-nova" (mantém o mesmo id, logo todos os dados ficam).
+    // Tarefas de inicialização em background: nunca devem impedir o servidor de subir
+    (async () => {
+      // Sincronização automática do schema e seed se conectado ao banco
       try {
-        const alvo = await prisma.igreja.findUnique({ where: { slug: 'ieq-cidade-nova' } });
-        if (!alvo) {
-          const antiga = await prisma.igreja.findUnique({ where: { slug: 'ieq-sede' } });
-          if (antiga) {
-            await prisma.igreja.update({
-              where: { id: antiga.id },
-              data: { slug: 'ieq-cidade-nova', nome: 'IEQ Cidade Nova' }
-            });
-            console.log('🔄 Identificador da igreja migrado para "ieq-cidade-nova" (IEQ Cidade Nova).');
+        if (process.env.DATABASE_URL) {
+          try {
+            const { execSync } = await import('child_process');
+            console.log('🔄 Sincronizando tabelas com o banco de dados...');
+            execSync('npx prisma db push --accept-data-loss', { stdio: 'inherit' });
+          } catch (e: any) {
+            console.warn('Aviso no db push:', e?.message || e);
           }
-        } else if (alvo.nome !== 'IEQ Cidade Nova') {
-          await prisma.igreja.update({ where: { id: alvo.id }, data: { nome: 'IEQ Cidade Nova' } });
-          console.log('🔄 Nome da igreja atualizado para "IEQ Cidade Nova".');
         }
-      } catch (e: any) {
-        console.warn('Aviso na migração do identificador da igreja:', e.message);
-      }
 
-      // Migração das mídias da vitrine: fotos que ainda estavam guardadas
-      // como texto base64 passam a ficar gravadas no banco como bytes
-      // (tabela midia_arquivo_partes), igual aos vídeos.
-      try {
-        const { MidiaService } = await import('./modules/midia/midia.service.ts');
-        const { VisualService } = await import('./modules/midia/visual.service.ts');
-        const migrados = await MidiaService.migrarArquivosLegados();
-        if (migrados > 0) {
-          console.log(`🔄 ${migrados} mídia(s) da vitrine migradas para bytes no banco.`);
+        const { prisma } = await import('./config/prisma.ts');
+        const totalIgrejas = await prisma.igreja.count();
+        if (totalIgrejas === 0) {
+          console.log('🌱 Banco vazio detectado. Criando dados iniciais da IEQ...');
+          const { main: runSeed } = await import('../prisma/seed.ts');
+          await runSeed();
+          console.log('✅ Seed inicial da IEQ concluído com sucesso!');
         }
-        const logos = await VisualService.migrarLogosLegados();
-        if (logos > 0) {
-          console.log(`🔄 ${logos} logo(s) migrado(s) para bytes no banco.`);
+
+        // Migração do identificador (slug) da igreja principal:
+        // "ieq-sede" -> "ieq-cidade-nova" (mantém o mesmo id, logo todos os dados ficam).
+        try {
+          const alvo = await prisma.igreja.findUnique({ where: { slug: 'ieq-cidade-nova' } });
+          if (!alvo) {
+            const antiga = await prisma.igreja.findUnique({ where: { slug: 'ieq-sede' } });
+            if (antiga) {
+              await prisma.igreja.update({
+                where: { id: antiga.id },
+                data: { slug: 'ieq-cidade-nova', nome: 'IEQ Cidade Nova' }
+              });
+              console.log('🔄 Identificador da igreja migrado para "ieq-cidade-nova" (IEQ Cidade Nova).');
+            }
+          } else if (alvo.nome !== 'IEQ Cidade Nova') {
+            await prisma.igreja.update({ where: { id: alvo.id }, data: { nome: 'IEQ Cidade Nova' } });
+            console.log('🔄 Nome da igreja atualizado para "IEQ Cidade Nova".');
+          }
+        } catch (e: any) {
+          console.warn('Aviso na migração do identificador da igreja:', e?.message || e);
         }
-      } catch (e: any) {
-        console.warn('Aviso na migração das mídias da vitrine:', e.message);
+
+        // Migração das mídias da vitrine: fotos que ainda estavam guardadas
+        // como texto base64 passam a ficar gravadas no banco como bytes
+        // (tabela midia_arquivo_partes), igual aos vídeos.
+        try {
+          const { MidiaService } = await import('./modules/midia/midia.service.ts');
+          const { VisualService } = await import('./modules/midia/visual.service.ts');
+          const migrados = await MidiaService.migrarArquivosLegados();
+          if (migrados > 0) {
+            console.log(`🔄 ${migrados} mídia(s) da vitrine migradas para bytes no banco.`);
+          }
+          const logos = await VisualService.migrarLogosLegados();
+          if (logos > 0) {
+            console.log(`🔄 ${logos} logo(s) migrado(s) para bytes no banco.`);
+          }
+        } catch (e: any) {
+          console.warn('Aviso na migração das mídias da vitrine:', e?.message || e);
+        }
+      } catch (err: any) {
+        console.warn('⚠️  Aviso na verificação de banco/seed:', err?.message || err);
       }
-    } catch (err: any) {
-      console.warn('⚠️  Aviso na verificação de banco/seed:', err.message);
-    }
+    })().catch((err) => console.warn('⚠️  Falha em tarefas de inicialização:', err?.message || err));
 
     // Rotina de backup diário: roda 1x no boot (o histórico fica em memória,
     // então cada restart precisa registrar um backup novo) e depois a cada 24h.
