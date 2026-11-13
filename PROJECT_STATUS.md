@@ -16,8 +16,8 @@ $ npm run build
 ## Status dos Testes
 ```
 $ npm test
-  ✓ 77 testes unitários passando
-  ✓ 38 suites de teste
+  ✓ 84 testes unitários passando
+  ✓ 39 suites de teste
   ✓ 0 falhas
   ✓ 0 cancelamentos
 ```
@@ -49,9 +49,24 @@ $ npm test
   O router fica em `midia/arquivo.publico.routes.ts`, montado **antes** do router de
   células (que exige token em todos os caminhos).
 - **MIME real** detectado pelos bytes: MP4, MOV (QuickTime), WebM, AVI e OGG.
-- Limite de **50 MB**; imagens seguem o fluxo antigo (WebP + data URL).
+- Limite de **50 MB**.
 - **Validado em produção (13/11/2026):** 1 MB, 10 MB, 25 MB e 45 MB → 201 OK;
   download público 200 com os bytes idênticos e Range respondendo 206.
+
+## 🗄️ Onde ficam os arquivos da vitrine (regra do projeto)
+**Nenhum arquivo é embutido como texto base64.** Fotos, vídeos e logo ficam gravados
+como bytes no Postgres e são servidos pela API:
+
+| arquivo | tabela | rota |
+| :--- | :--- | :--- |
+| Foto / Banner / Aviso com imagem | `midia_arquivo_partes` | `GET /api/v1/midia/:id/arquivo` |
+| Vídeo | `midia_arquivo_partes` | `GET /api/v1/midia/:id/arquivo` (Range) |
+| Logo da igreja | `arquivos_igreja` | `GET /api/v1/logo/:igrejaId` |
+
+- `arquivoUrl` guarda só o caminho (`/midia/<id>/arquivo`); o front resolve com `urlMidia()`.
+- Migração automática no boot: mídias e logos antigos em base64 viram bytes no banco.
+- **Efeito medido em produção:** resposta da vitrine pública **3.207.616 → ~1.400 bytes**;
+  `/publico/visual/:slug` **340.960 → 164 bytes**.
 
 ## 🔗 Vitrine Pública (link compartilhável sem login)
 - Rota pública: `GET /api/v1/publico/vitrine/:slug` (sem autenticação, cache de 60s)
@@ -61,10 +76,12 @@ $ npm test
 - Botões "Copiar"/"Abrir" na aba Visual (Mídia) e no painel de Aprovações (Pastor)
 - Testes: `backend/tests/vitrine_publica.node.mjs` (8 testes)
 
-## Commit Atual: 3926dc2
+## Commit Atual: 19ea641
 Conteúdo:
+- Fotos, vídeos e logo gravados no banco como bytes (nada de base64 no texto)
 - Vídeo para a vitrine sem base64 (bytes em pedaços de 4 MB + rota pública do arquivo)
 - Upload de mídia em disco (memória da API baixa)
+- Logo da igreja em `arquivos_igreja` + rota pública /logo/:igrejaId
 - Correção do upload para a vitrine (campo "arquivo" do app aceito no back)
 - MIME real do arquivo no fallback sem sharp
 - Vitrine pública por slug (link compartilhável sem login)
@@ -73,7 +90,7 @@ Conteúdo:
 - RBAC permissions
 - cleanup/service/backup/API
 - Frontend build passing
-- 77/77 unit tests passing
+- 84/84 unit tests passing
 
 ## Qualidade do Code
 - Frontend: TypeScript/Vite build - SEM ERROS

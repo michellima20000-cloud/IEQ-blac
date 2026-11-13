@@ -174,7 +174,7 @@ npm test
 # ou a lista completa:
 node --experimental-strip-types --test tests/permissions.node.mjs tests/auth_usuarios.node.mjs tests/celulas_relatorios.node.mjs tests/midia_aprovacao.node.mjs tests/midia_upload.node.mjs tests/midia_video.node.mjs tests/storage_limpeza.node.mjs tests/vitrine_publica.node.mjs
 ```
-**Resultado esperado:** 77 testes passando, 0 falhas.
+**Resultado esperado:** 84 testes passando, 0 falhas.
 
 ### Upload de mídia para a vitrine
 - O app envia o arquivo no campo **`arquivo`** e a API usa **`arquivos`**: o back aceita **os dois** nomes (`backend/src/utils/upload.ts`), evitando o erro *"Unexpected file field"*.
@@ -185,7 +185,21 @@ node --experimental-strip-types --test tests/permissions.node.mjs tests/auth_usu
 - O upload vai para o **disco** e é lido em fluxo: a API nunca segura o vídeo inteiro na memória.
 - O arquivo é servido por **`GET /api/v1/midia/:id/arquivo`**, com suporte a **Range** (o navegador consegue navegar pelo vídeo) e MIME real (MP4, MOV, WebM, AVI, OGG).
 - **Quem pode acessar:** conteúdo **PUBLICADO** é público (é o que aparece na vitrine compartilhável); pendente/devolvido só para usuário da mesma igreja (header `Bearer` ou `?token=`).
-- Limite de **50 MB** por arquivo. Imagens continuam sendo convertidas para WebP e guardadas como `data:` URL.
+- Limite de **50 MB** por arquivo.
+
+### Onde ficam os arquivos (regra do projeto)
+**Nenhum arquivo é embutido como texto base64 no banco ou no JSON.** Tudo que é postado na vitrine fica gravado como bytes no Postgres e é servido pela API:
+
+| arquivo | onde fica | como é servido |
+| :--- | :--- | :--- |
+| Foto / Banner / Aviso com imagem | `midia_arquivo_partes` (pedaços de 4 MB) | `GET /api/v1/midia/:id/arquivo` |
+| Vídeo | `midia_arquivo_partes` (pedaços de 4 MB) | `GET /api/v1/midia/:id/arquivo` (com Range) |
+| Logo da igreja | `arquivos_igreja` | `GET /api/v1/logo/:igrejaId` |
+
+- O campo `arquivoUrl` guarda **apenas o caminho** do arquivo (ex.: `/midia/<id>/arquivo`); o front vira URL absoluta em `urlMidia()` (`frontend/src/api/client.ts`).
+- Mídias antigas que ainda estavam como base64 são migradas automaticamente no boot da API.
+- Efeito: a resposta da vitrine pública caiu de **3,2 MB para ~1 KB** (as imagens passam a ser baixadas pela API, com cache).
+
 
 ---
 
