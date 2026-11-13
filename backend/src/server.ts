@@ -180,16 +180,18 @@ if (process.env.NODE_ENV !== 'test') {
     // então cada restart precisa registrar um backup novo) e depois a cada 24h.
     // Sem isso o painel do pastor exibe o alerta "Nenhum backup do sistema
     // foi localizado nas últimas 48 horas".
-    try {
-      await QueueManager.runRotinaDiariaGlobal();
-      setInterval(() => {
-        QueueManager.runRotinaDiariaGlobal().catch((e: any) =>
-          console.error('[Manutenção] Falha na rotina diária:', e.message)
-        );
-      }, 24 * 60 * 60 * 1000);
-    } catch (err: any) {
-      console.error('[Manutenção] Falha no backup inicial:', err.message);
-    }
+    (async () => {
+      try {
+        await QueueManager.runRotinaDiariaGlobal();
+        setInterval(() => {
+          QueueManager.runRotinaDiariaGlobal().catch((e: any) =>
+            console.error('[Manutenção] Falha na rotina diária:', e.message)
+          );
+        }, 24 * 60 * 60 * 1000);
+      } catch (err: any) {
+        console.error('[Manutenção] Falha no backup inicial:', err?.message || err);
+      }
+    })();
   });
 }
 
