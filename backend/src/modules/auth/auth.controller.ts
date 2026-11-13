@@ -5,6 +5,17 @@ import type { LoginInput, RefreshInput } from './auth.schemas.ts';
 import type { AuthenticatedRequest } from '../../middlewares/auth.ts';
 import { candidatosSlug, normalizarSlug } from '../../utils/slug.ts';
 
+function ehErroDeBanco(err: any): boolean {
+  const code = String(err?.code || '');
+  const msg = String(err?.message || err || '');
+  const name = String(err?.name || '');
+  return (
+    /^P1\d{3}$/.test(code) ||
+    name.includes('PrismaClient') ||
+    /can't reach database|database server|ECONNREFUSED|ENOTFOUND|connection/i.test(msg)
+  );
+}
+
 export class AuthController {
   /**
    * POST /api/v1/auth/login
@@ -15,7 +26,14 @@ export class AuthController {
     } catch (err: any) {
       // Sem este try/catch, uma falha do banco deixava a requisição pendurada
       // (no Express 4, rejeição de handler assíncrono não chega ao errorHandler).
-      console.error('[auth] Falha no login:', err?.message);
+      console.error('[auth] Falha no login:', err?.stack || err?.message || err);
+      if (ehErroDeBanco(err)) {
+        res.status(503).json({
+          error: 'Banco indisponível',
+          message: 'Não foi possível conectar ao banco de dados. Verifique a configuração (DATABASE_URL) no servidor.'
+        });
+        return;
+      }
       res.status(500).json({
         error: 'Erro no login',
         message: 'Não foi possível concluir o login. Tente novamente em instantes.'
@@ -24,7 +42,8 @@ export class AuthController {
   }
 
   private static async executarLogin(req: AuthenticatedRequest, res: Response): Promise<void> {
-    const { email, senha, slugIgreja } = req.body as LoginInput;
+    const { email: emailRaw, senha, slugIgreja } = req.body as LoginInput;
+    const email = String(emailRaw || '').trim();
 
     // Localizar a igreja pelo slug (aceita variações de escrita/caixa/espaços)
     let igreja = null;
@@ -53,7 +72,7 @@ export class AuthController {
     // Localizar o usuário dentro da igreja informada (multicontas)
     const usuario = await prisma.usuario.findFirst({
       where: {
-        email,
+        email: { equals: email, mode: 'insensitive' },
         igreja_id: igreja.id,
         ativo: true
       }
