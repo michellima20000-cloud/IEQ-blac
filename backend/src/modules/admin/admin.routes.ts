@@ -4,10 +4,47 @@ import { authMiddleware } from '../../middlewares/auth.ts';
 import { requirePerfil } from '../../middlewares/rbac.ts';
 import { ENV } from '../../config/env.ts';
 import { exigirSegredoManutencao } from '../../middlewares/setupSecret.ts';
+import { prisma } from '../../config/prisma.ts';
 import { validate } from '../../middlewares/validate.ts';
 import { criarAdminUsuarioSchema, atualizarAdminUsuarioSchema, criarIgrejaSchema, atualizarIgrejaSchema } from './admin.schemas.ts';
 
 const router = Router();
+
+/**
+ * Middleware para o bootstrap do primeiro ADM:
+ * - Se SETUP_SECRET estiver definido: exige o segredo no header x-setup-secret.
+ * - Se NÃO estiver definido (ex.: deploy novo): permite apenas o DONO
+ *   (email em ADMIN_OWNER_EMAILS) criar o PRIMEIRO ADM, quando ainda não
+ *   existir nenhum ADM no sistema. Após existir um ADM, volta a exigir
+ *   o segredo de manutenção.
+ */
+async function exigeSegredoOuPrimeiroAdm(req: any, res: any, next: any) {
+  const email = String((req.body || {}).email || '').trim().toLowerCase();
+  const ehDono = ENV.ADMIN_OWNER_EMAILS.length > 0 && ENV.ADMIN_OWNER_EMAILS.includes(email);
+
+  if (ENV.SETUP_SECRET) {
+    return exigirSegredoManutencao(req, res, next);
+  }
+
+  if (!ehDono) {
+    return res.status(503).json({
+      status: 'desabilitado',
+      message: 'Rota de manutenção desabilitada: defina a variável de ambiente SETUP_SECRET.'
+    });
+  }
+
+  const jaExisteAdm = await prisma.usuario.findFirst({
+    where: { perfil: 'ADM', email: { in: ENV.ADMIN_OWNER_EMAILS } }
+  });
+  if (jaExisteAdm) {
+    return res.status(403).json({
+      status: 'erro',
+      message: 'Já existe um ADM no sistema. Use o segredo de manutenção (SETUP_SECRET) para esta rota.'
+    });
+  }
+
+  next();
+}
 
 /**
  * @swagger
@@ -44,7 +81,7 @@ const router = Router();
  *       403:
  *         description: Já existe um ADM no sistema
  */
-router.post('/bootstrap', exigirSegredoManutencao, AdminController.bootstrapAdm);
+router.post('/bootstrap', exigeSegredoOuPrimeiroAdm, AdminController.bootstrapAdm);
 
 // Todas as rotas administrativas: somente o DONO do sistema (ADMIN_OWNER_EMAILS) com perfil ADM
 router.use(authMiddleware);
