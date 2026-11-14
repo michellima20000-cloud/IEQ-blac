@@ -126,7 +126,8 @@ export async function cacheDel(...chaves: string[]): Promise<void> {
  * Se o Redis falhar em qualquer operação, cai para o MemoryStore local.
  */
 export function upstashRateLimitStore(windowMs: number): Store {
-  const memoria = new MemoryStore(windowMs);
+  // express-rate-limit v7: MemoryStore não recebe mais argumentos no construtor
+  const memoria = new MemoryStore();
   const ttlSegundos = Math.ceil(windowMs / 1000);
 
   return {

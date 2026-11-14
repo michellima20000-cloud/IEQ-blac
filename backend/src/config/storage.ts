@@ -23,7 +23,8 @@ export const STORAGE_CONFIG = {
   // Criptografia de Backups (AES-256)
   backup: {
     encryptionKey: process.env.BACKUP_ENCRYPTION_KEY || 'ieq_backup_secret_key_32bytes!!',
-    retencaoDias: 7
+    retencaoDias: 7,
+    alertaAposHoras: Number(process.env.BACKUP_ALERTA_HORAS) || 48
   }
 };
 

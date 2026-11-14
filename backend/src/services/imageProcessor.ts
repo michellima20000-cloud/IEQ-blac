@@ -77,8 +77,11 @@ export class ImageProcessor {
     options: ProcessImageOptions = { maxWidth: 1280, maxHeight: 1280, quality: 80 }
   ): Promise<{ buffer: Buffer; mimeType: string; format: string }> {
     try {
-      // Se sharp estiver instalado (em produção / docker), utiliza sharp
-      const sharp = (await import('sharp')).default;
+      // Se sharp estiver instalado (em produção / docker), utiliza sharp.
+      // Import dinâmico com nome em variável: evita erro de build quando a
+      // dependência opcional não está presente (o fallback abaixo cobre).
+      const moduloSharp = 'sharp';
+      const sharp = (await import(moduloSharp)).default;
       const processed = await sharp(inputBuffer)
         .resize(options.maxWidth || 1280, options.maxHeight || 1280, {
           fit: 'inside',
