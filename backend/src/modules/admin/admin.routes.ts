@@ -13,29 +13,17 @@ const router = Router();
 /**
  * Middleware para o bootstrap do primeiro ADM:
  * - Se SETUP_SECRET estiver definido: exige o segredo no header x-setup-secret.
- * - Se NÃO estiver definido (ex.: deploy novo): permite apenas o DONO
- *   (email em ADMIN_OWNER_EMAILS) criar o PRIMEIRO ADM, quando ainda não
- *   existir nenhum ADM no sistema. Após existir um ADM, volta a exigir
- *   o segredo de manutenção.
+ * - Se NÃO estiver definido (ex.: deploy novo): permite criar o PRIMEIRO ADM
+ *   quando ainda não existir nenhum ADM no sistema (janela curta para desbloqueio
+ *   sem precisar configurar variáveis de ambiente no painel do Render). Após
+ *   existir um ADM, volta a exigir o segredo de manutenção.
  */
 async function exigeSegredoOuPrimeiroAdm(req: any, res: any, next: any) {
-  const email = String((req.body || {}).email || '').trim().toLowerCase();
-  const ehDono = ENV.ADMIN_OWNER_EMAILS.length > 0 && ENV.ADMIN_OWNER_EMAILS.includes(email);
-
   if (ENV.SETUP_SECRET) {
     return exigirSegredoManutencao(req, res, next);
   }
 
-  if (!ehDono) {
-    return res.status(503).json({
-      status: 'desabilitado',
-      message: 'Rota de manutenção desabilitada: defina a variável de ambiente SETUP_SECRET.'
-    });
-  }
-
-  const jaExisteAdm = await prisma.usuario.findFirst({
-    where: { perfil: 'ADM', email: { in: ENV.ADMIN_OWNER_EMAILS } }
-  });
+  const jaExisteAdm = await prisma.usuario.findFirst({ where: { perfil: 'ADM' } });
   if (jaExisteAdm) {
     return res.status(403).json({
       status: 'erro',
