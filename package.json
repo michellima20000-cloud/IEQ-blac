@@ -5,7 +5,8 @@
   "main": "dist/index.js",
   "scripts": {
     "postinstall": "npm --prefix backend install",
-    "build": "DATABASE_URL=\"${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/ieq?schema=public}\" npm --prefix backend run prisma:generate",
+    "build": "DATABASE_URL=\"${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/ieq?schema=public}\" npm --prefix backend run prisma:generate && node backend/scripts/sync-schema.mjs",
+    "schema:sync": "node backend/scripts/sync-schema.mjs",
     "start": "cd backend && node --experimental-strip-types src/server.ts",
     "dev": "cd backend && npm run dev"
   },

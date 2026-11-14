@@ -77,6 +77,8 @@ app.get('/api/v1/health', async (_req: Request, res: Response) => {
     version: '1.0.0',
     api: 'v1',
     database,
+    uptime: Math.round(process.uptime()),
+    pid: process.pid,
     docs: '/api/v1/docs',
     timestamp: new Date().toISOString()
   });
@@ -119,9 +121,15 @@ app.get('/api/v1/health/detalhe', async (_req: Request, res: Response) => {
 // Protected pelo segredo de manutenção (SETUP_SECRET).
 app.post('/api/v1/setup-db/sync', exigirSegredoManutencao, async (_req: Request, res: Response) => {
   try {
-    const { execSync } = await import('child_process');
-    console.log('[setup] Executando prisma db push (sem seed)...');
-    execSync('npx prisma db push --accept-data-loss --skip-generate', { stdio: 'inherit' });
+    const { sincronizarSchema } = await import('../scripts/sync-schema.mjs');
+    const resultado = await sincronizarSchema();
+    if (!resultado.ok) {
+      res.status(500).json({
+        status: 'error',
+        message: resultado.motivo || 'Falha ao sincronizar o schema do banco.'
+      });
+      return;
+    }
     res.json({ status: 'ok', message: 'Schema do banco sincronizado com sucesso.' });
   } catch (err: any) {
     res.status(500).json({
@@ -134,11 +142,19 @@ app.post('/api/v1/setup-db/sync', exigirSegredoManutencao, async (_req: Request,
 // Endpoint facilitador para inicializar/reparar banco no Render.
 // Protegido pelo segredo de manutenção (SETUP_SECRET) — sem ele a rota fica
 // desabilitada, porque o seed apaga todos os dados do banco.
+// ATENÇÃO: o seed recria os dados iniciais. Use /setup-db/sync para apenas
+// sincronizar o schema sem tocar nos dados.
 app.get('/api/v1/setup-db', exigirSegredoManutencao, async (_req: Request, res: Response) => {
   try {
-    const { execSync } = await import('child_process');
-    console.log('🔄 Executando prisma db push...');
-    execSync('npx prisma db push --accept-data-loss', { stdio: 'inherit' });
+    const { sincronizarSchema } = await import('../scripts/sync-schema.mjs');
+    const resultado = await sincronizarSchema();
+    if (!resultado.ok) {
+      res.status(500).json({
+        status: 'error',
+        message: resultado.motivo || 'Falha ao sincronizar o schema do banco.'
+      });
+      return;
+    }
 
     console.log('🌱 Executando seed...');
     const { main: runSeed } = await import('../prisma/seed.ts');
@@ -187,22 +203,23 @@ if (process.env.NODE_ENV !== 'test') {
     (async () => {
       // Sincronização automática do schema e seed se conectado ao banco
       try {
-        if (process.env.DATABASE_URL) {
-          const { execSync } = await import('child_process');
-          let sincronizado = false;
-          for (let tentativa = 1; tentativa <= 3 && !sincronizado; tentativa++) {
-            try {
-              console.log(`[setup] Sincronizando tabelas com o banco de dados (tentativa ${tentativa}/3)...`);
-              execSync('npx prisma db push --accept-data-loss --skip-generate', { stdio: 'inherit' });
-              sincronizado = true;
-            } catch (e: any) {
-              console.error(`[setup] Falha no db push (tentativa ${tentativa}/3):`, e?.message || e);
-              if (tentativa < 3) await new Promise((r) => setTimeout(r, 5000 * tentativa));
+        if (process.env.DATABASE_URL && process.env.NODE_ENV !== 'production') {
+          // Sincronização NÃO bloqueante: usar execSync aqui travava o event
+          // loop e o Render matava a instância (conexão fechada / 500).
+          // Em produção a sincronização acontece na FASE DE BUILD (Render),
+          // porque subir o CLI do Prisma junto com a API estoura a memória
+          // da instância gratuita (512 MB) e derruba o serviço.
+          try {
+            const { sincronizarSchema } = await import('../scripts/sync-schema.mjs');
+            const resultado = await sincronizarSchema();
+            if (!resultado.ok) {
+              console.error('[setup] Não foi possível sincronizar o schema do banco:', resultado.motivo);
             }
+          } catch (e: any) {
+            console.error('[setup] Falha na sincronização do schema:', e?.message || e);
           }
-          if (!sincronizado) {
-            console.error('[setup] ATENÇÃO: não foi possível sincronizar o schema do banco automaticamente.');
-          }
+        } else if (process.env.NODE_ENV === 'production') {
+          console.log('[setup] Produção: schema sincronizado na fase de build (POST /api/v1/setup-db/sync sincroniza manualmente).');
         }
 
         const { prisma } = await import('./config/prisma.ts');
@@ -263,6 +280,9 @@ if (process.env.NODE_ENV !== 'test') {
     // foi localizado nas últimas 48 horas".
     (async () => {
       try {
+        // Espera o servidor estabilizar antes de gerar o dump (evita competir
+        // memória/CPU com as primeiras requisições na instância gratuita).
+        await new Promise((r) => setTimeout(r, 30000));
         await QueueManager.runRotinaDiariaGlobal();
         setInterval(() => {
           QueueManager.runRotinaDiariaGlobal().catch((e: any) =>
@@ -278,6 +298,12 @@ if (process.env.NODE_ENV !== 'test') {
   server.on('error', (err: any) => {
     console.error('[boot] Erro no listener HTTP:', err?.message || err);
   });
+
+  // Timeouts explícitos: evitam que requisições lentas fiquem penduradas
+  // até o Render encerrar a conexão.
+  server.requestTimeout = 180000;
+  server.headersTimeout = 65000;
+  server.keepAliveTimeout = 60000;
 }
 
 export default app;

@@ -52,7 +52,9 @@ export class AuthController {
       }
       res.status(500).json({
         error: 'Erro no login',
-        message: 'Não foi possível concluir o login. Tente novamente em instantes.'
+        message: 'Não foi possível concluir o login. Tente novamente em instantes.',
+        codigo: err?.code || null,
+        detalhe: String(err?.message || err || '').slice(0, 200)
       });
     }
   }
