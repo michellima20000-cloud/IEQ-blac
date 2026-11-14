@@ -278,21 +278,37 @@ if (process.env.NODE_ENV !== 'test') {
     // então cada restart precisa registrar um backup novo) e depois a cada 24h.
     // Sem isso o painel do pastor exibe o alerta "Nenhum backup do sistema
     // foi localizado nas últimas 48 horas".
-    (async () => {
-      try {
-        // Espera o servidor estabilizar antes de gerar o dump (evita competir
-        // memória/CPU com as primeiras requisições na instância gratuita).
-        await new Promise((r) => setTimeout(r, 30000));
-        await QueueManager.runRotinaDiariaGlobal();
-        setInterval(() => {
-          QueueManager.runRotinaDiariaGlobal().catch((e: any) =>
-            console.error('[Manutenção] Falha na rotina diária:', e.message)
-          );
-        }, 24 * 60 * 60 * 1000);
-      } catch (err: any) {
-        console.error('[Manutenção] Falha no backup inicial:', err?.message || err);
-      }
-    })();
+    // Em produção o backup automático fica DESLIGADO por padrão: o dump do
+    // banco consome CPU/memória e derrubava a instância gratuita do Render.
+    // Habilite com BACKUP_AUTOMATICO=true.
+    if (process.env.BACKUP_AUTOMATICO === 'true') {
+      (async () => {
+        try {
+          // Espera o servidor estabilizar antes de gerar o dump (evita competir
+          // memória/CPU com as primeiras requisições na instância gratuita).
+          await new Promise((r) => setTimeout(r, 30000));
+          await QueueManager.runRotinaDiariaGlobal();
+          setInterval(() => {
+            QueueManager.runRotinaDiariaGlobal().catch((e: any) =>
+              console.error('[Manutenção] Falha na rotina diária:', e.message)
+            );
+          }, 24 * 60 * 60 * 1000);
+        } catch (err: any) {
+          console.error('[Manutenção] Falha no backup inicial:', err?.message || err);
+        }
+      })();
+    } else {
+      console.log('[boot] Backup automático desativado (defina BACKUP_AUTOMATICO=true para habilitar).');
+    }
+
+    // Monitor de memória: ajuda a identificar vazamentos/OOM no Render.
+    const monitorMemoria = setInterval(() => {
+      const uso = process.memoryUsage();
+      console.log(
+        `[mem] rss=${Math.round(uso.rss / 1024 / 1024)}MB heap=${Math.round(uso.heapUsed / 1024 / 1024)}MB uptime=${Math.round(process.uptime())}s`
+      );
+    }, 60000);
+    monitorMemoria.unref?.();
   });
 
   server.on('error', (err: any) => {

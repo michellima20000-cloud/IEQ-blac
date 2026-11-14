@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync, unlinkSync, statSync, createReadStream, createWriteStream } from 'node:fs';
 import { join } from 'node:path';
 import { STORAGE_CONFIG } from '../config/storage.ts';
 
@@ -69,19 +69,15 @@ export class BackupService {
   /**
    * Gera um dump REAL do banco.
    *
-   * 1. Se o binário pg_dump estiver disponível (imagem do Render/Alpine com
-   *    postgresql-client), usa ele: gera um .sql completo.
-   * 2. Sem o binário, exporta todas as tabelas do sistema em JSON
-   *    (dump manual, também com todos os dados) — o backup continua sendo real.
+   * ATENÇÃO (memória): o dump via pg_dump é gravado direto em disco
+   * (ver gerarDumpEmArquivo). Esta versão em memória é limitada a few rows
+   * por tabela e NÃO usa pg_dump — usá-la com o banco inteiro estourava a
+   * memória da instância (512 MB no Render) e derrubava o servidor.
    */
   static async gerarDump(): Promise<{ buffer: Buffer; formato: 'sql' | 'json' }> {
-    const dumpSql = await this.gerarDumpComPgDump();
-    if (dumpSql) {
-      return { buffer: dumpSql, formato: 'sql' };
-    }
-
     const { prisma } = await import('../config/prisma.ts');
     const dados: Record<string, unknown[]> = {};
+    const LIMITE_LINHAS = 2000;
 
     for (const { model, tabela } of TABELAS_BACKUP) {
       const client = (prisma as any)[model];
@@ -93,14 +89,16 @@ export class BackupService {
         let consulta: any;
         if (model === 'midiaArquivoParte') {
           consulta = client.findMany({
-            select: { id: true, conteudoId: true, ordem: true, tamanho: true, createdAt: true }
+            select: { id: true, conteudoId: true, ordem: true, tamanho: true, createdAt: true },
+            take: LIMITE_LINHAS
           });
         } else if (model === 'arquivoIgreja') {
           consulta = client.findMany({
-            select: { id: true, igreja_id: true, mimeType: true, nomeOriginal: true, tamanho: true, createdAt: true }
+            select: { id: true, igreja_id: true, mimeType: true, nomeOriginal: true, tamanho: true, createdAt: true },
+            take: LIMITE_LINHAS
           });
         } else {
-          consulta = client.findMany();
+          consulta = client.findMany({ take: LIMITE_LINHAS });
         }
 
         dados[tabela] = await consulta;
@@ -122,78 +120,140 @@ export class BackupService {
     return { buffer: Buffer.from(conteudo, 'utf-8'), formato: 'json' };
   }
 
-  /** Dump SQL via pg_dump (retorna null se o binário não existir/falhar). */
-  private static async gerarDumpComPgDump(): Promise<Buffer | null> {
+  /**
+   * Gera o dump direto em arquivo, sem carregar tudo na memória.
+   * Usa pg_dump (streaming) quando disponível; senão, exporta os metadados.
+   */
+  private static async gerarDumpEmArquivo(caminho: string): Promise<{ formato: 'sql' | 'json'; bytes: number }> {
+    const viaPgDump = await this.gerarDumpComPgDumpParaArquivo(caminho);
+    if (viaPgDump) {
+      return { formato: 'sql', bytes: this.tamanhoArquivo(caminho) };
+    }
+
+    const dump = await this.gerarDump();
+    writeFileSync(caminho, dump.buffer);
+    return { formato: 'json', bytes: dump.buffer.length };
+  }
+
+  private static tamanhoArquivo(caminho: string): number {
+    try {
+      return statSync(caminho).size;
+    } catch {
+      return 0;
+    }
+  }
+
+  /** Dump SQL via pg_dump gravando direto no arquivo (streaming). */
+  private static async gerarDumpComPgDumpParaArquivo(caminho: string): Promise<boolean> {
     const binario = process.env.PG_DUMP_PATH || 'pg_dump';
-    if (!binario) return null;
+    if (!binario) return false;
 
     try {
       const { spawn } = await import('node:child_process');
       const databaseUrl = process.env.DATABASE_URL;
-      if (!databaseUrl) return null;
+      if (!databaseUrl) return false;
 
-      return await new Promise<Buffer | null>((resolve) => {
+      return await new Promise<boolean>((resolve) => {
         const processo = spawn(binario, ['--no-owner', '--no-acl', databaseUrl], {
           stdio: ['ignore', 'pipe', 'pipe']
         });
 
-        const partes: Buffer[] = [];
+        const saida = createWriteStream(caminho);
         let stderr = '';
 
-        processo.stdout.on('data', (dado: Buffer) => partes.push(dado));
+        processo.stdout.pipe(saida);
         processo.stderr.on('data', (dado: Buffer) => { stderr += dado.toString(); });
-        processo.on('error', () => resolve(null));
+        processo.on('error', () => {
+          try { saida.close(); } catch { /* ignore */ }
+          resolve(false);
+        });
+        saida.on('error', () => {
+          try { processo.kill('SIGKILL'); } catch { /* ignore */ }
+          resolve(false);
+        });
         processo.on('close', (codigo) => {
-          if (codigo === 0 && partes.length > 0) {
-            resolve(Buffer.concat(partes));
-          } else {
-            if (stderr) console.warn(`[backup] pg_dump indisponível: ${stderr.split('\n')[0]}`);
-            resolve(null);
-          }
+          saida.on('finish', () => {
+            if (codigo === 0) {
+              resolve(true);
+            } else {
+              if (stderr) console.warn(`[backup] pg_dump indisponível: ${stderr.split('\n')[0]}`);
+              resolve(false);
+            }
+          });
+          saida.end();
         });
       });
     } catch {
-      return null;
+      return false;
     }
+  }
+
+  /** Criptografa um arquivo em streaming (chunk a chunk), sem estourar memória. */
+  private static async criptografarArquivo(origem: string, destino: string): Promise<void> {
+    const key = crypto.createHash('sha256').update(STORAGE_CONFIG.backup.encryptionKey).digest();
+    const iv = crypto.randomBytes(16);
+
+    await new Promise<void>((resolve, reject) => {
+      const entrada = createReadStream(origem);
+      const saida = createWriteStream(destino);
+      const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+
+      saida.write(iv);
+      entrada.on('error', reject);
+      saida.on('error', reject);
+      cipher.on('error', reject);
+      saida.on('finish', () => resolve());
+
+      entrada.pipe(cipher).pipe(saida);
+    });
   }
 
   /**
    * Executa a rotina diária de backup: gera o dump, criptografa (AES-256),
    * grava o arquivo em disco e aplica a retenção configurada.
+   *
+   * Tudo é feito por STREAMING em disco: nada do dump fica na memória.
    */
   static async executarBackupDiario(dadosJaProntos?: Buffer): Promise<BackupRegistro> {
     const dataCriacao = new Date();
-    let conteudo: Buffer;
-    let extensao: string;
-
-    if (dadosJaProntos) {
-      conteudo = dadosJaProntos;
-      extensao = 'sql';
-    } else {
-      const dump = await this.gerarDump();
-      conteudo = dump.buffer;
-      extensao = dump.formato;
-    }
-
-    const dadosCriptografados = this.criptografar(conteudo);
-    const nomeArquivo = `backup_ieq_${dataCriacao.toISOString().replace(/[:.]/g, '-')}.${extensao}.enc`;
 
     // Grava o arquivo criptografado no disco (pasta BACKUP_DIR ou ./backups)
     const pastaBackup = process.env.BACKUP_DIR || 'backups';
     try {
       if (!existsSync(pastaBackup)) mkdirSync(pastaBackup, { recursive: true });
-      writeFileSync(join(pastaBackup, nomeArquivo), dadosCriptografados);
     } catch (erro: any) {
-      console.warn(`[backup] Não foi possível gravar o arquivo de backup: ${erro?.message}`);
+      console.warn(`[backup] Não foi possível criar a pasta de backup: ${erro?.message}`);
     }
+
+    let extensao = 'json';
+    const nomeArquivo = `backup_ieq_${dataCriacao.toISOString().replace(/[:.]/g, '-')}`;
+    const caminhoBruto = join(pastaBackup, `${nomeArquivo}.bruto`);
+    const caminhoFinal = join(pastaBackup, `${nomeArquivo}.${extensao}.enc`);
+
+    try {
+      if (dadosJaProntos) {
+        writeFileSync(caminhoBruto, dadosJaProntos);
+      } else {
+        const dump = await this.gerarDumpEmArquivo(caminhoBruto);
+        extensao = dump.formato;
+      }
+
+      await this.criptografarArquivo(caminhoBruto, caminhoFinal);
+    } catch (erro: any) {
+      console.warn(`[backup] Falha ao gerar o arquivo de backup: ${erro?.message}`);
+    } finally {
+      try { if (existsSync(caminhoBruto)) unlinkSync(caminhoBruto); } catch { /* ignore */ }
+    }
+
+    const tamanhoBytes = this.tamanhoArquivo(caminhoFinal);
 
     const novoBackup: BackupRegistro = {
       id: `bkp-${Date.now()}`,
-      nomeArquivo,
+      nomeArquivo: `${nomeArquivo}.${extensao}.enc`,
       dataCriacao,
-      tamanhoBytes: dadosCriptografados.length,
+      tamanhoBytes,
       criptografado: true,
-      status: 'SUCESSO'
+      status: tamanhoBytes > 0 ? 'SUCESSO' : 'FALHA'
     };
 
     historicoBackups.push(novoBackup);
