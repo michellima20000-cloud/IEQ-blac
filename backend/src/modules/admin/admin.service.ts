@@ -34,7 +34,13 @@ export class AdminService {
    * Apenas o e-mail configurado em ADMIN_OWNER_EMAILS pode ser promovido/criado.
    */
   static async bootstrapAdm(dados: { email: string; senha: string; nome?: string; slugIgreja?: string }) {
-    if (!emailDonoPermitido(dados.email)) {
+    const jaExisteAdm = await prisma.usuario.findFirst({ where: { perfil: 'ADM' } });
+
+    // Janela de desbloqueio: se ainda não existe nenhum ADM, permite criar o
+    // primeiro sem exigir ADMIN_OWNER_EMAILS nem SETUP_SECRET (útil quando as
+    // variáveis de ambiente não foram configuradas no painel do Render).
+    // Após existir um ADM, só o dono (ADMIN_OWNER_EMAILS) pode usar esta rota.
+    if (jaExisteAdm && !emailDonoPermitido(dados.email)) {
       throw new PermissaoError('Bootstrap permitido apenas para o e-mail do dono do sistema (ADMIN_OWNER_EMAILS).', 403);
     }
 
