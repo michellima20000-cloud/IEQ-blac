@@ -31,7 +31,7 @@ export class AuthController {
    */
   static async login(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      await this.executarLogin(req, res);
+      await AuthController.executarLogin(req, res);
     } catch (err: any) {
       // Sem este try/catch, uma falha do banco deixava a requisição pendurada
       // (no Express 4, rejeição de handler assíncrono não chega ao errorHandler).
