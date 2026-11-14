@@ -82,6 +82,55 @@ app.get('/api/v1/health', async (_req: Request, res: Response) => {
   });
 });
 
+// Diagnóstico detalhado do banco: mostra em quais tabelas o schema diverge.
+// Retorna apenas contagens e mensagens de erro (nenhum dado sensível).
+app.get('/api/v1/health/detalhe', async (_req: Request, res: Response) => {
+  const checks: Record<string, unknown> = {};
+  let status = 'ok';
+  try {
+    const { prisma } = await import('./config/prisma.ts');
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      checks.conexao = 'ok';
+    } catch (e: any) {
+      checks.conexao = { erro: e?.code || '', mensagem: String(e?.message || e).slice(0, 300) };
+      status = 'erro';
+    }
+    for (const [nome, fn] of [
+      ['igrejas', () => prisma.igreja.count()],
+      ['usuarios', () => prisma.usuario.count()],
+      ['celulas', () => prisma.celula.count()]
+    ] as Array<[string, () => Promise<number>]>) {
+      try {
+        checks[nome] = await fn();
+      } catch (e: any) {
+        checks[nome] = { erro: e?.code || '', mensagem: String(e?.message || e).slice(0, 300) };
+        status = 'erro';
+      }
+    }
+  } catch (e: any) {
+    status = 'erro';
+    checks.erroGeral = String(e?.message || e).slice(0, 300);
+  }
+  res.json({ status, checks, timestamp: new Date().toISOString() });
+});
+
+// Sincroniza o schema do Prisma SEM apagar dados (seguro para produção).
+// Protected pelo segredo de manutenção (SETUP_SECRET).
+app.post('/api/v1/setup-db/sync', exigirSegredoManutencao, async (_req: Request, res: Response) => {
+  try {
+    const { execSync } = await import('child_process');
+    console.log('[setup] Executando prisma db push (sem seed)...');
+    execSync('npx prisma db push --accept-data-loss --skip-generate', { stdio: 'inherit' });
+    res.json({ status: 'ok', message: 'Schema do banco sincronizado com sucesso.' });
+  } catch (err: any) {
+    res.status(500).json({
+      status: 'error',
+      message: err?.message || 'Falha ao sincronizar o schema do banco.'
+    });
+  }
+});
+
 // Endpoint facilitador para inicializar/reparar banco no Render.
 // Protegido pelo segredo de manutenção (SETUP_SECRET) — sem ele a rota fica
 // desabilitada, porque o seed apaga todos os dados do banco.
@@ -139,12 +188,20 @@ if (process.env.NODE_ENV !== 'test') {
       // Sincronização automática do schema e seed se conectado ao banco
       try {
         if (process.env.DATABASE_URL) {
-          try {
-            const { execSync } = await import('child_process');
-            console.log('🔄 Sincronizando tabelas com o banco de dados...');
-            execSync('npx prisma db push --accept-data-loss', { stdio: 'inherit' });
-          } catch (e: any) {
-            console.warn('Aviso no db push:', e?.message || e);
+          const { execSync } = await import('child_process');
+          let sincronizado = false;
+          for (let tentativa = 1; tentativa <= 3 && !sincronizado; tentativa++) {
+            try {
+              console.log(`[setup] Sincronizando tabelas com o banco de dados (tentativa ${tentativa}/3)...`);
+              execSync('npx prisma db push --accept-data-loss --skip-generate', { stdio: 'inherit' });
+              sincronizado = true;
+            } catch (e: any) {
+              console.error(`[setup] Falha no db push (tentativa ${tentativa}/3):`, e?.message || e);
+              if (tentativa < 3) await new Promise((r) => setTimeout(r, 5000 * tentativa));
+            }
+          }
+          if (!sincronizado) {
+            console.error('[setup] ATENÇÃO: não foi possível sincronizar o schema do banco automaticamente.');
           }
         }
 

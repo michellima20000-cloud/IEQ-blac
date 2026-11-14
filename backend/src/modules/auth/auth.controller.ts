@@ -10,9 +10,18 @@ function ehErroDeBanco(err: any): boolean {
   const msg = String(err?.message || err || '');
   const name = String(err?.name || '');
   return (
-    /^P1\d{3}$/.test(code) ||
+    /^P\d{4}$/.test(code) ||
     name.includes('PrismaClient') ||
     /can't reach database|database server|ECONNREFUSED|ENOTFOUND|connection/i.test(msg)
+  );
+}
+
+function ehErroDeSchema(err: any): boolean {
+  const code = String(err?.code || '');
+  const msg = String(err?.message || err || '');
+  return (
+    /^P20(21|22|23|24|25)$/.test(code) ||
+    /does not exist|Unknown argument|column .* does not|table .* does not/i.test(msg)
   );
 }
 
@@ -27,6 +36,13 @@ export class AuthController {
       // Sem este try/catch, uma falha do banco deixava a requisição pendurada
       // (no Express 4, rejeição de handler assíncrono não chega ao errorHandler).
       console.error('[auth] Falha no login:', err?.stack || err?.message || err);
+      if (ehErroDeSchema(err)) {
+        res.status(503).json({
+          error: 'Banco desatualizado',
+          message: `O schema do banco precisa ser sincronizado (${err?.code || 'erro'}). Execute POST /api/v1/setup-db/sync.`
+        });
+        return;
+      }
       if (ehErroDeBanco(err)) {
         res.status(503).json({
           error: 'Banco indisponível',
