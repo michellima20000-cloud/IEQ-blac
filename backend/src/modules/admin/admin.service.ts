@@ -18,7 +18,7 @@ function formatarBytes(bytes: number): string {
 
 function emailDonoPermitido(email?: string | null): boolean {
   const donos = ENV.ADMIN_OWNER_EMAILS;
-  if (!donos.length) return false; // sem dono configurado = acesso ADM bloqueado
+  if (!donos.length) return true; // sem dono configurado = qualquer ADM acessa
   return donos.includes(String(email || '').trim().toLowerCase());
 }
 

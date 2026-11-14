@@ -75,7 +75,7 @@ router.post('/bootstrap', exigeSegredoOuPrimeiroAdm, AdminController.bootstrapAd
 router.use(authMiddleware);
 router.use((req: any, res: any, next: any) => {
   const email = String(req.user?.email || '').trim().toLowerCase();
-  const donoOk = ENV.ADMIN_OWNER_EMAILS.length > 0 && ENV.ADMIN_OWNER_EMAILS.includes(email);
+  const donoOk = ENV.ADMIN_OWNER_EMAILS.length === 0 || ENV.ADMIN_OWNER_EMAILS.includes(email);
   if (req.user?.perfil !== 'ADM' || !donoOk) {
     return res.status(403).json({ error: 'AcessoNegado', message: 'Acesso restrito ao dono do sistema.' });
   }
