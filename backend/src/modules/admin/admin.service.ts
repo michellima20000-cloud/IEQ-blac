@@ -83,6 +83,41 @@ export class AdminService {
   }
 
   /**
+   * Exclui uma igreja e todos os seus dados relacionados (usuários, células,
+   * redes, membros, relatórios, mídias, etc.). Não exclui se for a única
+   * igreja do sistema.
+   */
+  static async excluirIgreja(id: string) {
+    const igreja = await prisma.igreja.findUnique({ where: { id } });
+    if (!igreja) {
+      throw new Error('Igreja não encontrada.');
+    }
+
+    const totalIgrejas = await prisma.igreja.count();
+    if (totalIgrejas <= 1) {
+      throw new Error('Não é possível excluir a única igreja do sistema.');
+    }
+
+    // Exclui dados relacionados em ordem (respeitando foreign keys)
+    await prisma.midiaArquivoParte.deleteMany({ where: { conteudo: { igreja_id: id } } });
+    await prisma.conteudoMidia.deleteMany({ where: { igreja_id: id } });
+    await prisma.membro.deleteMany({ where: { igreja_id: id } });
+    await prisma.visitante.deleteMany({ where: { igreja_id: id } });
+    await prisma.relatorioCelula.deleteMany({ where: { igreja_id: id } });
+    await prisma.celula.deleteMany({ where: { igreja_id: id } });
+    await prisma.rede.deleteMany({ where: { igreja_id: id } });
+    await prisma.eventoCalendario.deleteMany({ where: { igreja_id: id } });
+    await prisma.arquivoIgreja.deleteMany({ where: { igreja_id: id } });
+    await prisma.configuracaoIgreja.delete({ where: { igreja_id: id } }).catch(() => {});
+    await prisma.usuario.deleteMany({ where: { igreja_id: id } });
+    await prisma.logAuditoria.deleteMany({ where: { igreja_id: id } });
+
+    await prisma.igreja.delete({ where: { id } });
+
+    return { acao: 'excluida', igreja: { id, nome: igreja.nome, slug: igreja.slug } };
+  }
+
+  /**
    * Resumo global do sistema: igrejas, totais, backup e armazenamento
    */
   static async resumoSistema(usuario: UsuarioAutenticado) {

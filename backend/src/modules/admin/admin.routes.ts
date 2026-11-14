@@ -187,5 +187,6 @@ router.get('/auditoria', AdminController.listarAuditoria);
 router.get('/igrejas', AdminController.listarIgrejas);
 router.post('/igrejas', validate(criarIgrejaSchema), AdminController.criarIgreja);
 router.patch('/igrejas/:id', validate(atualizarIgrejaSchema), AdminController.atualizarIgreja);
+router.delete('/igrejas/:id', AdminController.excluirIgreja);
 
 export default router;

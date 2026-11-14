@@ -59,4 +59,8 @@ export class AdminController {
   static async atualizarIgreja(req: AuthenticatedRequest, res: Response): Promise<void> {
     AdminController.responder(res, () => AdminService.atualizarIgreja(req.user as any, req.params.id, req.body as any));
   }
+
+  static async excluirIgreja(req: AuthenticatedRequest, res: Response): Promise<void> {
+    AdminController.responder(res, () => AdminService.excluirIgreja(req.params.id));
+  }
 }
