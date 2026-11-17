@@ -12,6 +12,7 @@ import { criarMidiaSchema } from './midia.schemas.ts';
 import { ImageProcessor, detectarMimeType, mimeDeVideoValido } from '../../services/imageProcessor.ts';
 import { normalizarArquivos } from '../../utils/upload.ts';
 import { cacheDel, cacheGet, cacheSet, chavesCache } from '../../config/upstash.ts';
+import { BackupService } from '../../services/backup.service.ts';
 import type { AuthenticatedRequest } from '../../middlewares/auth.ts';
 import type {
   CriarMidiaInput,
@@ -474,6 +475,35 @@ export class MidiaController {
         Number(req.body?.prazoRetencaoFotosDias)
       );
       res.json({ message: 'Prazo de retenção de fotos atualizado com sucesso.', ...atualizado });
+    } catch (err: any) {
+      res.status(err.statusCode || 400).json({ error: err.name || 'Erro', message: err.message });
+    }
+  }
+
+  // --- BACKUP MANUAL DO SISTEMA ---
+  static async executarBackup(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (req.user?.perfil !== 'PASTOR' && req.user?.perfil !== 'ADM') {
+        res.status(403).json({ error: 'PermissaoNegada', message: 'Apenas Pastor ou Administrador podem executar backups.' });
+        return;
+      }
+      const backup = await BackupService.executarBackupDiario();
+      const segurancaBackup = BackupService.verificarStatusBackupParaPastor();
+      res.json({
+        message: 'Backup criptografado gerado com sucesso!',
+        backup,
+        segurancaBackup
+      });
+    } catch (err: any) {
+      res.status(err.statusCode || 500).json({ error: err.name || 'ErroBackup', message: err.message || 'Falha ao gerar backup.' });
+    }
+  }
+
+  static async obterStatusBackup(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      await BackupService.carregarHistoricoDoBanco();
+      const segurancaBackup = BackupService.verificarStatusBackupParaPastor();
+      res.json(segurancaBackup);
     } catch (err: any) {
       res.status(err.statusCode || 400).json({ error: err.name || 'Erro', message: err.message });
     }

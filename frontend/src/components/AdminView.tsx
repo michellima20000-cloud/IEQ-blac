@@ -55,8 +55,24 @@ export const AdminView: React.FC = () => {
   const [igrejaEditando, setIgrejaEditando] = useState<any | null>(null);
   const [salvandoIgreja, setSalvandoIgreja] = useState(false);
   const [formIgreja, setFormIgreja] = useState({ nome: '', slug: '', ativa: true });
+  const [gerandoBackup, setGerandoBackup] = useState(false);
 
   const igrejas = resumo?.igrejas ?? [];
+
+  async function executarBackupManual() {
+    setGerandoBackup(true);
+    setErro(null);
+    setAviso(null);
+    try {
+      const res: any = await ApiClient.post('/configuracoes/backup');
+      setAviso(res?.message || 'Backup gerado com sucesso!');
+      await carregarSistema();
+    } catch (err: any) {
+      setErro(err?.response?.data?.message || err?.message || 'Falha ao executar backup.');
+    } finally {
+      setGerandoBackup(false);
+    }
+  }
 
   async function carregarSistema() {
     const dados = await ApiClient.get('/admin/sistema');
@@ -291,7 +307,17 @@ export const AdminView: React.FC = () => {
           </div>
 
           <div className="card-soft p-4 space-y-2">
-            <div className="text-sm font-semibold text-white flex items-center gap-2"><HardDrive size={15} /> Armazenamento & Backup</div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm font-semibold text-white flex items-center gap-2"><HardDrive size={15} /> Armazenamento & Backup</div>
+              <button
+                type="button"
+                onClick={executarBackupManual}
+                disabled={gerandoBackup}
+                className="btn-soft-primary btn-sm"
+              >
+                {gerandoBackup ? 'Gerando backup...' : 'Fazer Backup Agora'}
+              </button>
+            </div>
             <div className="text-xs text-slate-300">Uso: <b>{resumo.armazenamento?.espacoUsadoFormatado || '—'}</b></div>
             <div className="text-xs text-slate-300">Backup: <b>{resumo.segurancaBackup?.status || 'desconhecido'}</b> {resumo.segurancaBackup?.ultimoBackupEm ? `• último: ${new Date(resumo.segurancaBackup.ultimoBackupEm).toLocaleString('pt-BR')}` : ''}</div>
             {resumo.segurancaBackup?.mensagem && <div className="text-xs text-slate-400">{resumo.segurancaBackup.mensagem}</div>}

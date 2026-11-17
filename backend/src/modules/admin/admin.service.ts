@@ -123,6 +123,7 @@ export class AdminService {
   static async resumoSistema(usuario: UsuarioAutenticado) {
     this.exigirADM(usuario);
 
+    await BackupService.carregarHistoricoDoBanco();
     const backup = BackupService.verificarStatusBackupParaPastor();
 
     const [totalIgrejas, totalUsuarios, totalCelulas, totalRelatorios, totalMidias, espacoUsadoBytes] = await Promise.all([

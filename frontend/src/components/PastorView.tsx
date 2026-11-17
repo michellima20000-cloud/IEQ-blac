@@ -33,6 +33,8 @@ export const PastorView: React.FC = () => {
   const [dashboard, setDashboard] = useState<any | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [fotoModal, setFotoModal] = useState<string | null>(null);
+  const [gerandoBackup, setGerandoBackup] = useState(false);
+  const [backupSucesso, setBackupSucesso] = useState<string | null>(null);
 
   // Edição/Exclusão de relatórios (pastor)
   const [relatorioEditando, setRelatorioEditando] = useState<any | null>(null);
@@ -197,6 +199,27 @@ const usuariosFiltrados = usuarios.filter((u) => {
       setMensagemErro(err?.message || 'Falha ao salvar o prazo de retenção.');
     } finally {
       setSalvandoRetencao(false);
+    }
+  };
+
+  const executarBackupManual = async () => {
+    setGerandoBackup(true);
+    setMensagemErro(null);
+    try {
+      const res: any = await ApiClient.post('/configuracoes/backup');
+      if (res?.segurancaBackup) {
+        setDashboard((prev: any) => ({
+          ...prev,
+          segurancaBackup: res.segurancaBackup
+        }));
+      }
+      setBackupSucesso('Backup criptografado gerado com sucesso!');
+      setTimeout(() => setBackupSucesso(null), 8000);
+      carregarDadosPastor();
+    } catch (err: any) {
+      setMensagemErro(err?.response?.data?.message || err?.message || 'Falha ao executar backup do sistema.');
+    } finally {
+      setGerandoBackup(false);
     }
   };
 
@@ -453,14 +476,32 @@ const usuariosFiltrados = usuarios.filter((u) => {
 
       {/* ALERTA CRÍTICO DE BACKUP > 48 HORAS */}
       {dashboard?.segurancaBackup?.alertaBackupPendente && (
-        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 flex items-start gap-3">
-          <span className="w-8 h-8 shrink-0 rounded-lg bg-red-500/15 text-red-400 flex items-center justify-center">
-            <ShieldAlert size={16} />
-          </span>
-          <div>
-            <h4 className="text-sm font-bold text-red-300 mb-0.5">Alerta Crítico de Segurança</h4>
-            <p className="text-xs text-slate-300">{dashboard.segurancaBackup.mensagemAlerta}</p>
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <span className="w-8 h-8 shrink-0 rounded-lg bg-red-500/15 text-red-400 flex items-center justify-center">
+              <ShieldAlert size={16} />
+            </span>
+            <div>
+              <h4 className="text-sm font-bold text-red-300 mb-0.5">Alerta Crítico de Segurança</h4>
+              <p className="text-xs text-slate-300">{dashboard.segurancaBackup.mensagemAlerta}</p>
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={executarBackupManual}
+            disabled={gerandoBackup}
+            className="btn-soft-primary btn-sm shrink-0 whitespace-nowrap self-start sm:self-center"
+          >
+            {gerandoBackup ? 'Gerando backup...' : 'Fazer Backup Agora'}
+          </button>
+        </div>
+      )}
+
+      {/* FEEDBACK DE BACKUP REALIZADO */}
+      {backupSucesso && (
+        <div className="alert-success" role="status">
+          <ShieldAlert size={16} className="text-emerald-400 shrink-0" />
+          <span>{backupSucesso}</span>
         </div>
       )}
 

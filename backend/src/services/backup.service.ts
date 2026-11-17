@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { existsSync, mkdirSync, writeFileSync, unlinkSync, statSync, createReadStream, createWriteStream } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync, unlinkSync, statSync, readdirSync, createReadStream, createWriteStream } from 'node:fs';
 import { join } from 'node:path';
 import { STORAGE_CONFIG } from '../config/storage.ts';
 
@@ -262,7 +262,95 @@ export class BackupService {
     const limiteRetencao = new Date(Date.now() - STORAGE_CONFIG.backup.retencaoDias * 24 * 60 * 60 * 1000);
     historicoBackups = historicoBackups.filter((b) => b.dataCriacao >= limiteRetencao);
 
+    // Registra auditoria persistente no PostgreSQL (sobrevive a restarts do container)
+    try {
+      const { prisma } = await import('../config/prisma.ts');
+      const igreja = await prisma.igreja.findFirst({ select: { id: true } });
+      if (igreja) {
+        await prisma.logAuditoria.create({
+          data: {
+            igreja_id: igreja.id,
+            acao: 'BACKUP_SISTEMA',
+            recurso: 'SISTEMA',
+            detalhesJson: JSON.stringify({
+              nomeArquivo: novoBackup.nomeArquivo,
+              tamanhoBytes: novoBackup.tamanhoBytes,
+              status: novoBackup.status
+            }),
+            createdAt: dataCriacao
+          }
+        });
+      }
+    } catch (e: any) {
+      console.warn('[backup] Aviso ao registrar log de auditoria do backup:', e?.message || e);
+    }
+
     return novoBackup;
+  }
+
+  /**
+   * Lê arquivos de backup existentes em disco caso a memória esteja vazia.
+   */
+  static carregarHistoricoDoDisco(): void {
+    if (historicoBackups.length > 0) return;
+    const pastaBackup = process.env.BACKUP_DIR || 'backups';
+    try {
+      if (!existsSync(pastaBackup)) return;
+      const arquivos = readdirSync(pastaBackup).filter((f) => f.endsWith('.enc'));
+      for (const arq of arquivos) {
+        const caminho = join(pastaBackup, arq);
+        const stats = statSync(caminho);
+        let dataCriacao = stats.mtime;
+        const match = arq.match(/backup_ieq_(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)/);
+        if (match) {
+          const iso = match[1].replace(/^(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})-(\d{3})Z$/, '$1T$2:$3:$4.$5Z');
+          const d = new Date(iso);
+          if (!isNaN(d.getTime())) dataCriacao = d;
+        }
+        historicoBackups.push({
+          id: `bkp-disco-${arq}`,
+          nomeArquivo: arq,
+          dataCriacao,
+          tamanhoBytes: stats.size,
+          criptografado: true,
+          status: stats.size > 0 ? 'SUCESSO' : 'FALHA'
+        });
+      }
+    } catch {
+      // Ignora falhas de leitura
+    }
+  }
+
+  /**
+   * Lê o último registro de backup salvo na tabela de auditoria (banco persistente).
+   */
+  static async carregarHistoricoDoBanco(): Promise<void> {
+    try {
+      const { prisma } = await import('../config/prisma.ts');
+      const ultimoLog = await prisma.logAuditoria.findFirst({
+        where: { acao: 'BACKUP_SISTEMA' },
+        orderBy: { createdAt: 'desc' }
+      });
+      if (ultimoLog) {
+        let detalhes: any = {};
+        try { detalhes = JSON.parse(ultimoLog.detalhesJson || '{}'); } catch {}
+        const jaExiste = historicoBackups.some(
+          (b) => Math.abs(b.dataCriacao.getTime() - ultimoLog.createdAt.getTime()) < 1000
+        );
+        if (!jaExiste) {
+          historicoBackups.push({
+            id: ultimoLog.id,
+            nomeArquivo: detalhes.nomeArquivo || `backup_ieq_${ultimoLog.createdAt.toISOString()}`,
+            dataCriacao: ultimoLog.createdAt,
+            tamanhoBytes: Number(detalhes.tamanhoBytes) || 1024,
+            criptografado: true,
+            status: (detalhes.status as any) || 'SUCESSO'
+          });
+        }
+      }
+    } catch {
+      // Ignora erro se banco indisponível
+    }
   }
 
   /**
@@ -276,6 +364,10 @@ export class BackupService {
     horasDesdeUltimoBackup: number;
     totalBackupsRetidos: number;
   } {
+    if (historicoBackups.length === 0) {
+      this.carregarHistoricoDoDisco();
+    }
+
     const backupsOrdenados = [...historicoBackups].sort(
       (a, b) => b.dataCriacao.getTime() - a.dataCriacao.getTime()
     );

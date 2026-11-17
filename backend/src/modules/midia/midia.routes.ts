@@ -125,5 +125,9 @@ router.patch(
   MidiaController.atualizarRetencao
 );
 
+// --- BACKUP CRIPTOGRAFADO (PASTOR / ADM) ---
+router.post('/configuracoes/backup', requirePerfil('PASTOR', 'ADM'), MidiaController.executarBackup);
+router.get('/configuracoes/backup/status', requirePerfil('PASTOR', 'ADM'), MidiaController.obterStatusBackup);
+
 export default router;
 

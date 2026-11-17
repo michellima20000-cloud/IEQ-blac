@@ -9,6 +9,7 @@ import { globalRateLimiter } from './middlewares/rateLimiter.ts';
 import { errorHandler } from './middlewares/errorHandler.ts';
 import { exigirSegredoManutencao } from './middlewares/setupSecret.ts';
 import { QueueManager } from './jobs/queues.ts';
+import { BackupService } from './services/backup.service.ts';
 import v1Router from './routes.ts';
 
 const app = express();
@@ -281,13 +282,23 @@ if (process.env.NODE_ENV !== 'test') {
     // Em produção o backup automático fica DESLIGADO por padrão: o dump do
     // banco consome CPU/memória e derrubava a instância gratuita do Render.
     // Habilite com BACKUP_AUTOMATICO=true.
-    if (process.env.BACKUP_AUTOMATICO === 'true') {
+    if (process.env.BACKUP_AUTOMATICO !== 'false') {
       (async () => {
         try {
           // Espera o servidor estabilizar antes de gerar o dump (evita competir
           // memória/CPU com as primeiras requisições na instância gratuita).
-          await new Promise((r) => setTimeout(r, 30000));
-          await QueueManager.runRotinaDiariaGlobal();
+          await BackupService.carregarHistoricoDoBanco();
+          const status = BackupService.verificarStatusBackupParaPastor();
+          if (status.alertaBackupPendente) {
+            console.log('[boot] Nenhum backup recente (>48h). Agendando execução inicial...');
+            await new Promise((r) => setTimeout(r, 10000));
+            await QueueManager.runRotinaDiariaGlobal();
+            console.log('[boot] Backup inicial concluído com sucesso.');
+          } else {
+            console.log(`[boot] Backup recente encontrado (${status.horasDesdeUltimoBackup}h atrás). Status saudável.`);
+          }
+
+
           setInterval(() => {
             QueueManager.runRotinaDiariaGlobal().catch((e: any) =>
               console.error('[Manutenção] Falha na rotina diária:', e.message)

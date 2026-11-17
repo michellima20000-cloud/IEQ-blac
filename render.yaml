@@ -38,5 +38,7 @@ services:
         sync: false
       - key: FRONTEND_URL
         value: https://ieq-blac.vercel.app
+      - key: BACKUP_AUTOMATICO
+        value: "true"
       - key: BACKUP_ENCRYPTION_KEY
         sync: false

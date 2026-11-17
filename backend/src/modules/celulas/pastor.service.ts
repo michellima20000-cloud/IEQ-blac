@@ -80,6 +80,7 @@ export class PastorDashboardService {
       : 0;
 
     // 5. Status do Backup (Alerta crítico se > 48h)
+    await BackupService.carregarHistoricoDoBanco();
     const statusBackup = BackupService.verificarStatusBackupParaPastor();
 
     // 6. Métricas de Armazenamento e Limpeza Automática
