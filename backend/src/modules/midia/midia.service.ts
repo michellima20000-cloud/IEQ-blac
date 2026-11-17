@@ -44,11 +44,10 @@ const selectMidia = {
 /**
  * Status inicial de um conteúdo publicado.
  *
- * REGRA DO PROJETO: o conteúdo enviado pela equipe de Mídia passa pelo
- * Pastor antes de ir para a vitrine pública. Só o Pastor publica direto.
+ * Se o autor marcar "precisaAprovacao" como verdadeiro, o conteúdo entra como PENDENTE
+ * para aprovação do Pastor. Caso contrário (desmarcado), é publicado diretamente na vitrine.
  */
 export function definirStatusInicial(perfil: string, precisaAprovacao?: boolean): 'PUBLICADO' | 'PENDENTE' {
-  if (perfil === 'MIDIA') return 'PENDENTE';
   if (precisaAprovacao) return 'PENDENTE';
   return 'PUBLICADO';
 }

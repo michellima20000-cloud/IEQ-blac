@@ -150,4 +150,17 @@ describe('RBAC & Isolamento Multi-tenant - Regras da Igreja', () => {
     assert.strictEqual(validarPermissao(usuarioAdm, 'USUARIO', 'EXCLUIR', alvoOutraIgreja), true);
     assert.strictEqual(validarPermissao(usuarioAdm, 'MIDIA', 'CRIAR', alvoOutraIgreja), true);
   });
+
+  it('7. Líder sem vínculo (rede/célula) é bloqueado (falha fechada)', () => {
+    const liderRedeSemVinculo = { id: 'u-rede', igreja_id: IGREJA_MATRIZ, perfil: 'REDE', redeId: null };
+    const liderCelulaSemVinculo = { id: 'u-celula', igreja_id: IGREJA_MATRIZ, perfil: 'CELULA', celulaId: null };
+
+    assert.throws(() => {
+      validarPermissao(liderRedeSemVinculo, 'CELULA', 'LER', alvoCelula1);
+    }, /rede sem rede vinculada/);
+
+    assert.throws(() => {
+      validarPermissao(liderCelulaSemVinculo, 'RELATORIO', 'LER', alvoCelula1);
+    }, /sem .+lula vinculada/);
+  });
 });

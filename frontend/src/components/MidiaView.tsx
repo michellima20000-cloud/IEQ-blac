@@ -342,7 +342,7 @@ export default function MidiaView() {
     setUploadProgress(0);
 
     try {
-      await new Promise((resolve, reject) => {
+      const resposta = await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         const tempoLimite = setTimeout(() => {
           xhr.abort();
@@ -385,7 +385,12 @@ export default function MidiaView() {
         xhr.send(fd);
       });
 
-      setSucesso('Mídia enviada com sucesso!');
+      let msgSucesso = 'Mídia enviada com sucesso!';
+      try {
+        const jsonResp = JSON.parse(resposta as string);
+        if (jsonResp?.message) msgSucesso = jsonResp.message;
+      } catch { /* ignora */ }
+      setSucesso(msgSucesso);
       setUploadTitulo(''); setUploadDescricao(''); setUploadYoutube('');
       setUploadArquivo(null); setPreviewUrl(null); setArquivoInfo(null); setUploadProgress(0);
       setUploadErros({});

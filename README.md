@@ -18,6 +18,11 @@ Sistema completo e desacoplado para igrejas com suporte a multi-tenant, gestão 
 
 > **Atenção:** No plano gratuito do Render.com, os containers têm sistema de arquivos efêmero (não há volume persistente) e entram em modo sleep após inatividade. Por esse motivo, **o plano gratuito do Render serve EXCLUSIVAMENTE para demonstração e testes efêmeros**. Para produção com retenção de dados, fotos e backups, utilize um servidor VPS próprio (ex: Hetzner, DigitalOcean, Linode, AWS EC2, Oracle Cloud Free Tier) executando Docker e Docker Compose com volumes persistentes.
 
+### Deploy no Render (`render.yaml`)
+- Serviço `ieq-black`, `healthCheckPath: /api/v1/health`, `FRONTEND_URL=https://ieq-blac.vercel.app`.
+- Segredos (`DATABASE_URL`, `REDIS_URL`, `UPSTASH_REDIS_REST_*`, `BACKUP_ENCRYPTION_KEY`) devem ser definidos no **painel do Render** (`sync: false`); `SETUP_SECRET`, `JWT_SECRET` e `JWT_REFRESH_SECRET` são gerados pelo Render.
+- **Desenvolvimento local:** o `DATABASE_URL` interno do Render não é acessível fora da rede do Render; para rodar localmente com banco real, use a *connection string externa* do Postgres no painel do Render.
+
 ---
 
 ## 🚀 Como Rodar Localmente
@@ -164,27 +169,36 @@ rclone copy remote:ieq-backup-nuvem/fotos /data/ieq-files
 
 ---
 
+## 🔐 Segurança e Manutenção
+
+- **`SETUP_SECRET`**: protege as rotas de manutenção `GET /api/v1/setup-db` e `POST /api/v1/admin/bootstrap` (header `x-setup-secret`). Sem esse valor configurado, as rotas ficam desabilitadas (503).
+- **JWT**: em produção `JWT_SECRET` e `JWT_REFRESH_SECRET` são obrigatórios (mín. 16 caracteres). Em desenvolvimento, se ausentes, o backend gera um segredo aleatório por processo (nunca fixo no código).
+- **Perfil ADM**: só o Administrador do sistema pode conceder/alterar perfil `ADM`; o Pastor não pode escalar privilégios.
+- **Isolamento (RBAC)**: líder de célula/rede sem vínculo não recebe acesso amplo — a validação falha fechada.
+
 ## 🧪 Execução de Testes Automatizados
 
-O backend possui suíte de testes de permissão, RBAC, autenticação, trava de relatórios, módulo de mídia, upload de arquivos, vitrine pública e ciclo de vida de armazenamento sem dependências externas:
+O backend possui suíte de testes de permissão/RBAC, segurança (segredo de manutenção, ADM, RBAC sem vínculo), autenticação, trava de relatórios, módulo de mídia (upload, vídeo, aprovação), retenção/backup/armazenamento e vitrine pública, sem dependências externas:
 
 ```bash
 cd backend
 npm test
 # ou a lista completa:
-node --experimental-strip-types --test tests/permissions.node.mjs tests/auth_usuarios.node.mjs tests/celulas_relatorios.node.mjs tests/midia_aprovacao.node.mjs tests/midia_upload.node.mjs tests/midia_video.node.mjs tests/storage_limpeza.node.mjs tests/vitrine_publica.node.mjs
+node --experimental-strip-types --test tests/permissions.node.mjs tests/auth_usuarios.node.mjs tests/celulas_relatorios.node.mjs tests/midia_aprovacao.node.mjs tests/midia_upload.node.mjs tests/midia_video.node.mjs tests/storage_limpeza.node.mjs tests/vitrine_publica.node.mjs tests/seguranca_regras.node.mjs
 ```
-**Resultado esperado:** 84 testes passando, 0 falhas.
+**Resultado esperado:** 98 testes passando, 45 suites, 0 falhas.
 
 ### Upload de mídia para a vitrine
 - O app envia o arquivo no campo **`arquivo`** e a API usa **`arquivos`**: o back aceita **os dois** nomes (`backend/src/utils/upload.ts`), evitando o erro *"Unexpected file field"*.
+- Upload em **disco** (`multer.diskStorage`) com limpeza automática dos temporários após o processamento.
+- Se a opção *"Requer aprovação do pastor antes de publicar"* for marcada, o conteúdo entra como **PENDENTE** para aprovação do Pastor; se desmarcada (padrão), é **PUBLICADO** diretamente na vitrine.
 - Sem a biblioteca `sharp` (Docker), o arquivo original é salvo com o **MIME real** (JPEG/PNG/WebP/MP4) — nunca rotulado como `image/webp` — para o navegador exibir a imagem na vitrine.
 
 ### Vídeo para a vitrine (arquivo enviado, não link)
-- O **vídeo é gravado em pedaços de 4 MB** no banco (tabela `midia_arquivo_partes`), **sem base64 no JSON**: o base64 estourava a memória da API e o envio de vídeos acima de ~15 MB voltava com erro 502.
+- O **vídeo é gravado em pedaços de 4 MB** no banco (tabela `midia_arquivo_partes`), **sem base64 no JSON**.
 - O upload vai para o **disco** e é lido em fluxo: a API nunca segura o vídeo inteiro na memória.
-- O arquivo é servido por **`GET /api/v1/midia/:id/arquivo`**, com suporte a **Range** (o navegador consegue navegar pelo vídeo) e MIME real (MP4, MOV, WebM, AVI, OGG).
-- **Quem pode acessar:** conteúdo **PUBLICADO** é público (é o que aparece na vitrine compartilhável); pendente/devolvido só para usuário da mesma igreja (header `Bearer` ou `?token=`).
+- O arquivo é servido por **`GET /api/v1/midia/:id/arquivo`**, com suporte a **Range** (incluindo sufixo) e MIME real (MP4, MOV, WebM, AVI, OGG).
+- **Quem pode acessar:** conteúdo **PUBLICADO** é público (vitrine compartilhável); pendente/devolvido só para usuário da mesma igreja (header `Bearer` ou `?token=`). A autorização é verificada antes de expor metadados do arquivo.
 - Limite de **50 MB** por arquivo.
 
 ### Onde ficam os arquivos (regra do projeto)
@@ -198,10 +212,17 @@ node --experimental-strip-types --test tests/permissions.node.mjs tests/auth_usu
 
 - O campo `arquivoUrl` guarda **apenas o caminho** do arquivo (ex.: `/midia/<id>/arquivo`); o front vira URL absoluta em `urlMidia()` (`frontend/src/api/client.ts`).
 - Mídias antigas que ainda estavam como base64 são migradas automaticamente no boot da API.
+- As listas do painel (Pastor/Rede) não embutem a foto do relatório em base64: o front carrega sob demanda via URL assinada.
 - Efeito: a resposta da vitrine pública caiu de **3,2 MB para ~1 KB** (as imagens passam a ser baixadas pela API, com cache).
 
 
 ---
+
+## 🗂️ Retenção, Armazenamento e Backup
+
+- **Prazo de retenção das fotos de relatórios**: configurável pelo Pastor (1–365 dias, padrão 60). Endpoints: `GET /configuracoes/retencao` e `PATCH /configuracoes/retencao` (`{ "prazoRetencaoFotosDias": <n> }`, perfis `PASTOR`/`ADM`). O job de limpeza usa esse prazo; o relatório permanece intacto.
+- **Métricas de armazenamento**: espaço utilizado calculado a partir dos dados reais no banco (`midia_arquivo_partes`, `arquivos_igreja` e fotos de relatórios).
+- **Backup**: rotina diária gera dump real do banco (via `pg_dump` quando disponível; caso contrário, exportação JSON das tabelas, sem bytes binários das partes de arquivo), criptografa com **AES-256-CBC** e grava em disco (`BACKUP_DIR` ou `./backups`), com retenção configurável.
 
 ## 🔗 Vitrine Pública (link compartilhável sem login)
 

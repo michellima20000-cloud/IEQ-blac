@@ -6,7 +6,8 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
-RUN npx vite build
+# npm run build = tsc (typecheck) + vite build: erro de tipo impede a imagem
+RUN npm run build
 
 FROM nginx:alpine AS runtime
 COPY --from=build /app/dist /usr/share/nginx/html

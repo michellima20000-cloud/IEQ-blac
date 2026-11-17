@@ -5,7 +5,8 @@ dist/
 .DS_Store
 backend/prisma/seed.js
 backend/tests/permissions.test.js
-
+backend/backups/
+*.enc
 
 .vercel
 .env*

@@ -1,39 +1,39 @@
-# Projeto IEQ - Status Final
+# Projeto IEQ - Status do Sistema
 
-## URL Vercel (Produção)
-https://ieq-blac.vercel.app
+## Produção
+- Frontend (Vercel): https://ieq-blac.vercel.app
+- Vitrine pública: https://ieq-blac.vercel.app/vitrine/ieq-cidade-nova
+- API (Render): https://ieq-black.onrender.com (`GET /api/v1/health` → 200)
+- Vitrine pública (API): https://ieq-black.onrender.com/api/v1/publico/vitrine/:slug
 
-## Status do Build
+## Status do Build (frontend)
 ```
 $ npm run build
   vite v6.4.5 building for production...
-  ✓ 1586 modules transformed
-  ✓ built in 2.xx s
+  ✓ 1592 modules transformed
   ✓ PWA v0.21.2 - generateSW
-  ✓ precache 5 entries
+  ✓ precache 27 entries
 ```
 
-## Status dos Testes
+## Status dos Testes (backend)
 ```
 $ npm test
-  ✓ 84 testes unitários passando
-  ✓ 39 suites de teste
+  ✓ 98 testes passando
+  ✓ 45 suites
   ✓ 0 falhas
   ✓ 0 cancelamentos
 ```
 
 Áreas cobertas pelos testes:
-- RBAC permissions & role-based access control
-- Leader Network: edit/exclude closed cell reports
-- Auth & JWT tokens
-- Backup service
-- Cleanup service
-- Storage service
+- RBAC e isolamento multi-tenant (inclusive falha fechada sem vínculo de rede/célula)
+- Segurança: `SETUP_SECRET` (rotas de manutenção), restrição de perfil `ADM`, aprovação de mídia
+- Leader Network: edição/exclusão de relatórios fechados
+- Auth & JWT
+- Backup (criptografia) e limpeza (retenção)
+- Armazenamento
 - Mídia, aprovação, calendário e vitrine
 - Vitrine pública por slug (conteúdo publicado, agenda futura e rota sem autenticação)
-- Upload de mídia (campo "arquivo"/"arquivos", normalização e MIME real)
-- Vídeo para a vitrine (MIME de vídeo, divisão em pedaços e rota pública do arquivo)
-- Isolamento multi-tenant
+- Upload de mídia (campo "arquivo"/"arquivos", normalização, MIME real) e vídeo (pedaços, Range, rota pública)
 
 ## 🎬 Vídeo para a vitrine (upload de arquivo)
 - **Diagnóstico:** o backend convertia o vídeo inteiro em base64 dentro do JSON;
@@ -76,21 +76,24 @@ como bytes no Postgres e são servidos pela API:
 - Botões "Copiar"/"Abrir" na aba Visual (Mídia) e no painel de Aprovações (Pastor)
 - Testes: `backend/tests/vitrine_publica.node.mjs` (8 testes)
 
-## Commit Atual: 19ea641
-Conteúdo:
-- Fotos, vídeos e logo gravados no banco como bytes (nada de base64 no texto)
-- Vídeo para a vitrine sem base64 (bytes em pedaços de 4 MB + rota pública do arquivo)
-- Upload de mídia em disco (memória da API baixa)
-- Logo da igreja em `arquivos_igreja` + rota pública /logo/:igrejaId
-- Correção do upload para a vitrine (campo "arquivo" do app aceito no back)
-- MIME real do arquivo no fallback sem sharp
-- Vitrine pública por slug (link compartilhável sem login)
-- API pública /publico/vitrine/:slug + cache de 60s
-- Página pública /vitrine/<slug> com a identidade visual da igreja
-- RBAC permissions
-- cleanup/service/backup/API
-- Frontend build passing
-- 84/84 unit tests passing
+## Segurança e Manutenção (atualização)
+- **`SETUP_SECRET`**: `GET /api/v1/setup-db` e `POST /api/v1/admin/bootstrap` exigem o segredo (`x-setup-secret`); sem ele as rotas ficam desabilitadas (503).
+- **JWT**: obrigatório em produção (mín. 16 caracteres); em dev, se ausente, segredo aleatório por processo (nunca fixo no código). Credencial Redis removida do código.
+- **ADM**: só o Administrador concede/altera perfil `ADM` (Pastor não escala privilégios).
+- **RBAC**: líder de rede/célula sem vínculo é bloqueado (falha fechada); perfil `MIDIA` sem acesso a listagens de células/redes.
+- **`render.yaml`**: serviço `ieq-black`, `healthCheckPath` `/api/v1/health`, `FRONTEND_URL=https://ieq-blac.vercel.app`, segredos em `sync: false` no painel do Render e `SETUP_SECRET` gerado. Credenciais anteriormente versionadas devem ser rotacionadas.
+
+## Retenção, Armazenamento e Backup (atualização)
+- **Prazo de retenção de fotos**: configurável pelo Pastor (1–365 dias, padrão 60) — `GET/PATCH /configuracoes/retencao` (`PASTOR`/`ADM`). Job de limpeza usa o prazo configurado (corrigido typo que quebrava a limpeza).
+- **Armazenamento**: métricas calculadas com dados reais do banco (`midia_arquivo_partes`, `arquivos_igreja`, fotos de relatórios).
+- **Backup**: rotina diária gera dump real (pg_dump ou exportação JSON das tabelas, sem bytes binários das partes), criptografa AES-256-CBC e grava em disco com retenção.
+
+## Correções aplicadas (backend + frontend)
+- **Mídia**: upload em disco com limpeza de temporários; aprovação respeita o campo "precisaAprovacao" (quando desmarcado publica direto, quando marcado vai para o Pastor); MIDIA edita só o próprio conteúdo; await no delete; Range/sufixo e Content-Length corretos no streaming; autorização antes de metadados.
+- **Painéis**: relatórios (Pastor/Rede) sem `fotoUrl` base64 no payload — fotos carregadas sob demanda por URL assinada.
+- **Frontend**: seleção de arquivo de mídia corrigida (stale state) com `accept image/*,video/*`; sessão expirada encerra ao falhar refresh; slider de retenção ligado à API; status real do membro; erros de carregamento exibidos; correção de listeners PWA.
+- **Swagger**: YAML corrigido (descrição com `:` entre aspas).
+- **Docker/Deploy**: frontend mapeado para porta 80 do nginx; Dockerfile do front com `npm run build`; `render.yaml` alinhado ao serviço real.
 
 ## Qualidade do Code
 - Frontend: TypeScript/Vite build - SEM ERROS
@@ -103,18 +106,11 @@ Conteúdo:
 - PastorView: cards de estatísticas (Células Ativas, Membros Ativos, Novos Visitantes, Frequência Média) agora possuem onClick para abrir detalhes
 - Painel lateral de células: width reduzido (w-24), padding reduzido (p-1) e botão fechar menor (h-10), agora ocupa o mínimo espaço lateral da tela
 
-## Deploy Vercel
-URL: https://ieq-blac.vercel.app
-Vitrine pública: https://ieq-blac.vercel.app/vitrine/ieq-cidade-nova
-Status: Em producao (12/11/2026) - deploy automatico via GitHub (commit a13f319)
-Obs: o deploy e feito pelo GitHub (push em main); a CLI do Vercel exige login local
-Obs2: aba ADM removida do frontend; modulo backend /admin/* mantido inativo
-Obs3: API publica no Render: https://ieq-black.onrender.com/api/v1/publico/vitrine/:slug
+## Deploy
+- **Vercel (frontend)**: https://ieq-blac.vercel.app (auto-deploy via GitHub no push em `main`; CLI exige login local).
+- **Render (API)**: https://ieq-black.onrender.com — blueprint em `render.yaml`. Variáveis sensíveis configuradas no painel do Render.
+- **Docker local**: `docker compose up -d --build` (`frontend` exposto em `${FRONTEND_PORT:-80}:80`).
 
-## Resumo Executivo
-Projeto IEQ - Painel Pastoral Igreja
-- Build: OK
-- Testes: 72/72 passando  
-- Deploy: Vercel configurado (auto-deploy via GitHub) + Render para a API
-- Commit: a13f319 (vitrine pública + todas melhorias anteriores)
-- Autor: michellima20000-cloud
+## Observações
+- Para rodar o backend localmente com banco real é necessária a *connection string externa* do Postgres do Render (o host interno não é acessível fora da rede do Render).
+- Alterações locais validadas (build + 98 testes) mas **não commitadas/pushadas** e nenhum deploy remoto foi disparado.
