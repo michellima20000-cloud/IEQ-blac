@@ -1,4 +1,4 @@
-﻿import { describe, it } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { validarPermissao } from '../src/permissions/rules.ts';
 import { exigirSegredoManutencao } from '../src/middlewares/setupSecret.ts';
