@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { ApiClient, fotoUtilizavel } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { linkVitrinePublica } from '../utils/rutaPublica';
 import { SkeletonPage } from './Skeleton';
 import { useListaIncremental } from '../hooks/useListaIncremental';
 
@@ -59,20 +58,6 @@ export const PastorView: React.FC = () => {
 
   const { usuario: usuarioLogado } = useAuth();
 
-  // Link público da vitrine (compartilhável sem login)
-  const [linkVitrineCopiado, setLinkVitrineCopiado] = useState(false);
-  const slugIgrejaVitrine = usuarioLogado?.igreja?.slug || 'ieq-cidade-nova';
-  const linkPublicoVitrine = linkVitrinePublica(slugIgrejaVitrine);
-
-  async function copiarLinkPublicoVitrine() {
-    try {
-      await navigator.clipboard.writeText(linkPublicoVitrine);
-      setLinkVitrineCopiado(true);
-      setTimeout(() => setLinkVitrineCopiado(false), 2000);
-    } catch {
-      window.prompt('Copie o link da vitrine pública:', linkPublicoVitrine);
-    }
-  }
 
   // Paginação incremental das listas pesadas
   const listaRelatorios = useListaIncremental(dashboard?.relatorios, 20);
@@ -777,37 +762,7 @@ const usuariosFiltrados = usuarios.filter((u) => {
           )}
 
           {/* Link público da vitrine (compartilhável sem login) */}
-          <div className="card card-pad">
-            <div className="flex items-center gap-2.5 mb-3">
-              <span className="w-8 h-8 rounded-xl bg-sky-500/10 flex items-center justify-center shrink-0 text-sky-400">
-                <Globe size={16} />
-              </span>
-              <div className="min-w-0">
-                <h4 className="text-sm font-bold text-white">Vitrine Pública da Igreja</h4>
-                <p className="text-[11px] text-slate-500">Link para divulgar avisos e eventos sem precisar de login</p>
-              </div>
-            </div>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-              <code className="flex-1 min-w-0 truncate rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-xs font-mono text-slate-300">
-                {linkPublicoVitrine}
-              </code>
-              <div className="flex items-center gap-2 shrink-0">
-                <button type="button" onClick={copiarLinkPublicoVitrine} className="btn btn-sm flex items-center gap-1.5">
-                  {linkVitrineCopiado ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
-                  {linkVitrineCopiado ? 'Copiado!' : 'Copiar'}
-                </button>
-                <a
-                  href={`/vitrine/${slugIgrejaVitrine}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn btn-sm flex items-center gap-1.5"
-                >
-                  <ExternalLink size={13} />
-                  Abrir
-                </a>
-              </div>
-            </div>
-          </div>
+
         </div>
       )}
 
